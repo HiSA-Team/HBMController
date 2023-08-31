@@ -1,4 +1,6 @@
 /** Last Level Command Fowarder **/
+`timescale 1ps/1ps
+
 
 module ll_command_forwarder # (
     parameter P_DRIVE_PRECHARGE_CMD = 114
@@ -60,6 +62,10 @@ module ll_command_forwarder # (
 );
 
 
+localparam LP_IDLE			= 4'd0;
+
+
+
 wire w_mrs_lat_cnt_done;
 wire w_precharge_lat_done;
 
@@ -73,6 +79,9 @@ reg  [1:0]      r_dfi_aw_cke_p1;
 reg  [3:0]   	cke_cnt; 
 
 reg [11:0]		r_precharge_lat_cnt;
+reg				r_precharge_lat_done; 
+reg		[3:0]	r_phy_tg_ps;
+reg		[3:0]	r_phy_tg_ns;
 
 
 
