@@ -3,13 +3,26 @@
 
 
 module ll_command_forwarder_top # (
-    
+    parameter		P_ROW_ADDR_WIDTH = 16,
+    parameter		P_COL_ADDR_WIDTH = 12,
+    parameter		P_BA_ADDR_WIDTH	 = 5,
+    parameter       P_DATA_WIDTH     = 256
 )(
 
     input HBM_REF_CLK_0,
     input ARESET_N_0,
     input APB_PCLK,
-    input APB_PRESET_N
+    input APB_PRESET_N,
+    
+    
+    /* My Interface */
+    output                              ready_to_cmd_m,
+    input                               cmd_arrive_m,
+    input [3:0]                         cmd_m,
+    input [P_BA_ADDR_WIDTH-1:0]         bank_address_m,
+    input [P_ROW_ADDR_WIDTH-1:0]        row_address_m,
+    input [P_COL_ADDR_WIDTH-1:0]        column_address_m,
+    input [(P_DATA_WIDTH*2)-1:0]        data_m
 
 );
 
@@ -202,8 +215,12 @@ MMCME4_ADV
   );
 
 
-ll_command_forwarder u_ll_command_forwarder
-(
+ll_command_forwarder#(
+    .P_ROW_ADDR_WIDTH(P_ROW_ADDR_WIDTH),
+    .P_COL_ADDR_WIDTH(P_COL_ADDR_WIDTH),
+    .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH)
+
+) u_ll_command_forwarder (
     .dfi_clk                               (dfi_0_clk_buf),
     .dfi_rst_n                             (dfi_0_rst_n),
     .dfi_rst_buf_n                         (dfi_0_out_rst_n),
@@ -254,7 +271,15 @@ ll_command_forwarder u_ll_command_forwarder
     .dfi_dw_rddata_dbi_p1                  (dfi_0_dw_rddata_dbi_p1),
     .dfi_dw_rddata_par_p1                  (dfi_0_dw_rddata_par_p1),
     .dfi_ctrlupd_req                       (dfi_0_ctrlupd_req     ),
-    .dfi_phyupd_ack                        (dfi_0_phyupd_ack      )
+    .dfi_phyupd_ack                        (dfi_0_phyupd_ack      ),
+    
+    .ready_to_cmd_m(ready_to_cmd_m),
+    .cmd_arrive_m(cmd_arrive_m),
+    .cmd_m(cmd_m),
+    .bank_address_m(bank_address_m),
+    .row_address_m(row_address_m),
+    .column_address_m(column_address_m),
+    .data_m(data_m)
 );
 
 hbm_0 u_hbm_0
