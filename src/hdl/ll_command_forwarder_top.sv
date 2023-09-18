@@ -17,7 +17,6 @@ module ll_command_forwarder_top # (
     
     /* My Interface */
     output                              ready_to_cmd_m,
-    input                               cmd_arrive_m,
     input [3:0]                         cmd_m,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_m,
     input [P_ROW_ADDR_WIDTH-1:0]        row_address_m,
@@ -224,10 +223,6 @@ ll_command_forwarder#(
     .dfi_clk                               (dfi_0_clk_buf),
     .dfi_rst_n                             (dfi_0_rst_n),
     .dfi_rst_buf_n                         (dfi_0_out_rst_n),
-
-//    .i_en_phy_tg                           (apb_seq_complete_0_st0_r2),
-//    .o_phy_tg_done                         (boot_mode_done_0),
-//    .o_phy_tg_status_rd_cmp_err            (axi_00_data_msmatch_err),
     
     .dfi_init_start                        (dfi_0_init_start         ),
     .dfi_aw_ck_p0                          (dfi_0_aw_ck_p0           ),
@@ -274,7 +269,6 @@ ll_command_forwarder#(
     .dfi_phyupd_ack                        (dfi_0_phyupd_ack      ),
     
     .ready_to_cmd_m(ready_to_cmd_m),
-    .cmd_arrive_m(cmd_arrive_m),
     .cmd_m(cmd_m),
     .bank_address_m(bank_address_m),
     .row_address_m(row_address_m),

@@ -73,7 +73,6 @@ module ll_command_forwarder # (
     
     /* My Interface */
     output                              ready_to_cmd_m,
-    input                               cmd_arrive_m,
     input [3:0]                         cmd_m,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_m,
     input [P_ROW_ADDR_WIDTH-1:0]        row_address_m,
@@ -131,7 +130,7 @@ localparam LP_PAR       = 1;
 /* HBM LATENCIES */
 
 /* SAME BANK  */
-localparam  tRCD    =      32'd30;
+localparam  tRCD    =      32'd0;
 localparam  tRP     =      32'd0;
 localparam  tRC     =      32'd30;
 localparam  tRAS    =      32'd30;
@@ -564,7 +563,6 @@ begin
 end
 
 
-
 /* Driver per salvare le informazioni necessarie del comando attuale */
 always @ ( posedge dfi_clk or negedge dfi_rst_n )
 begin
@@ -585,13 +583,10 @@ begin
                 actual_wrt_data_p0  <=  data_m[P_DATA_WIDTH-1:0];
                 actual_wrt_data_p1  <=  data_m[(P_DATA_WIDTH*2)-1:P_DATA_WIDTH] ;
             end
-            
             actual_bank_addr <=  bank_address_m;
             actual_col_addr  <=  column_address_m;
             actual_row_addr  <=  row_address_m;
-            
         end
-
     end
 end
 
@@ -621,6 +616,9 @@ begin
     end
 end
 
+reg [3:0] wrt_sync_cnt;
+reg [3:0] rd_sync_cnt;
+
 /* Driver per eseguire effettivamente il comando attuale */
 always @ ( posedge dfi_clk or negedge dfi_rst_n )
 begin
@@ -629,6 +627,10 @@ begin
         r_row_cmd_p1    <= LP_COL_NOP;
         r_col_cmd_p0    <= LP_COL_NOP;
         r_col_cmd_p1    <= LP_COL_NOP;
+        
+        wrt_sync_cnt    <= 4'b0000;
+        rd_sync_cnt     <= 4'b0000;
+         
         actual_cmd_done <= 1'b0;
 
     end
@@ -715,7 +717,11 @@ begin
                 begin
                     r_row_cmd_p0		<= {actual_bank_addr[3], actual_row_addr[13], actual_bank_addr[4], 1'b0, actual_row_addr[12:11], actual_bank_addr[2:0],1'b0/*r_RA[14]*/,LP_ROW_ACT[1:0]};
                     r_row_cmd_p1		<= {actual_row_addr[4:2],1'b0, actual_row_addr[1:0], actual_row_addr[10:5]};
+                    
+                    
                     actual_cmd_done     <= 1'b0;
+                    
+                    
                 end
                 else if( r_phy_only_ps_act && ~r_phy_only_ps_act_sync_0 )
                 begin
@@ -727,9 +733,10 @@ begin
                 begin
                     r_row_cmd_p0		<= 12'hfff;
                     r_row_cmd_p1		<= 12'hfff;
+                    
+                    
                     actual_cmd_done     <= 1'b0;
                 end
-                                
             end
             else if ( actual_cmd == LP_COL_WRT ) begin
                 r_row_cmd_p0 <= 12'hfff;
@@ -739,25 +746,34 @@ begin
 				begin
 					r_col_cmd_p0	 <= {actual_bank_addr[4], actual_col_addr[5:2], 1'b0, actual_col_addr[1], 1'b0, actual_bank_addr[3:0], LP_COL_WRT[3:0]};
 					r_col_cmd_p1	 <= 16'hffff;
-					actual_cmd_done  <= 1'b1;
+					
+					wrt_sync_cnt     <= wrt_sync_cnt + 1'b1; 
+                    actual_cmd_done  <= 1'b0;
 				end
 				else if( r_wrt_cmdnaddr_en && r_wrt_cmdnaddr_en_sync_0 )
 				begin
 				    r_col_cmd_p0	 <= 16'hffff;
 					r_col_cmd_p1	 <= {~actual_bank_addr[4], actual_col_addr[5:2], 1'b0, actual_col_addr[1], 1'b0, actual_bank_addr[3:0], LP_COL_WRT[3:0]};
+					
+					wrt_sync_cnt        <= wrt_sync_cnt + 1'b1; 
 					actual_cmd_done  <= 1'b0;
 				end
 				else if( r_wrt_cmdnaddr_en_sync_0 )
 				begin
 					r_col_cmd_p0	 <= 16'hffff;
 					r_col_cmd_p1	 <= 16'hffff;
-					actual_cmd_done  <= 1'b0;
+					
+					wrt_sync_cnt     <= 4'b0000; 
+					actual_cmd_done  <= 1'b1;
 				end
 				else 
 				begin
-				    actual_cmd_done  <= 1'b0;
-					r_col_cmd_p0	 <= 16'hffff;
+				    r_col_cmd_p0	 <= 16'hffff;
 					r_col_cmd_p1	 <= 16'hffff;
+				    
+				    wrt_sync_cnt     <= 4'b0000; 
+				    actual_cmd_done  <= 1'b0;
+					
 				end
                 
             end
@@ -770,24 +786,32 @@ begin
 				begin
                     r_col_cmd_p0	 <= {actual_bank_addr[4], actual_col_addr[5:2], 1'b0, actual_col_addr[1], 1'b0, actual_bank_addr[3:0], LP_COL_RD};
 					r_col_cmd_p1	 <= 16'hffff;
-					actual_cmd_done  <= 1'b1;
+					
+					rd_sync_cnt      <= rd_sync_cnt + 1'b1; 
+					actual_cmd_done  <= 1'b0;
 				end
 				else if( r_rd_cmdnaddr_en && r_rd_cmdnaddr_en_sync_0)
 				begin
 					r_col_cmd_p1	 <= {~actual_bank_addr[4], actual_col_addr[5:2], 1'b0, actual_col_addr[1], 1'b0, actual_bank_addr[3:0], LP_COL_RD};
                     r_col_cmd_p0	 <= 16'hffff;
+                    
+                    rd_sync_cnt      <= rd_sync_cnt + 1'b1; 
                     actual_cmd_done  <= 1'b0;
 				end				
 				else if( r_rd_cmdnaddr_en_sync_0 )
 				begin
                     r_col_cmd_p0	 <= 16'hffff;
                     r_col_cmd_p1	 <= 16'hffff;
-                    actual_cmd_done  <= 1'b0;
+                    
+                    rd_sync_cnt      <= 4'b0000; 
+                    actual_cmd_done  <= 1'b1;
 				end
 				else 
 				begin
 					r_col_cmd_p0	 <= 16'hffff;
 					r_col_cmd_p1	 <= 16'hffff;
+					
+					rd_sync_cnt      <= 4'b0000; 
 					actual_cmd_done  <= 1'b0;
 				end
             end
@@ -861,7 +885,7 @@ begin
     else
     begin
         r_rd_cmdnaddr_en_sync_0	<= r_rd_cmdnaddr_en;
-        if( actual_cmd == LP_COL_RD && r_phy_tg_ps == LP_CMD_SERVING ) 
+        if( actual_cmd == LP_COL_RD && r_phy_tg_ps == LP_CMD_SERVING && rd_sync_cnt < 4'h1) 
         begin
             r_rd_cmdnaddr_en	<= 1'b1;
         end
@@ -883,7 +907,7 @@ begin
     else
     begin
         r_wrt_cmdnaddr_en_sync_0	<= r_wrt_cmdnaddr_en;
-        if( actual_cmd == LP_COL_WRT && r_phy_tg_ps == LP_CMD_SERVING ) 
+        if( actual_cmd == LP_COL_WRT && r_phy_tg_ps == LP_CMD_SERVING && wrt_sync_cnt < 4'h1) 
         begin
             r_wrt_cmdnaddr_en	<= 1'b1;
         end
