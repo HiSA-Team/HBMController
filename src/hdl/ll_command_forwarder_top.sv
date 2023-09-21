@@ -16,12 +16,21 @@ module ll_command_forwarder_top # (
     
     
     /* My Interface */
-    output                              ready_to_cmd_m,
-    input [3:0]                         cmd_m,
-    input [P_BA_ADDR_WIDTH-1:0]         bank_address_m,
-    input [P_ROW_ADDR_WIDTH-1:0]        row_address_m,
-    input [P_COL_ADDR_WIDTH-1:0]        column_address_m,
-    input [(P_DATA_WIDTH*2)-1:0]        data_m
+    output                              ready_to_cmd_m_ps0,
+    input [3:0]                         cmd_m_ps0,
+    input [P_BA_ADDR_WIDTH-1:0]         bank_address_m_ps0,
+    input [P_ROW_ADDR_WIDTH-1:0]        row_address_m_ps0,
+    input [P_COL_ADDR_WIDTH-1:0]        column_address_m_ps0,
+    input [(P_DATA_WIDTH*2)-1:0]        wrt_data_m_ps0,
+    
+    output                              ready_to_cmd_m_ps1,
+    input [3:0]                         cmd_m_ps1,
+    input [P_BA_ADDR_WIDTH-1:0]         bank_address_m_ps1,
+    input [P_ROW_ADDR_WIDTH-1:0]        row_address_m_ps1,
+    input [P_COL_ADDR_WIDTH-1:0]        column_address_m_ps1,
+    input [(P_DATA_WIDTH*2)-1:0]        wrt_data_m_ps1,
+    
+    output dfi_0_clk_buf_OUT
 
 );
 
@@ -32,10 +41,14 @@ localparam MMCM_DIVCLK_DIVIDE    = 1;
 localparam MMCM_CLKIN1_PERIOD    = 10.000;
 
 
+
+
 wire HBM_REF_CLK_0_buf;
 wire dfi_0_clk_buf;
 wire dfi_0_clk_in;
 wire MMCM_LOCK_0;
+
+assign dfi_0_clk_buf_OUT = dfi_0_clk_buf;
 
 wire           dfi_0_init_start;
 wire   [1:0]   dfi_0_aw_ck_p0;
@@ -214,7 +227,7 @@ MMCME4_ADV
   );
 
 
-ll_command_forwarder#(
+new_ll_command_forwarder#(
     .P_ROW_ADDR_WIDTH(P_ROW_ADDR_WIDTH),
     .P_COL_ADDR_WIDTH(P_COL_ADDR_WIDTH),
     .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH)
@@ -268,12 +281,19 @@ ll_command_forwarder#(
     .dfi_ctrlupd_req                       (dfi_0_ctrlupd_req     ),
     .dfi_phyupd_ack                        (dfi_0_phyupd_ack      ),
     
-    .ready_to_cmd_m(ready_to_cmd_m),
-    .cmd_m(cmd_m),
-    .bank_address_m(bank_address_m),
-    .row_address_m(row_address_m),
-    .column_address_m(column_address_m),
-    .data_m(data_m)
+    .ready_to_cmd_m_ps0(ready_to_cmd_m_ps0),
+    .cmd_m_ps0(cmd_m_ps0),
+    .bank_address_m_ps0(bank_address_m_ps0),
+    .row_address_m_ps0(row_address_m_ps0),
+    .column_address_m_ps0(column_address_m_ps0),
+    .wrt_data_m_ps0(wrt_data_m_ps0),
+    
+    .ready_to_cmd_m_ps1(ready_to_cmd_m_ps1),
+    .cmd_m_ps1(cmd_m_ps1),
+    .bank_address_m_ps1(bank_address_m_ps1),
+    .row_address_m_ps1(row_address_m_ps1),
+    .column_address_m_ps1(column_address_m_ps1),
+    .wrt_data_m_ps1(wrt_data_m_ps1)
 );
 
 hbm_0 u_hbm_0
