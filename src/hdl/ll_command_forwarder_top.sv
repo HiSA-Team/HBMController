@@ -21,14 +21,14 @@ module ll_command_forwarder_top # (
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_m_ps0,
     input [P_ROW_ADDR_WIDTH-1:0]        row_address_m_ps0,
     input [P_COL_ADDR_WIDTH-1:0]        column_address_m_ps0,
-    input [(P_DATA_WIDTH*2)-1:0]        wrt_data_m_ps0,
+    input [P_DATA_WIDTH-1:0]            wrt_data_m_ps0,
     
     output                              ready_to_cmd_m_ps1,
     input [3:0]                         cmd_m_ps1,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_m_ps1,
     input [P_ROW_ADDR_WIDTH-1:0]        row_address_m_ps1,
     input [P_COL_ADDR_WIDTH-1:0]        column_address_m_ps1,
-    input [(P_DATA_WIDTH*2)-1:0]        wrt_data_m_ps1,
+    input [P_DATA_WIDTH-1:0]            wrt_data_m_ps1,
     
     output dfi_0_clk_buf_OUT
 

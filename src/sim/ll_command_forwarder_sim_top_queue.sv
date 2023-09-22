@@ -31,14 +31,14 @@ reg   [3:0]                       cmd_m_ps0;
 reg   [P_BA_ADDR_WIDTH-1:0]       bank_address_m_ps0;
 reg   [P_ROW_ADDR_WIDTH-1:0]      row_address_m_ps0;
 reg   [P_COL_ADDR_WIDTH-1:0]      column_address_m_ps0;
-reg   [(P_DATA_WIDTH*2)-1:0]      wrt_data_m_ps0;
+reg   [P_DATA_WIDTH-1:0]          wrt_data_m_ps0;
 
 wire                              ready_to_cmd_m_ps1;
 reg   [3:0]                       cmd_m_ps1;
 reg   [P_BA_ADDR_WIDTH-1:0]       bank_address_m_ps1;
 reg   [P_ROW_ADDR_WIDTH-1:0]      row_address_m_ps1;
 reg   [P_COL_ADDR_WIDTH-1:0]      column_address_m_ps1;
-reg   [(P_DATA_WIDTH*2)-1:0]      wrt_data_m_ps1;
+reg   [P_DATA_WIDTH-1:0]          wrt_data_m_ps1;
 
 
 
@@ -91,7 +91,7 @@ reg [3:0] cmd_queue_ps0 [0 : QUEUE_LEN - 1];
 reg [P_BA_ADDR_WIDTH-1:0]  bank_addr_queue_ps0 [0 : QUEUE_LEN - 1];
 reg [P_ROW_ADDR_WIDTH-1:0] row_addr_queue_ps0  [0 : QUEUE_LEN - 1];
 reg [P_COL_ADDR_WIDTH-1:0] col_addr_queue_ps0  [0 : QUEUE_LEN - 1];
-reg [(P_DATA_WIDTH*2)-1 : 0]   wrt_data_queue_ps0  [0 : QUEUE_LEN - 1];
+reg [P_DATA_WIDTH-1 : 0]   wrt_data_queue_ps0  [0 : QUEUE_LEN - 1];
 
 
 reg [3:0] tail_ps0;
@@ -105,9 +105,9 @@ reg deincr_cmd_cnt_ps0;
 
 reg [3:0] cmd_queue_ps1 [0 : QUEUE_LEN - 1];
 reg [P_BA_ADDR_WIDTH-1:0]  bank_addr_queue_ps1 [0 : QUEUE_LEN - 1];
-reg [P_ROW_ADDR_WIDTH-1:0] row_addr_queue_ps1 [0 : QUEUE_LEN - 1];
+reg [P_ROW_ADDR_WIDTH-1:0] row_addr_queue_ps1  [0 : QUEUE_LEN - 1];
 reg [P_COL_ADDR_WIDTH-1:0] col_addr_queue_ps1  [0 : QUEUE_LEN - 1];
-reg [(P_DATA_WIDTH*2)-1 : 0]   wrt_data_queue_ps1  [0 : QUEUE_LEN - 1];
+reg [P_DATA_WIDTH-1 : 0]   wrt_data_queue_ps1  [0 : QUEUE_LEN - 1];
 
 
 reg [3:0] tail_ps1;
@@ -118,8 +118,18 @@ reg incr_cmd_cnt_ps1;
 reg deincr_cmd_cnt_ps1;
 
 
-reg [31:0] dummy_cnt; 
+reg [31:0] dummy_cnt_ps0; 
+reg [31:0] dummy_cnt_ps1; 
 
+reg [ P_COL_ADDR_WIDTH - 1 : 0 ] col_addr_tmp_ps0;
+reg [ P_DATA_WIDTH - 1 : 0 ]     wrt_data_tmp_ps0;
+reg [ P_COL_ADDR_WIDTH - 1 : 0 ] col_addr_tmp_ps1;
+reg [ P_DATA_WIDTH - 1 : 0 ]     wrt_data_tmp_ps1;
+
+
+
+
+/*   PS0    */
 
 always @( negedge HBM_REF_CLK_0_5 ) begin
     if (ARESET_N_0 == 1'b0 ) begin
@@ -141,11 +151,6 @@ always @( negedge HBM_REF_CLK_0_5 ) begin
         end         
     end
 end
-
-
-reg [ P_COL_ADDR_WIDTH - 1 : 0 ] col_addr_tmp_ps0;
-reg [ (P_DATA_WIDTH*2) - 1 : 0 ] wrt_data_tmp_ps0;
- 
 
 always @( posedge HBM_REF_CLK_0_5 ) begin
     if (ARESET_N_0 == 1'b0 ) begin
@@ -254,7 +259,7 @@ always @( posedge HBM_REF_CLK_0_5 ) begin
         wrt_data_tmp_ps0         <= { (P_DATA_WIDTH*2) { 1'b0 } };
         
         col_addr_tmp_ps0         <= { P_COL_ADDR_WIDTH { 1'b0 } };
-        dummy_cnt            <= 16'h0000;
+        dummy_cnt_ps0            <= 16'h0000;
         
     end
     
@@ -290,7 +295,7 @@ always @( posedge HBM_REF_CLK_0_5 ) begin
         
         
         if ( cmd_cnt_ps0 < QUEUE_LEN ) begin
-            if ( dummy_cnt == 16'h0000 ) begin
+            if ( dummy_cnt_ps0 == 16'h0000 ) begin
                 
                 cmd_queue_ps0[head_ps0]        <= LP_ROW_PRE; 
                 
@@ -299,47 +304,47 @@ always @( posedge HBM_REF_CLK_0_5 ) begin
                 col_addr_queue_ps0 [head_ps0]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
                 wrt_data_queue_ps0 [head_ps0]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
                  
-                dummy_cnt <= dummy_cnt + 1'b1;
+                dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
             
             end
-            else if ( dummy_cnt == 16'h0001 ) begin
+            else if ( dummy_cnt_ps0 == 16'h0001 ) begin
                 cmd_queue_ps0[head_ps0] <= LP_ROW_ACT;
-                dummy_cnt <= dummy_cnt + 1'b1;
+                dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
                 
                 
             end
-            else if ( dummy_cnt == 16'h0002 ) begin
-                bank_addr_queue_ps0[head_ps0] <= bank_addr_queue_ps0[head_ps0] + 4'b1000;
+            else if ( dummy_cnt_ps0 == 16'h0002 ) begin
+                bank_addr_queue_ps0[head_ps0] <= bank_addr_queue_ps0[head_ps0] /*+ 4'b1000*/;
                 cmd_queue_ps0[head_ps0] <= LP_ROW_ACT;
-                dummy_cnt <= dummy_cnt + 1'b1;
+                dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
                 
             end
             
-            else if ( dummy_cnt > 16'd2 && dummy_cnt < 16'd50 ) begin
+            else if ( dummy_cnt_ps0 > 16'd2 && dummy_cnt_ps0 < 16'd50 ) begin
                 bank_addr_queue_ps0[head_ps0]  <= { P_BA_ADDR_WIDTH  { 1'b0 } };
                 cmd_queue_ps0[head_ps0]       <= LP_COL_WRT;
                 col_addr_queue_ps0[head_ps0]  <= col_addr_tmp_ps0;
                 col_addr_tmp_ps0          <= col_addr_tmp_ps0 + 2'b10;
-                dummy_cnt <= dummy_cnt + 1'b1;
+                dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
                 
                 wrt_data_queue_ps0[head_ps0]  <= wrt_data_tmp_ps0;
-                wrt_data_tmp_ps0          <= wrt_data_tmp_ps0 + {{16{4'ha}},{16{4'hb}},{16{4'hc}},{16{4'hd}},{16{4'h1}},{16{4'h2}},{16{4'h3}},{16{4'h4}}};
+                wrt_data_tmp_ps0          <= wrt_data_tmp_ps0 + {{16{4'h1}},{16{4'h2}},{16{4'h3}},{16{4'h4}}};
             end 
-            else if ( dummy_cnt == 16'd50 ) begin
+            else if ( dummy_cnt_ps0 == 16'd50 ) begin
                 cmd_queue_ps0[head_ps0]       <= LP_COL_RD;
                 col_addr_queue_ps0[head_ps0]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
                 col_addr_tmp_ps0          <= { P_COL_ADDR_WIDTH { 1'b0 } };
-                dummy_cnt <= dummy_cnt + 1'b1;
+                dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
             
             end
-            else if ( dummy_cnt > 16'd50 && dummy_cnt < 32'd100 ) begin
+            else if ( dummy_cnt_ps0 > 16'd50 && dummy_cnt_ps0 < 32'd100 ) begin
                 cmd_queue_ps0[head_ps0]       <= LP_COL_RD;
                 col_addr_queue_ps0[head_ps0]  <= col_addr_tmp_ps0;
                 col_addr_tmp_ps0          <= col_addr_tmp_ps0 + 2'b10;
-                dummy_cnt <= dummy_cnt + 1'b1;
+                dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
             end
             
-            else if ( dummy_cnt >= 32'd100 ) begin
+            else if ( dummy_cnt_ps0 >= 32'd100 ) begin
                 $finish;
             end
             
@@ -358,6 +363,247 @@ always @( posedge HBM_REF_CLK_0_5 ) begin
     end
 
 end
+
+
+
+
+
+
+/*   PS1    */
+
+always @( negedge HBM_REF_CLK_0_5 ) begin
+    if (ARESET_N_0 == 1'b0 ) begin
+        cmd_cnt_ps1       <= 4'b0000;
+    end
+    
+    else begin
+        if ( incr_cmd_cnt_ps1 && ~deincr_cmd_cnt_ps1 ) begin
+            cmd_cnt_ps1 <= cmd_cnt_ps1 + 1'b1;
+            
+        end
+        
+        else if ( ~incr_cmd_cnt_ps1 && deincr_cmd_cnt_ps1 ) begin
+            cmd_cnt_ps1 <= cmd_cnt_ps1 - 1'b1;    
+        end 
+        
+        else if ( incr_cmd_cnt_ps1 && deincr_cmd_cnt_ps1 ) begin
+            cmd_cnt_ps1 <= cmd_cnt_ps1;
+        end         
+    end
+end
+
+always @( posedge HBM_REF_CLK_0_5 ) begin
+    if (ARESET_N_0 == 1'b0 ) begin
+               
+        incr_cmd_cnt_ps1    <= 1'b0;
+        deincr_cmd_cnt_ps1  <= 1'b0;
+        
+        cmd_m_ps1           <= LP_GENERAL_NOP;
+        
+        tail_ps1            <= 4'b0000;
+        head_ps1            <= 4'b0000;   
+        
+        wrt_data_m_ps1 <= { { P_DATA_WIDTH { 1'b1 } } , { P_DATA_WIDTH { 1'b0 } } }; 
+        
+        cmd_queue_ps1 [0]   <= 4'b1111;
+        cmd_queue_ps1 [1]   <= 4'b1111;
+        cmd_queue_ps1 [2]   <= 4'b1111;
+        cmd_queue_ps1 [3]   <= 4'b1111;
+        cmd_queue_ps1 [4]   <= 4'b1111;
+        cmd_queue_ps1 [5]   <= 4'b1111;
+        cmd_queue_ps1 [6]   <= 4'b1111;
+        cmd_queue_ps1 [7]   <= 4'b1111;
+        cmd_queue_ps1 [8]   <= 4'b1111;
+        cmd_queue_ps1 [9]   <= 4'b1111;
+        cmd_queue_ps1 [10]  <= 4'b1111;
+        cmd_queue_ps1 [11]  <= 4'b1111;
+        cmd_queue_ps1 [12]  <= 4'b1111;
+        cmd_queue_ps1 [13]  <= 4'b1111;
+        cmd_queue_ps1 [14]  <= 4'b1111;
+        cmd_queue_ps1 [15]  <= 4'b1111;
+        
+        
+        bank_address_m_ps1        <= { P_BA_ADDR_WIDTH  { 1'b0 } };
+        row_address_m_ps1         <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        column_address_m_ps1      <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        
+        bank_addr_queue_ps1 [0]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [1]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [2]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [3]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [4]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [5]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [6]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [7]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [8]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [9]   <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [10]  <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [11]  <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [12]  <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [13]  <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [14]  <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        bank_addr_queue_ps1 [15]  <= { P_BA_ADDR_WIDTH { 1'b0 } };
+        
+        row_addr_queue_ps1 [0]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [1]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [2]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [3]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [4]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [5]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [6]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [7]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [8]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [9]   <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [10]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [11]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [12]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [13]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [14]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        row_addr_queue_ps1 [15]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        
+        col_addr_queue_ps1 [0]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [1]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [2]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [3]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [4]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [5]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [6]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [7]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [8]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [9]   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [10]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [11]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [12]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [13]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [14]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        col_addr_queue_ps1 [15]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        
+        
+        wrt_data_queue_ps1 [0]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [1]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [2]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [3]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [4]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [5]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [6]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [7]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [8]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [9]   <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [10]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [11]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [12]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [13]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [14]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        wrt_data_queue_ps1 [15]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        
+        wrt_data_tmp_ps1         <= { (P_DATA_WIDTH*2) { 1'b0 } };
+        
+        col_addr_tmp_ps1         <= { P_COL_ADDR_WIDTH { 1'b0 } };
+        dummy_cnt_ps1            <= 16'h0000;
+        
+    end
+    
+    
+    else begin
+        if ( ready_to_cmd_m_ps1 == 1'b1 ) begin
+            if (cmd_cnt_ps1 > 0) begin
+                
+                cmd_m_ps1 <= cmd_queue_ps1[tail_ps1];
+                
+                bank_address_m_ps1   <= bank_addr_queue_ps1  [tail_ps1];
+                row_address_m_ps1    <= row_addr_queue_ps1   [tail_ps1];
+                column_address_m_ps1 <= col_addr_queue_ps1   [tail_ps1];
+                
+                wrt_data_m_ps1           <= wrt_data_queue_ps1   [tail_ps1];
+                
+                deincr_cmd_cnt_ps1 <= 1'b1;
+                tail_ps1 <= tail_ps1 + 1'b1;
+                
+            end 
+            
+            else begin
+                deincr_cmd_cnt_ps1 <= 1'b0;
+//                cmd_m <= 4'b1111;
+            end            
+            
+        end
+        
+        else begin
+//            cmd_m <= 4'b1111;
+            deincr_cmd_cnt_ps1 <= 1'b0;
+        end
+        
+        
+        if ( cmd_cnt_ps1 < QUEUE_LEN ) begin
+            if ( dummy_cnt_ps1 == 16'h0000 ) begin
+                
+                cmd_queue_ps1[head_ps1]        <= LP_ROW_PRE; 
+                
+                bank_addr_queue_ps1[head_ps1]  <= { P_BA_ADDR_WIDTH  { 1'b0 } };
+                row_addr_queue_ps1 [head_ps1]  <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+                col_addr_queue_ps1 [head_ps1]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+                wrt_data_queue_ps1 [head_ps1]  <= { (P_DATA_WIDTH*2) { 1'b0 } };
+                 
+                dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
+            
+            end
+            else if ( dummy_cnt_ps1 == 16'h0001 ) begin
+                cmd_queue_ps1[head_ps1] <= LP_ROW_ACT;
+                dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
+                
+                
+            end
+            else if ( dummy_cnt_ps1 == 16'h0002 ) begin
+                bank_addr_queue_ps1[head_ps1] <= bank_addr_queue_ps1[head_ps1] /*+ 4'b1000*/;
+                cmd_queue_ps1[head_ps1] <= LP_ROW_ACT;
+                dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
+                
+            end
+            
+            else if ( dummy_cnt_ps1 > 16'd2 && dummy_cnt_ps1 < 16'd50 ) begin
+                bank_addr_queue_ps1[head_ps1]  <= { P_BA_ADDR_WIDTH  { 1'b0 } };
+                cmd_queue_ps1[head_ps1]       <= LP_COL_WRT;
+                col_addr_queue_ps1[head_ps1]  <= col_addr_tmp_ps1;
+                col_addr_tmp_ps1          <= col_addr_tmp_ps1 + 2'b10;
+                dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
+                
+                wrt_data_queue_ps1[head_ps1]  <= wrt_data_tmp_ps1;
+                wrt_data_tmp_ps1          <= wrt_data_tmp_ps1 + {{16{4'ha}},{16{4'hb}},{16{4'hc}},{16{4'hd}}};
+            end 
+            else if ( dummy_cnt_ps1 == 16'd50 ) begin
+                cmd_queue_ps1[head_ps1]       <= LP_COL_RD;
+                col_addr_queue_ps1[head_ps1]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
+                col_addr_tmp_ps1          <= { P_COL_ADDR_WIDTH { 1'b0 } };
+                dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
+            
+            end
+            else if ( dummy_cnt_ps1 > 16'd50 && dummy_cnt_ps1 < 32'd100 ) begin
+                cmd_queue_ps1[head_ps1]       <= LP_COL_RD;
+                col_addr_queue_ps1[head_ps1]  <= col_addr_tmp_ps1;
+                col_addr_tmp_ps1          <= col_addr_tmp_ps1 + 2'b10;
+                dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
+            end
+            
+//            else if ( dummy_cnt_ps1 >= 32'd100 ) begin
+//                $finish;
+//            end
+            
+            
+            incr_cmd_cnt_ps1 <= 1'b1;
+            head_ps1 <= head_ps1 + 1'b1;
+            
+            
+            
+        end
+        
+        else begin
+            incr_cmd_cnt_ps1 <= 1'b0;
+        end
+            
+    end
+
+end
+
 
 
 
