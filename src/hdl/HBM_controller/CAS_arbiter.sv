@@ -145,6 +145,9 @@ always @ ( posedge clk or negedge rst_n ) begin
 end
 
 wire  [0 : LP_BG_N-1] round_done;
+wire  [31:0]          round_done_sum; 
+
+assign round_done_sum = +round_done;
 
 always @ ( posedge clk or negedge rst_n ) begin 
     if ( rst_n == 1'b0 ) begin
@@ -159,9 +162,6 @@ always @ ( posedge clk or negedge rst_n ) begin
                 actual_bank_group_serving <= { LP_ACTUAL_BANK_GROUP_SERVING_WIDTH { 1'b0 } };
             end
         end
-        if ( &round_done ) begin
-            actual_bank_group_serving <= actual_bank_group_serving;
-        end
     end
 end 
 
@@ -171,7 +171,7 @@ always @ ( posedge clk or negedge rst_n ) begin
         actual_cmd_serving_type <= LP_COL_RD;
     end
     else begin
-    if ( &round_done ) begin
+    if ( (round_done_sum >= LP_BG_N-1) && (selected_bank_index + 1'b1 == P_BA_N_G) ) begin
             if (actual_cmd_serving_type == LP_COL_RD ) begin
                 actual_cmd_serving_type <= LP_COL_WRT;
             end
@@ -187,25 +187,29 @@ generate
     for ( k = 0; k <  LP_BG_N ; k = k + 1) begin
         assign round_done[k] = (actual_bank_serving[k] == P_BA_N_G) ? 1'b1 : 1'b0; 
         
-        
         always @ ( posedge clk or negedge rst_n ) begin 
             if ( rst_n == 1'b0 ) begin        
                 actual_bank_serving[k] <= { LP_ACTUAL_BANK_SERVING_WIDTH+1 { 1'b0 } };
             end
             else begin
                 if ( ready_to_cmd_cas ) begin
-                    if ( (k == actual_bank_group_serving) && ( actual_bank_serving[k] < P_BA_N_G )) begin
-                        actual_bank_serving[k] <= selected_bank_index + 1'b1;
+                    if ( (k == actual_bank_group_serving) && ( actual_bank_serving[k] < P_BA_N_G ) && round_done_sum < LP_BG_N-1 ) begin
+                        actual_bank_serving[k] <= selected_bank_index + 1'b1;                        
                     end 
-                end
-                if ( &round_done ) begin
-                    actual_bank_serving[k] <= { LP_ACTUAL_BANK_SERVING_WIDTH+1 { 1'b0 } };
+                    else if ((k == actual_bank_group_serving) && ( actual_bank_serving[k] < P_BA_N_G ) && (round_done_sum >= LP_BG_N-1) && (selected_bank_index + 1'b1 < P_BA_N_G)) begin
+                        actual_bank_serving[k] <= selected_bank_index + 1'b1; 
+                    end 
+                    else if ((k == actual_bank_group_serving) && ( actual_bank_serving[k] < P_BA_N_G ) && (round_done_sum >= LP_BG_N-1) && (selected_bank_index + 1'b1 == P_BA_N_G) ) begin
+                        actual_bank_serving[k] <= { LP_ACTUAL_BANK_SERVING_WIDTH+1 { 1'b0 } };
+                    end 
+                    else if ( (k != actual_bank_group_serving)  && (round_done_sum >= LP_BG_N-1) && (selected_bank_index + 1'b1 == P_BA_N_G)  ) begin
+                        actual_bank_serving[k] <= { LP_ACTUAL_BANK_SERVING_WIDTH+1 { 1'b0 } };
+                    end
+                                       
                 end
             end
         end 
     end
 endgenerate
-
- 
 
 endmodule
