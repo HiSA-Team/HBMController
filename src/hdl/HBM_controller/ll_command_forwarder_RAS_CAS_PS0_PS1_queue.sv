@@ -31,7 +31,10 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     parameter		P_ROW_ADDR_WIDTH = 16,
     parameter		P_COL_ADDR_WIDTH = 12,
     parameter		P_BA_ADDR_WIDTH	= 5,
-    parameter       P_DATA_WIDTH     = 256
+    parameter       P_DATA_WIDTH     = 256,
+    parameter       P_BA_N_PS        = 16,        /* Nunmero di Bank per PS */
+    parameter       P_BA_N_G         = 8         /* Numero di Bank per gruppo */ 
+    
 )(
     //DFI INTERFACE SIGNALS
     input               dfi_clk,
@@ -173,21 +176,21 @@ localparam  tRC     =      32'd0;
 localparam  tRAS    =      32'd22;     /* Sicuro */
 localparam  tWL     =      32'd2;      /* Sicuro */      
 localparam  tRL     =      32'd0;
-localparam  tRTPl   =      32'd0;
+localparam  tRTPl   =      32'd4;
 localparam  tWR     =      32'd0;
 localparam  tCCDl   =      32'd1;      /* Sicuro */ 
-localparam  tRTW    =      32'd0;
+localparam  tRTW    =      32'd8;
 localparam  tWTRl   =      32'd8;      /* Sicuro */
 
 
 /* DIFFERENT BANKS */
-localparam  tRTPs   =      32'd0;
+localparam  tRTPs   =      32'd4;
 localparam  tRRD    =      32'd4;
-localparam  tFAW    =      32'd0;
-localparam  tWTRs   =      32'd5;
+localparam  tFAW    =      32'd30;
+localparam  tWTRs   =      32'd8;
 localparam  tCCDs   =      32'd0;
 
-
+localparam  LP_BG_N = P_BA_N_PS/P_BA_N_G;      /* Numero di Bank Groups per PS */
 
 wire w_mrs_lat_cnt_done;
 wire w_precharge_lat_done;
@@ -225,26 +228,11 @@ reg		[15:0]	r_col_cmd_p1;
 
 
 /* My Registers */
-reg              r_ready_to_cmd_ras_ps0;
-reg              r_ready_to_cmd_ras_ps1;
-reg              r_ready_to_cmd_cas_ps0;
-reg              r_ready_to_cmd_cas_ps1;
 
-reg     [63:0]   previous_to_actual_cnt_ras_ps0;    /* Contatore per tenere traccia di quanto tempo è passato dal comando precedente, così da vedere se è possibile lanciare il nuovo comando */
-reg     [63:0]   previous_to_actual_cnt_ras_ps1; 
-reg     [63:0]   previous_to_actual_cnt_cas_ps0; 
-reg     [63:0]   previous_to_actual_cnt_cas_ps1; 
-
-reg              can_serve_actual_ras_ps0;
-reg              can_serve_actual_ras_ps1;
-reg              can_serve_actual_cas_ps0;
-reg              can_serve_actual_cas_ps1;
-
-
-assign ready_to_cmd_ras_ps0 = r_ready_to_cmd_ras_ps0;
-assign ready_to_cmd_ras_ps1 = r_ready_to_cmd_ras_ps1;
-assign ready_to_cmd_cas_ps0 = r_ready_to_cmd_cas_ps0;
-assign ready_to_cmd_cas_ps1 = r_ready_to_cmd_cas_ps1;
+wire              can_serve_actual_ras_ps0;
+wire              can_serve_actual_ras_ps1;
+wire              can_serve_actual_cas_ps0;
+wire              can_serve_actual_cas_ps1;
 
 
 assign dfi_aw_ck_p0  = r_dfi_aw_ck_p0;
@@ -260,6 +248,10 @@ assign dfi_aw_col_p1	=  r_col_cmd_p1;
 assign dfi_aw_row_p0    =  r_row_cmd_p0;
 assign dfi_aw_row_p1    =  r_row_cmd_p1;
 
+assign ready_to_cmd_ras_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == LP_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+assign ready_to_cmd_cas_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == LP_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+assign ready_to_cmd_ras_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == LP_GENERAL_NOP ) && r_phy_tg_ps == LP_CMD_WAIT_1 )? 1'b1 : 1'b0;
+assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == LP_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
 
 reg [P_DATA_WIDTH-1 : 0] wrt_data_ps0;
 reg [P_DATA_WIDTH-1 : 0] wrt_data_ps1;
@@ -537,240 +529,6 @@ assign w_T_RL_MRS2 = 5'b1_0010;
 
 
 /* CODICE EFFETTIVO PER LA GESTIONE DEI COMANDI IN INGRESSO */
-/* Da estendere sviluppando comandi sui due PS indipendenti */
-
-
-/* Driver per gestire il previous to actual (cmd) counter per PS0 */
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_to_actual_cnt_ras_ps0 <= { 64 { 1'b0 } };
-    end
-    else begin
-        if ( can_serve_actual_ras_ps0 == 1'b1 ) begin
-            previous_to_actual_cnt_ras_ps0 <= { 64 { 1'b0 } };
-        end
-        else begin
-            previous_to_actual_cnt_ras_ps0 <= previous_to_actual_cnt_ras_ps0 + 1'b1;
-        end
-    end
-end
-
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_to_actual_cnt_cas_ps0 <= { 64 { 1'b0 } };
-    end
-    else begin
-        if ( can_serve_actual_cas_ps0 == 1'b1 ) begin
-            previous_to_actual_cnt_cas_ps0 <= { 64 { 1'b0 } };
-        end
-        else begin
-            previous_to_actual_cnt_cas_ps0 <= previous_to_actual_cnt_cas_ps0 + 1'b1;
-        end
-    end
-end
-
-
-/* Driver per gestire il previous to actual (cmd) counter per PS1*/
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_to_actual_cnt_ras_ps1 <= { 64 { 1'b0 } };
-    end
-    else begin
-        if ( can_serve_actual_ras_ps1 == 1'b1 ) begin
-            previous_to_actual_cnt_ras_ps1 <= { 64 { 1'b0 } };
-        end
-        else begin
-            previous_to_actual_cnt_ras_ps1 <= previous_to_actual_cnt_ras_ps1 + 1'b1;
-        end
-    end
-end
-
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_to_actual_cnt_cas_ps1 <= { 64 { 1'b0 } };
-    end
-    else begin
-        if ( can_serve_actual_cas_ps1 == 1'b1 ) begin
-            previous_to_actual_cnt_cas_ps1 <= { 64 { 1'b0 } };
-        end
-        else begin
-            previous_to_actual_cnt_cas_ps1 <= previous_to_actual_cnt_cas_ps1 + 1'b1;
-        end
-    end
-end
-
-
-/* Driver per gestire il ready to cmd ps0 */
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        r_ready_to_cmd_ras_ps0 <= 1'b0;
-    end
-
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT  ) begin
-            r_ready_to_cmd_ras_ps0 <= 1'b1;
-        end
-        else if ( can_serve_actual_ras_ps0 && r_phy_tg_ps == LP_CMD_WAIT_1  ) begin
-            r_ready_to_cmd_ras_ps0 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_ras_ps0 <= 1'b0;
-        end        
-    end
-end
-
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        r_ready_to_cmd_cas_ps0 <= 1'b0;
-    end
-
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT  ) begin
-            r_ready_to_cmd_cas_ps0 <= 1'b1;
-        end
-        else if ( can_serve_actual_cas_ps0 && r_phy_tg_ps == LP_CMD_WAIT_1  ) begin
-            r_ready_to_cmd_cas_ps0 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_cas_ps0 <= 1'b0;
-        end        
-    end
-end
-
-/* Driver per gestire il ready to cmd ps1 */
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        r_ready_to_cmd_ras_ps1 <= 1'b0;
-    end
-
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT  ) begin
-            r_ready_to_cmd_ras_ps1 <= 1'b1;
-        end
-        else if ( can_serve_actual_ras_ps1 && r_phy_tg_ps == LP_CMD_WAIT_1  ) begin
-            r_ready_to_cmd_ras_ps1 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_ras_ps1 <= 1'b0;
-        end        
-    end
-end
-
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        r_ready_to_cmd_cas_ps1 <= 1'b0;
-    end
-
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT  ) begin
-            r_ready_to_cmd_cas_ps1 <= 1'b1;
-        end
-        else if ( can_serve_actual_cas_ps1 && r_phy_tg_ps == LP_CMD_WAIT_1  ) begin
-            r_ready_to_cmd_cas_ps1 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_cas_ps1 <= 1'b0;
-        end        
-    end
-end
-
-
-reg [3:0]  previous_cmd_ras_ps0;
-reg [3:0]  previous_cmd_cas_ps0;
-reg [P_BA_ADDR_WIDTH-1 : 0]  previous_bank_addr_ras_ps0;
-reg [P_BA_ADDR_WIDTH-1 : 0]  previous_bank_addr_cas_ps0;
-
-reg [3:0]  previous_cmd_ras_ps1;
-reg [3:0]  previous_cmd_cas_ps1;
-reg [P_BA_ADDR_WIDTH-1 : 0]  previous_bank_addr_ras_ps1;
-reg [P_BA_ADDR_WIDTH-1 : 0]  previous_bank_addr_cas_ps1;
-
-
-/* Driver per salvare il cmd attuale in previous ps0 */
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_cmd_ras_ps0          <=  LP_GENERAL_NOP;
-        previous_bank_addr_ras_ps0    <=  { P_BA_ADDR_WIDTH { 1'b0 } };
-    end
-
-    else begin
-        if ( can_serve_actual_ras_ps0 && cmd_ras_ps0 != LP_GENERAL_NOP ) begin
-            previous_cmd_ras_ps0         <=  cmd_ras_ps0;
-            previous_bank_addr_ras_ps0   <=  bank_address_ras_ps0;
-        end
-        else begin
-            previous_cmd_ras_ps0           <= previous_cmd_ras_ps0;
-            previous_bank_addr_ras_ps0     <= previous_bank_addr_ras_ps0;
-        end        
-    end
-end
-
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_cmd_cas_ps0          <=  LP_GENERAL_NOP;
-        previous_bank_addr_cas_ps0    <=  { P_BA_ADDR_WIDTH { 1'b0 } };
-    end
-
-    else begin
-        if ( can_serve_actual_cas_ps0 && cmd_cas_ps0 != LP_GENERAL_NOP ) begin
-            previous_cmd_cas_ps0         <=  cmd_cas_ps0;
-            previous_bank_addr_cas_ps0   <=  bank_address_cas_ps0;
-        end
-        else begin
-            previous_cmd_cas_ps0           <= previous_cmd_cas_ps0;
-            previous_bank_addr_cas_ps0     <= previous_bank_addr_cas_ps0;
-        end        
-    end
-end
-
-/* Driver per salvare il cmd attuale in previous ps1 */
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_cmd_ras_ps1          <=  LP_GENERAL_NOP;
-        previous_bank_addr_ras_ps1    <=  { P_BA_ADDR_WIDTH { 1'b0 } };
-    end
-
-    else begin
-        if ( can_serve_actual_ras_ps1 && cmd_ras_ps1 != LP_GENERAL_NOP ) begin
-            previous_cmd_ras_ps1         <=  cmd_ras_ps1;
-            previous_bank_addr_ras_ps1   <=  bank_address_ras_ps1;
-        end
-        else begin
-            previous_cmd_ras_ps1           <= previous_cmd_ras_ps1;
-            previous_bank_addr_ras_ps1     <= previous_bank_addr_ras_ps1;
-        end        
-    end
-end
-
-always @ ( posedge dfi_clk or negedge dfi_rst_n )
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        previous_cmd_cas_ps1          <=  LP_GENERAL_NOP;
-        previous_bank_addr_cas_ps1    <=  { P_BA_ADDR_WIDTH { 1'b0 } };
-    end
-
-    else begin
-        if ( can_serve_actual_cas_ps1 && cmd_cas_ps1 != LP_GENERAL_NOP ) begin
-            previous_cmd_cas_ps1         <=  cmd_cas_ps1;
-            previous_bank_addr_cas_ps1   <=  bank_address_cas_ps1;
-        end
-        else begin
-            previous_cmd_cas_ps1           <= previous_cmd_cas_ps1;
-            previous_bank_addr_cas_ps1     <= previous_bank_addr_cas_ps1;
-        end        
-    end
-end
 
 
 /*******************************/
@@ -896,11 +654,8 @@ begin
            
                 wrt_data_buffer_ps0[wrt_data_buffer_head_ps0] <= wrt_data_cas_ps0;   
                 wrt_data_buffer_head_ps0 <= wrt_data_buffer_head_ps0 + 1'b1;
-                
                                 
-                
-            end 
-            
+            end
         end
     end
 end
@@ -952,7 +707,6 @@ wire                              rst_wrt_to_data_cnt_ps1;
 
 assign     incr_wrt_data_buffer_cnt_ps1 = can_serve_actual_cas_ps1 && (cmd_cas_ps1 == LP_COL_WRT);
 assign     deincr_wrt_data_buffer_cnt_ps1 = (wrt_data_buffer_cnt_ps1 > 0) && (wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] >= tWL);
-
 
 
 /* Driver per gestire  write data buffer counter */
@@ -1083,6 +837,34 @@ end
 //                            //
 /******************************/
 
+reg double_act_ras_sync;
+reg [3:0] sync_cmd_ras_ps1;
+reg [P_BA_ADDR_WIDTH  -1 : 0] sync_bank_addr_ras_ps1;
+reg [P_ROW_ADDR_WIDTH -1 : 0] sync_row_addr_ras_ps1;
+
+always @( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        double_act_ras_sync <= 1'b0;
+        sync_cmd_ras_ps1 <= LP_GENERAL_NOP;
+        sync_bank_addr_ras_ps1 <= { P_BA_ADDR_WIDTH { 1'b0 } } ;
+        sync_row_addr_ras_ps1 <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+    end 
+    else begin 
+        if ( (cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == LP_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == LP_ROW_ACT || cmd_ras_ps0 == LP_ROW_PRE) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
+            double_act_ras_sync <= 1'b1;
+            sync_cmd_ras_ps1 <= cmd_ras_ps1;
+            sync_bank_addr_ras_ps1 <= bank_address_ras_ps1;
+            sync_row_addr_ras_ps1 <= row_address_ras_ps1;
+        end
+        else if ( double_act_ras_sync ) begin
+            double_act_ras_sync <= 1'b0;
+            sync_cmd_ras_ps1 <= LP_GENERAL_NOP;
+            sync_bank_addr_ras_ps1 <= { P_BA_ADDR_WIDTH { 1'b0 } } ;
+            sync_row_addr_ras_ps1 <= { P_ROW_ADDR_WIDTH { 1'b0 } };
+        end 
+    end
+end
+
 
 /* Driver per eseguire effettivamente il comando attuale */
 
@@ -1102,8 +884,29 @@ begin
     end
 
     else begin
-        if ( (can_serve_actual_ras_ps0 && cmd_ras_ps0 != LP_GENERAL_NOP) || (can_serve_actual_ras_ps1 && cmd_ras_ps1 != LP_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            if ( (cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == LP_GENERAL_NOP || ~can_serve_actual_ras_ps1 )) begin
+        if ( double_act_ras_sync ) begin
+            if ( sync_cmd_ras_ps1 == LP_ROW_ACT )  begin
+                r_row_cmd_p0	 <= {sync_bank_addr_ras_ps1[3], sync_row_addr_ras_ps1[13], LP_BA4_1, LP_PAR, sync_row_addr_ras_ps1[12:11], sync_bank_addr_ras_ps1[2:0],1'b0/*r_RA[14]*/,LP_ROW_ACT[1:0]};
+                r_row_cmd_p1	 <= {sync_row_addr_ras_ps1[4:2], LP_PAR, sync_row_addr_ras_ps1[1:0], sync_row_addr_ras_ps1[10:5]};
+            end 
+            else if ( sync_cmd_ras_ps1 == LP_ROW_PRE ) begin
+                r_row_cmd_p0		<= { sync_bank_addr_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, sync_bank_addr_ras_ps1[2:0], LP_ROW_PRE};
+                r_row_cmd_p1		<= 12'hfff;
+            end
+        end
+        else if ( (can_serve_actual_ras_ps0 && cmd_ras_ps0 != LP_GENERAL_NOP) || (can_serve_actual_ras_ps1 && cmd_ras_ps1 != LP_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
+            if ((cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == LP_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == LP_ROW_ACT || cmd_ras_ps0 == LP_ROW_PRE) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
+                if ( cmd_ras_ps0 == LP_ROW_ACT )  begin
+                    r_row_cmd_p0	 <= {bank_address_ras_ps0[3], row_address_ras_ps0[13], LP_BA4_0, LP_PAR, row_address_ras_ps0[12:11], bank_address_ras_ps0[2:0],1'b0/*r_RA[14]*/,LP_ROW_ACT[1:0]};
+                    r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
+                end 
+                else if ( cmd_ras_ps0 == LP_ROW_PRE ) begin
+                    r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], LP_ROW_PRE};
+                    r_row_cmd_p1		<= 12'hfff;
+                end
+            end
+            
+            else if ( (cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == LP_GENERAL_NOP || ~can_serve_actual_ras_ps1 )) begin
                 r_row_cmd_p0	 <= {bank_address_ras_ps0[3], row_address_ras_ps0[13], LP_BA4_0, LP_PAR, row_address_ras_ps0[12:11], bank_address_ras_ps0[2:0],1'b0/*r_RA[14]*/,LP_ROW_ACT[1:0]};
                 r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
             end 
@@ -1127,14 +930,11 @@ begin
             else if ( (cmd_ras_ps1 == LP_ROW_PRE && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == LP_GENERAL_NOP || ~can_serve_actual_ras_ps0 )  ) begin
                 r_row_cmd_p0		<= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], LP_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
-            
             end
-            
             
             else begin
                 r_row_cmd_p0    <= 12'hfff;
                 r_row_cmd_p1    <= 12'hfff;
-               
             end
             
         end
@@ -1251,7 +1051,6 @@ begin
             else begin
                 r_col_cmd_p0    <= 16'hffff;
                 r_col_cmd_p1    <= 16'hffff;
-               
             end
             
         end
@@ -1262,374 +1061,286 @@ begin
     end
 end
 
+reg [63:0] last_wrt_bg_cnt_ps0 [0 : LP_BG_N - 1];  /*  Last write bank group counter, tempo trascorso dall'ultima write in un determinato bank group in PS0  */
+reg [63:0] last_rd_bg_cnt_ps0  [0 : LP_BG_N - 1];  /*  Last read bank group counter, tempo trascorso dall'ultima read in un determinato bank group in PS0    */       
+reg [63:0] last_wrt_bg_cnt_ps1 [0 : LP_BG_N - 1];  /*  Last write bank group counter, tempo trascorso dall'ultima write in un determinato bank group in PS1  */
+reg [63:0] last_rd_bg_cnt_ps1  [0 : LP_BG_N - 1];  /*  Last read bank group counter, tempo trascorso dall'ultima read in un determinato bank group in PS1    */       
+
+/* C'è un abuso di segnali, short e long in un qualche modo si potrebbero anche accorpare */
+wire [0 : LP_BG_N - 1] actual_wrt_respect_short_cnstr_ps0;
+wire [0 : LP_BG_N - 1] actual_wrt_respect_long_cnstr_ps0;
+
+wire [0 : LP_BG_N - 1] actual_wrt_respect_short_cnstr_ps1;
+wire [0 : LP_BG_N - 1] actual_wrt_respect_long_cnstr_ps1;
+
+wire [0 : LP_BG_N - 1] actual_rd_respect_short_cnstr_ps0;
+wire [0 : LP_BG_N - 1] actual_rd_respect_long_cnstr_ps0;
+
+wire [0 : LP_BG_N - 1] actual_rd_respect_short_cnstr_ps1;
+wire [0 : LP_BG_N - 1] actual_rd_respect_long_cnstr_ps1;
 
 
+reg [63:0] last_act_bg_cnt_ps0 [0 : LP_BG_N - 1];
+reg [63:0] last_pre_bg_cnt_ps0 [0 : LP_BG_N - 1];
+reg [63:0] last_act_bg_cnt_ps1 [0 : LP_BG_N - 1];
+reg [63:0] last_pre_bg_cnt_ps1 [0 : LP_BG_N - 1];
 
-/* Circuito combinatorio per controllare se il tempo trascorso tra il comando precedente e quello attuale rispetta le latenze necessarie per quanto riguarda il PS0 */
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        can_serve_actual_ras_ps0 <= 1'b0;
+reg [63:0] four_act_window_cnt_ps0;
+reg [63:0] four_act_window_cnt_ps1;
+reg [P_BA_N_PS-1:0] act_cnt_ps0;
+reg [P_BA_N_PS-1:0] act_cnt_ps1;
+
+/* C'è un abuso di segnali, short e long in un qualche modo si potrebbero anche accorpare */
+wire [0 : LP_BG_N - 1] actual_act_respect_cnstr_ps0;
+wire [0 : LP_BG_N - 1] actual_act_respect_cnstr_ps1;
+
+wire [0 : LP_BG_N - 1] actual_pre_respect_short_cnstr_ps0;
+wire [0 : LP_BG_N - 1] actual_pre_respect_long_cnstr_ps0;
+
+wire [0 : LP_BG_N - 1] actual_pre_respect_short_cnstr_ps1;
+wire [0 : LP_BG_N - 1] actual_pre_respect_long_cnstr_ps1;
+
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        act_cnt_ps0 <= { P_BA_N_PS { 1'b0 } };
     end
     else begin
-        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && cmd_ras_ps0 != LP_GENERAL_NOP ) begin             /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            if ( cmd_ras_ps1 == LP_ROW_ACT && cmd_ras_ps0 == LP_ROW_PRE ) begin                       /* Se su PS1 c'è un ACT e su PS0 c'è un PRE, in generale un comando di riga tranne ACT, mi fermo su PS0, aspetto che PS1 completi ACT */
-                can_serve_actual_ras_ps0 <= 1'b0;
-            end
-            
-            else begin 
-            
-            
-                if ( previous_cmd_ras_ps0 != LP_GENERAL_NOP ) begin
-                    if ( previous_cmd_ras_ps0 == LP_ROW_PRE ) begin                       /* Il comando precendente era un PRE */
-                        
-                        if ( cmd_ras_ps0 == LP_ROW_PRE ) begin                   /* Dopo un PRE non ci può essere un altro PRE sullo stesso bank */
-                            if ( previous_bank_addr_ras_ps0 != bank_address_ras_ps0 ) begin
-                                can_serve_actual_ras_ps0 <= 1'b1;
-                            end
-                            else begin
-//                                can_serve_actual_ras_ps0 <= 1'b0;
-                                    can_serve_actual_ras_ps0 <= 1'b1;
-                            end
-                        end
-                        
-                        if ( cmd_ras_ps0 == LP_ROW_ACT ) begin                   /* tRP = PRE to ACT delay, che vale solo se stiamo accedendo allo stesso bank*/
-                            if ( previous_bank_addr_ras_ps0 == bank_address_ras_ps0 ) begin
-                                if ( previous_to_actual_cnt_ras_ps0 >= tRP ) begin
-                                    can_serve_actual_ras_ps0 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps0 <= 1'b0;
-                                end
-                            end
-                            else begin
-                                can_serve_actual_ras_ps0 <= 1'b1;
-                            end 
-                        
-                        end
-                        
-                                        
-                    end
-                    
-                    else if ( previous_cmd_ras_ps0 == LP_ROW_ACT ) begin                /* Il comando precendente era un ACT */
-                        
-                        if ( cmd_ras_ps0 == LP_ROW_PRE ) begin
-                            if ( previous_bank_addr_ras_ps0 == bank_address_ras_ps0 ) begin
-                                if ( previous_to_actual_cnt_ras_ps0 >= tRAS ) begin     /* tRAS = ACT to PRE delay, stesso bank */
-                                    can_serve_actual_ras_ps0 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps0 <= 1'b0;
-                                end
-                            end
-                            else begin
-                                can_serve_actual_ras_ps0 <= 1'b1;
-                            end 
-                        end
-                        
-                        else if ( cmd_ras_ps0 == LP_ROW_ACT ) begin
-                            if ( previous_bank_addr_ras_ps0 == bank_address_ras_ps0 ) begin
-                                if ( previous_to_actual_cnt_ras_ps0 >= tRC ) begin     /* tRC = ACT to ACT delay, stesso bank */
-                                    can_serve_actual_ras_ps0 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps0 <= 1'b0;
-                                end
-                            end
-                            else begin
-                                if ( previous_to_actual_cnt_ras_ps0 >= tRRD ) begin   /* tRRD = ACT to ACT delay, diversi bank */
-                                    can_serve_actual_ras_ps0 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps0 <= 1'b0;
-                                end
-                            end 
-                        end
-  
-                    end                    
-                end              
+        if ( ( act_cnt_ps0 == 4'd4 ) && ( cmd_ras_ps0 == LP_ROW_ACT ) && ( four_act_window_cnt_ps0 >= tFAW)  ) begin
+            act_cnt_ps0 <= 1'b1;
+        end
+        else if ( act_cnt_ps0 >= 4'd4 ) begin
+            act_cnt_ps0 <= act_cnt_ps0;
+        end
+        else if ( (can_serve_actual_ras_ps0) && (cmd_ras_ps0 == LP_ROW_ACT) ) begin
+            act_cnt_ps0 <= act_cnt_ps0 + 1'b1;
+        end
+    end
+end
+
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        act_cnt_ps1 <= { P_BA_N_PS { 1'b0 } };
+    end
+    else begin
+        if ( ( act_cnt_ps1 == 4'd4 ) && ( cmd_ras_ps1 == LP_ROW_ACT ) && ( four_act_window_cnt_ps1 >= tFAW)  ) begin
+            act_cnt_ps1 <= 1'b1;
+        end
+        else if ( act_cnt_ps1 >= 4'd4 ) begin
+            act_cnt_ps1 <= act_cnt_ps1;
+        end
+        else if ( (can_serve_actual_ras_ps1) && (cmd_ras_ps1 == LP_ROW_ACT) ) begin
+            act_cnt_ps1 <= act_cnt_ps1 + 1'b1;
+        end
+    end
+end
+
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        four_act_window_cnt_ps0 <= { 64 { 1'b0 } };
+    end
+    else begin
+        if ( ( act_cnt_ps0 == 1'b1 ) && ( cmd_ras_ps0 == LP_ROW_ACT ) /*&& can_serve_actual_ras_ps0*/ && ( four_act_window_cnt_ps0 >= tFAW) ) begin
+            four_act_window_cnt_ps0 <= 1'b1;
+        end
+        else if ( four_act_window_cnt_ps0 == { 64 { 1'b1 } } ) begin
+            four_act_window_cnt_ps0 <= four_act_window_cnt_ps0;
+        end
+        else begin
+            four_act_window_cnt_ps0 <= four_act_window_cnt_ps0 + 1'b1;
+        end
+    end
+end
+
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        four_act_window_cnt_ps1 <= { 64 { 1'b0 } };
+    end
+    else begin
+        if ( ( act_cnt_ps1 == 1'b1 ) && ( cmd_ras_ps1 == LP_ROW_ACT ) /*&& can_serve_actual_ras_ps1*/ && ( four_act_window_cnt_ps1 >= tFAW) ) begin
+            four_act_window_cnt_ps1 <= 1'b1;
+        end
+        else if ( four_act_window_cnt_ps1 == { 64 { 1'b1 } } ) begin
+            four_act_window_cnt_ps1 <= four_act_window_cnt_ps1;
+        end
+        else begin
+            four_act_window_cnt_ps1 <= four_act_window_cnt_ps1 + 1'b1;
+        end
+    end
+end
+
+genvar i;
+generate
+    for ( i = 0; i < LP_BG_N; i = i + 1) begin
+    
+        /* CAS TIMING CHECK */
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_wrt_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_cas_ps0 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_cas_ps0 == LP_COL_WRT) && ( (bank_address_cas_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps0[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_wrt_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_wrt_bg_cnt_ps0[i] == { 64 {1'b1 }} ) begin
+                    last_wrt_bg_cnt_ps0[i] <= last_wrt_bg_cnt_ps0[i];
+                end
                 else begin
-                    can_serve_actual_ras_ps0 <= 1'b1;
+                    last_wrt_bg_cnt_ps0[i] <= last_wrt_bg_cnt_ps0[i] + 1'b1;
                 end
             end
-        end
-        else if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && cmd_ras_ps0 == LP_GENERAL_NOP) begin       /* Devo comunque "servire" una NOP */
-            can_serve_actual_ras_ps0 <= 1'b1;
-        end
-        else begin
-            can_serve_actual_ras_ps0 <= 1'b0;
-        end
-    end
-end
-
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        can_serve_actual_cas_ps0 <= 1'b0;
-    end
-    else begin
-        if ( previous_cmd_cas_ps0 != LP_GENERAL_NOP ) begin
-            if ( previous_cmd_cas_ps0 == LP_COL_WRT ) begin                /* Il comando precendente era un WRT */ 
-                if ( cmd_cas_ps0 == LP_COL_WRT ) begin
-                    if ( previous_bank_addr_cas_ps0 == bank_address_cas_ps0 ) begin
-                        if ( previous_to_actual_cnt_cas_ps0 >=  tCCDl ) begin    /* tCCDl = CAS to CAS delay, same bank */
-                            can_serve_actual_cas_ps0 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps0 <= 1'b0;
-                        end
-                    end
-                    else begin
-                        if ( previous_to_actual_cnt_cas_ps0 >=  tCCDs ) begin    /* tCCDs = CAS to CAS delay, different banks */
-                            can_serve_actual_cas_ps0 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps0 <= 1'b0;
-                        end
-                    end 
-                
+        end 
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_wrt_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_cas_ps1 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_cas_ps1 == LP_COL_WRT) && ( (bank_address_cas_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps1[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_wrt_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
                 end
-                
-                else if ( cmd_cas_ps0 == LP_COL_RD  ) begin
-                    if ( previous_bank_addr_cas_ps0 == bank_address_cas_ps0 ) begin
-                        if ( previous_to_actual_cnt_cas_ps0 >=  tWTRl ) begin    /* tWTRl = WRT to RD delay, same bank */
-                            can_serve_actual_cas_ps0 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps0 <= 1'b0;
-                        end
-                    end
-                    else begin
-                        if ( previous_to_actual_cnt_cas_ps0 >=  tWTRs ) begin    /* tWTRs = WRT to RD delay, different banks */
-                            can_serve_actual_cas_ps0 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps0 <= 1'b0;
-                        end
-                    end 
+                else if ( last_wrt_bg_cnt_ps1[i] == { 64 {1'b1 }} ) begin
+                    last_wrt_bg_cnt_ps1[i] <= last_wrt_bg_cnt_ps1[i];
                 end
-            end
-            
-            else if ( previous_cmd_cas_ps0 == LP_COL_RD  ) begin                /* Il comando precendente era un RD */
-                
-                if ( cmd_cas_ps0 == LP_COL_WRT ) begin
-                    if ( previous_to_actual_cnt_cas_ps0 >= tRTW  ) begin
-                        can_serve_actual_cas_ps0 <= 1'b1;
-                    end 
-                    else begin
-                        can_serve_actual_cas_ps0 <= 1'b0;
-                    end
-                
-                end
-                
-                else if ( cmd_cas_ps0 == LP_COL_RD  ) begin
-                    if ( previous_bank_addr_cas_ps0 == bank_address_cas_ps0 ) begin
-                        if ( previous_to_actual_cnt_cas_ps0 >=  tCCDl ) begin    /* tCCDl = CAS to CAS delay, same bank */
-                            can_serve_actual_cas_ps0 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps0 <= 1'b0;
-                        end
-                    end
-                    else begin
-                        if ( previous_to_actual_cnt_cas_ps0 >=  tCCDs ) begin    /* tCCDs = CAS to CAS delay, different banks */
-                            can_serve_actual_cas_ps0 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps0 <= 1'b0;
-                        end
-                    end 
-                end
-            end    
-        end  
-        else begin
-            can_serve_actual_cas_ps0 <= 1'b1;
-        end  
-    end
-end
-
-
-
-/* Circuito combinatorio per controllare se il tempo trascorso tra il comando precedente e quello attuale rispetta le latenze necessarie per quanto riguarda il PS1 */
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        can_serve_actual_ras_ps1 <= 1'b0;
-    end
-    else begin
-        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && cmd_ras_ps1 != LP_GENERAL_NOP ) begin             /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            if ( cmd_ras_ps0 == LP_ROW_ACT && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE) ) begin                       /* Se su PS0 c'è un ACT e su PS1 c'è un ACT o un PRE, in generale un comando di riga, mi fermo su PS1, aspetto che PS0 completi ACT */
-                can_serve_actual_ras_ps1 <= 1'b0;
-            end
-            else begin 
-            
-            
-                if ( previous_cmd_ras_ps1 != LP_GENERAL_NOP ) begin
-                    if ( previous_cmd_ras_ps1 == LP_ROW_PRE ) begin                       /* Il comando precendente era un PRE */
-                        
-                        if ( cmd_ras_ps1 == LP_ROW_PRE ) begin                   /* Dopo un PRE non ci può essere un altro PRE sullo stesso bank */
-                            if ( previous_bank_addr_ras_ps1 != bank_address_ras_ps1 ) begin
-                                can_serve_actual_ras_ps1 <= 1'b1;
-                            end
-                            else begin
-//                                can_serve_actual_ras_ps1 <= 1'b0;
-                                  can_serve_actual_ras_ps1 <= 1'b1;
-                            end
-                        end
-                        
-                        if ( cmd_ras_ps1 == LP_ROW_ACT ) begin                   /* tRP = PRE to ACT delay, che vale solo se stiamo accedendo allo stesso bank*/
-                            if ( previous_bank_addr_ras_ps1 == bank_address_ras_ps1 ) begin
-                                if ( previous_to_actual_cnt_ras_ps1 >= tRP ) begin
-                                    can_serve_actual_ras_ps1 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps1 <= 1'b0;
-                                end
-                            end
-                            else begin
-                                can_serve_actual_ras_ps1 <= 1'b1;
-                            end 
-                        
-                        end
-                        
-                                        
-                    end
-                    
-                    else if ( previous_cmd_ras_ps1 == LP_ROW_ACT ) begin                /* Il comando precendente era un ACT */
-                        
-                        if ( cmd_ras_ps1 == LP_ROW_PRE ) begin
-                            if ( previous_bank_addr_ras_ps1 == bank_address_ras_ps1 ) begin
-                                if ( previous_to_actual_cnt_ras_ps1 >= tRAS ) begin     /* tRAS = ACT to PRE delay, stesso bank */
-                                    can_serve_actual_ras_ps1 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps1 <= 1'b0;
-                                end
-                            end
-                            else begin
-                                can_serve_actual_ras_ps1 <= 1'b1;
-                            end 
-                        end
-                        
-                        else if ( cmd_ras_ps1 == LP_ROW_ACT ) begin
-                            if ( previous_bank_addr_ras_ps1 == bank_address_ras_ps1 ) begin
-                                if ( previous_to_actual_cnt_ras_ps1 >= tRC ) begin     /* tRC = ACT to ACT delay, stesso bank */
-                                    can_serve_actual_ras_ps1 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps1 <= 1'b0;
-                                end
-                            end
-                            else begin
-                                if ( previous_to_actual_cnt_ras_ps1 >= tRRD ) begin   /* tRRD = ACT to ACT delay, diversi bank */
-                                    can_serve_actual_ras_ps1 <= 1'b1;
-                                end
-                                else begin
-                                    can_serve_actual_ras_ps1 <= 1'b0;
-                                end
-                            end 
-                        end
-  
-                    end                    
-                end              
                 else begin
-                    can_serve_actual_ras_ps1 <= 1'b1;
+                    last_wrt_bg_cnt_ps1[i] <= last_wrt_bg_cnt_ps1[i] + 1'b1;
+                end
+            end
+        end 
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_rd_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_cas_ps0 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_cas_ps0 == LP_COL_RD) && ( (bank_address_cas_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps0[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_rd_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_rd_bg_cnt_ps0[i] == { 64 {1'b1 }} ) begin
+                    last_rd_bg_cnt_ps0[i] <= last_rd_bg_cnt_ps0[i];
+                end
+                else begin
+                    last_rd_bg_cnt_ps0[i] <= last_rd_bg_cnt_ps0[i] + 1'b1;
                 end
             end
         end
-        else if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && cmd_ras_ps1 == LP_GENERAL_NOP) begin       /* Devo comunque "servire" una NOP */
-            can_serve_actual_ras_ps1 <= 1'b1;
-        end
-        else begin
-            can_serve_actual_ras_ps1 <= 1'b0;
-        end
-    end
-end
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_rd_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+            end
+            else begin
+                if ( can_serve_actual_cas_ps1 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_cas_ps1 == LP_COL_RD) && ( (bank_address_cas_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps1[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_rd_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_rd_bg_cnt_ps0[i] == { 64 {1'b1 }} ) begin
+                    last_rd_bg_cnt_ps1[i] <= last_rd_bg_cnt_ps1[i];
+                end
+                else begin
+                    last_rd_bg_cnt_ps1[i] <= last_rd_bg_cnt_ps1[i] + 1'b1;
+                end
+            end
+        end      
+  
+        
+        assign actual_wrt_respect_long_cnstr_ps0[i]  = ( (cmd_cas_ps0 == LP_COL_WRT) && ((bank_address_cas_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps0[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_wrt_bg_cnt_ps0[i] >= tCCDl ) && (last_rd_bg_cnt_ps0[i] >= tRTW) );
+        assign actual_wrt_respect_long_cnstr_ps1[i]  = ( (cmd_cas_ps1 == LP_COL_WRT) && ((bank_address_cas_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps1[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_wrt_bg_cnt_ps1[i] >= tCCDl ) && (last_rd_bg_cnt_ps1[i] >= tRTW) );
+    
+        assign actual_rd_respect_long_cnstr_ps0[i]   = ( (cmd_cas_ps0 == LP_COL_RD)  && ((bank_address_cas_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps0[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_rd_bg_cnt_ps0[i] >= tCCDl )  && (last_wrt_bg_cnt_ps0[i] >= tWTRl) );
+        assign actual_rd_respect_long_cnstr_ps1[i]   = ( (cmd_cas_ps1 == LP_COL_RD)  && ((bank_address_cas_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_cas_ps1[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_rd_bg_cnt_ps1[i] >= tCCDl )  && (last_wrt_bg_cnt_ps1[i] >= tWTRl) );
+    
+        assign actual_wrt_respect_short_cnstr_ps0[i] = ( (cmd_cas_ps0 == LP_COL_WRT) && ( last_wrt_bg_cnt_ps0[i] >= tCCDs ) && (last_rd_bg_cnt_ps0[i] >= tRTW) );
+        assign actual_wrt_respect_short_cnstr_ps1[i] = ( (cmd_cas_ps1 == LP_COL_WRT) && ( last_wrt_bg_cnt_ps1[i] >= tCCDs ) && (last_rd_bg_cnt_ps1[i] >= tRTW) );
+        
+        assign actual_rd_respect_short_cnstr_ps0[i]  = ( (cmd_cas_ps0 == LP_COL_RD)  && ( last_rd_bg_cnt_ps0[i] >= tCCDs ) && (last_wrt_bg_cnt_ps0[i] >= tWTRs) );
+        assign actual_rd_respect_short_cnstr_ps1[i]  = ( (cmd_cas_ps1 == LP_COL_RD)  && ( last_rd_bg_cnt_ps1[i] >= tCCDs ) && (last_wrt_bg_cnt_ps1[i] >= tWTRs) );
+    
 
-always_comb
-begin
-    if( dfi_rst_n == 1'b0 ) begin
-        can_serve_actual_cas_ps1 <= 1'b0;
-    end
-    else begin
-        if ( previous_cmd_cas_ps1 != LP_GENERAL_NOP ) begin
-            if ( previous_cmd_cas_ps1 == LP_COL_WRT ) begin                /* Il comando precendente era un WRT */ 
-                if ( cmd_cas_ps1 == LP_COL_WRT ) begin
-                    if ( previous_bank_addr_cas_ps1 == bank_address_cas_ps1 ) begin
-                        if ( previous_to_actual_cnt_cas_ps1 >=  tCCDl ) begin    /* tCCDl = CAS to CAS delay, same bank */
-                            can_serve_actual_cas_ps1 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps1 <= 1'b0;
-                        end
-                    end
-                    else begin
-                        if ( previous_to_actual_cnt_cas_ps1 >=  tCCDs ) begin    /* tCCDs = CAS to CAS delay, different banks */
-                            can_serve_actual_cas_ps1 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps1 <= 1'b0;
-                        end
-                    end 
-                
+        /* RAS TIMING CHECK */
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_act_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_ras_ps0 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_ras_ps0 == LP_ROW_ACT) && ( (bank_address_ras_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps0[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_act_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
                 end
-                
-                else if ( cmd_cas_ps1 == LP_COL_RD  ) begin
-                    if ( previous_bank_addr_cas_ps1 == bank_address_cas_ps1 ) begin
-                        if ( previous_to_actual_cnt_cas_ps1 >=  tWTRl ) begin    /* tWTRl = WRT to RD delay, same bank */
-                            can_serve_actual_cas_ps1 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps1 <= 1'b0;
-                        end
-                    end
-                    else begin
-                        if ( previous_to_actual_cnt_cas_ps1 >=  tWTRs ) begin    /* tWTRs = WRT to RD delay, different banks */
-                            can_serve_actual_cas_ps1 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps1 <= 1'b0;
-                        end
-                    end 
+                else if ( last_act_bg_cnt_ps0[i] == { 64 {1'b1 }} ) begin
+                    last_act_bg_cnt_ps0[i] <= last_act_bg_cnt_ps0[i];
+                end
+                else begin
+                    last_act_bg_cnt_ps0[i] <= last_act_bg_cnt_ps0[i] + 1'b1;
                 end
             end
-            
-            else if ( previous_cmd_cas_ps1 == LP_COL_RD  ) begin                /* Il comando precendente era un RD */
-                
-                if ( cmd_cas_ps1 == LP_COL_WRT ) begin
-                    if ( previous_to_actual_cnt_cas_ps1 >= tRTW  ) begin
-                        can_serve_actual_cas_ps1 <= 1'b1;
-                    end 
-                    else begin
-                        can_serve_actual_cas_ps1 <= 1'b0;
-                    end
-                
-                end
-                
-                else if ( cmd_cas_ps1 == LP_COL_RD  ) begin
-                    if ( previous_bank_addr_cas_ps1 == bank_address_cas_ps1 ) begin
-                        if ( previous_to_actual_cnt_cas_ps1 >=  tCCDl ) begin    /* tCCDl = CAS to CAS delay, same bank */
-                            can_serve_actual_cas_ps1 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps1 <= 1'b0;
-                        end
-                    end
-                    else begin
-                        if ( previous_to_actual_cnt_cas_ps1 >=  tCCDs ) begin    /* tCCDs = CAS to CAS delay, different banks */
-                            can_serve_actual_cas_ps1 <= 1'b1;
-                        end
-                        else begin
-                            can_serve_actual_cas_ps1 <= 1'b0;
-                        end
-                    end 
-                end
-            end        
         end
-        else begin
-            can_serve_actual_cas_ps1 <= 1'b1;
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_act_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_ras_ps1 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_ras_ps1 == LP_ROW_ACT) && ( (bank_address_ras_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps1[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_act_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_act_bg_cnt_ps1[i] == { 64 {1'b1 }} ) begin
+                    last_act_bg_cnt_ps1[i] <= last_act_bg_cnt_ps1[i];
+                end
+                else begin
+                    last_act_bg_cnt_ps1[i] <= last_act_bg_cnt_ps1[i] + 1'b1;
+                end
+            end
+        end 
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_pre_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_ras_ps0 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_ras_ps0 == LP_ROW_PRE) && ( (bank_address_ras_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps0[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_pre_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_pre_bg_cnt_ps0[i] == { 64 {1'b1 }} ) begin
+                    last_pre_bg_cnt_ps0[i] <= last_pre_bg_cnt_ps0[i];
+                end
+                else begin
+                    last_pre_bg_cnt_ps0[i] <= last_pre_bg_cnt_ps0[i] + 1'b1;
+                end
+            end
         end
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_pre_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_ras_ps1 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_ras_ps1 == LP_ROW_PRE) && ( (bank_address_ras_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps1[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_pre_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_pre_bg_cnt_ps1[i] == { 64 {1'b1 }} ) begin
+                    last_pre_bg_cnt_ps1[i] <= last_pre_bg_cnt_ps1[i];
+                end
+                else begin
+                    last_pre_bg_cnt_ps1[i] <= last_pre_bg_cnt_ps1[i] + 1'b1;
+                end
+            end
+        end
+        
+        assign actual_act_respect_cnstr_ps0[i] = ( (cmd_ras_ps0 == LP_ROW_ACT) && ( last_act_bg_cnt_ps0[i] >= tRRD ) && ( (act_cnt_ps0 < 8'd4) || (four_act_window_cnt_ps0 >= tFAW) ));
+        assign actual_act_respect_cnstr_ps1[i] = ( (cmd_ras_ps1 == LP_ROW_ACT) && ( last_act_bg_cnt_ps1[i] >= tRRD ) && ( (act_cnt_ps1 < 8'd4) || (four_act_window_cnt_ps1 >= tFAW) ));
+    
+        assign actual_pre_respect_long_cnstr_ps0[i]  = ( (cmd_ras_ps0 == LP_ROW_PRE)  && ((bank_address_ras_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps0[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_rd_bg_cnt_ps0[i] >= tRTPl )  );
+        assign actual_pre_respect_long_cnstr_ps1[i]  = ( (cmd_ras_ps1 == LP_ROW_PRE)  && ((bank_address_ras_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps1[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_rd_bg_cnt_ps1[i] >= tRTPl ) );
+    
+        assign actual_pre_respect_short_cnstr_ps0[i] = ( (cmd_ras_ps0 == LP_ROW_PRE)  && ( last_rd_bg_cnt_ps0[i] >= tRTPs ) );
+        assign actual_pre_respect_short_cnstr_ps1[i] = ( (cmd_ras_ps1 == LP_ROW_PRE)  && ( last_rd_bg_cnt_ps1[i] >= tRTPs ) );
+    
     end
-end
+endgenerate 
+
+
+assign can_serve_actual_cas_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (|actual_wrt_respect_long_cnstr_ps0) && (&actual_wrt_respect_short_cnstr_ps0) ) || ( (|actual_rd_respect_long_cnstr_ps0) && (&actual_rd_respect_short_cnstr_ps0) ) ;
+assign can_serve_actual_cas_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && ( (|actual_wrt_respect_long_cnstr_ps1) && (&actual_wrt_respect_short_cnstr_ps1) ) || ( (|actual_rd_respect_long_cnstr_ps1) && (&actual_rd_respect_short_cnstr_ps1) ) ;
+
+assign can_serve_actual_ras_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps0) || ((|actual_pre_respect_long_cnstr_ps0) && (&actual_pre_respect_short_cnstr_ps0) ) ) && ~double_act_ras_sync ;
+assign can_serve_actual_ras_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps1) || ((|actual_pre_respect_long_cnstr_ps1) && (&actual_pre_respect_short_cnstr_ps1) ) ) && ~double_act_ras_sync ;
 
 endmodule

@@ -34,7 +34,8 @@ module channel_scheduler#
     parameter		P_BA_ADDR_WIDTH	= 5, 
     parameter       P_BA_N_PS       = 16,        /* Nunmero di Bank per PS */
     parameter       P_BA_N_G        = 8,         /* Numero di Bank per gruppo */ 
-    parameter       P_DATA_WIDTH     = 256
+    parameter       P_DATA_WIDTH     = 256,
+    parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32         /* Numero totali di bank per canale */
 )
 (
     //DFI INTERFACE SIGNALS
@@ -90,22 +91,22 @@ module channel_scheduler#
     input   [7:0]    dfi_dw_rddata_par_p1,
 
     input            dfi_ctrlupd_req,
-    input            dfi_phyupd_ack
+    input            dfi_phyupd_ack,
     
+    /* Interfaccia verso i bank scheduler */
+    output [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1]  cmd_picked_bank,
+    input  [3:0]                                 cmd_bank                    [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
+    input  [P_BA_ADDR_WIDTH-1 : 0]               bank_address_bank           [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
+    input  [P_ROW_ADDR_WIDTH-1 : 0]              row_address_bank            [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
+    input  [P_COL_ADDR_WIDTH-1 : 0]              column_address_bank         [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
+    input  [P_DATA_WIDTH-1 : 0]                  wrt_data_bank               [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     
-    /* Interfaccia verso i command bank register RAS PS0 */
-//    output cmd_ras_bank_picked_ps0 [0 : P_BA_N_PS - 1],
-//    input  [3:0] cmd_ras_bank_ps0  [0 : P_BA_N_PS - 1],
-//    input  [P_BA_ADDR_WIDTH-1 : 0] bank_address_bank_ps0 [0 : P_BA_N_PS - 1],
-//    input  [P_ROW_ADDR_WIDTH-1 : 0] row_address_bank_ps0 [0 : P_BA_N_PS - 1],
+    output ready_to_cmd_ras_ps0,
+    output ready_to_cmd_cas_ps0,
+    output ready_to_cmd_ras_ps1,
+    output ready_to_cmd_cas_ps1
     
-//    /* Interfaccia verso i command bank register RAS PS1 */
-//    output cmd_ras_bank_picked_ps1 [0 : P_BA_N_PS - 1],
-//    input  [3:0] cmd_ras_bank_ps1  [0 : P_BA_N_PS - 1],
-//    input  [P_BA_ADDR_WIDTH-1 : 0] bank_address_bank_ps1 [0 : P_BA_N_PS - 1],
-//    input  [P_ROW_ADDR_WIDTH-1 : 0] row_address_bank_ps1 [0 : P_BA_N_PS - 1]
-    
-    
+       
 );
 
 localparam LP_GENERAL_NOP = 4'b1111;
@@ -116,130 +117,45 @@ localparam LP_ROW_ACT		= 3'b010;
 localparam LP_ROW_PRE		= 3'b011;  //WITH R[10] -> L
 localparam LP_ROW_PREA		= 3'b011;  // WITH R[10] -> H
 
-/* PER SIMULARE !!!!  */
-reg  [0 : P_BA_N_PS - 1] cmd_ras_bank_picked_ps0;
-reg  [3:0] cmd_ras_bank_ps0  [0 : P_BA_N_PS - 1];
-reg  [P_BA_ADDR_WIDTH-1 : 0] bank_address_bank_ps0 [0 : P_BA_N_PS - 1];
-reg  [P_ROW_ADDR_WIDTH-1 : 0] row_address_bank_ps0 [0 : P_BA_N_PS - 1];
+/* COL COMMANDS */
+localparam LP_COL_WRT		= 4'b0001;
+localparam LP_COL_RD        = 4'b0101;
 
-/* Interfaccia verso i command bank register RAS PS1 */
-reg  [0 : P_BA_N_PS - 1] cmd_ras_bank_picked_ps1;
-reg  [3:0] cmd_ras_bank_ps1  [0 : P_BA_N_PS - 1];
-reg  [P_BA_ADDR_WIDTH-1 : 0] bank_address_bank_ps1 [0 : P_BA_N_PS - 1];
-reg  [P_ROW_ADDR_WIDTH-1 : 0] row_address_bank_ps1 [0 : P_BA_N_PS - 1];
 
-reg [31:0] dummy_cnt_ps0;
-reg [31:0] dummy_cnt_ps1;
+/* Verso il ll_command_forwarder */
+wire [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1] cmd_picked_ras;
+wire [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1] cmd_picked_cas;
 
-initial begin
-    for (integer i = 1; i < 16; i = i + 1) begin
-        cmd_ras_bank_ps0[i] <= LP_GENERAL_NOP;
-        
-        bank_address_bank_ps0[i] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-        row_address_bank_ps0[i] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-        
-        cmd_ras_bank_ps1[i] <= LP_GENERAL_NOP;
-        bank_address_bank_ps1[i] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-        row_address_bank_ps1[i] <= { P_ROW_ADDR_WIDTH { 1'b0 } };    
+
+genvar i;
+generate 
+    for ( i = 0; i <  P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1) begin
+        assign cmd_picked_bank[i] = cmd_picked_ras[i] || cmd_picked_cas[i];
     end
-    
-    cmd_ras_bank_ps0[0] <= LP_ROW_PRE;
-    cmd_ras_bank_ps1[0] <= LP_ROW_PRE;
-    
-    bank_address_bank_ps0[0] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-    row_address_bank_ps0[0] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-    bank_address_bank_ps1[0] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-    row_address_bank_ps1[0] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-    
-    dummy_cnt_ps0 <= {32 { 1'b0 }};
-    dummy_cnt_ps1 <= {32 { 1'b0 }};
-end
+endgenerate
 
-reg [31:0] index_ps0;
-reg [31:0] index_ps1;
-
-always_comb begin
-    if ( dfi_rst_n == 1'b0 ) begin
-        index_ps0 <= {32 { 1'b0 }};
-        index_ps1 <= {32 { 1'b0 }};
-    end 
-    
-    else begin
-       for (integer i = 0; i < 16 ; i = i + 1) begin
-            if ( cmd_ras_bank_picked_ps0[i] == 1'b1 ) begin
-                index_ps0 <= i;
-            end 
-            
-            if ( cmd_ras_bank_picked_ps1[i] == 1'b1 ) begin
-                index_ps1 <= i;
-            end
-            
-       end
-       
-    end
-end
-
-always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
-     if ( |cmd_ras_bank_picked_ps0 ) begin
-        dummy_cnt_ps0 <= dummy_cnt_ps0 + 1'b1;
-        if ( dummy_cnt_ps0 % 2 == 0 ) begin
-            cmd_ras_bank_ps0[index_ps0] <= LP_ROW_ACT;
-            bank_address_bank_ps0[index_ps0] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-            row_address_bank_ps0[index_ps0] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-        end
-        else begin
-            cmd_ras_bank_ps0[index_ps0] <= LP_ROW_PRE;
-            bank_address_bank_ps0[index_ps0] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-            row_address_bank_ps0[index_ps0] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-        end
-        
-     end
-     if ( |cmd_ras_bank_picked_ps1 ) begin
-        dummy_cnt_ps1 <= dummy_cnt_ps1 + 1'b1;
-        if ( dummy_cnt_ps1 % 2 == 0 ) begin
-            cmd_ras_bank_ps1[index_ps1] <= LP_ROW_ACT;
-            bank_address_bank_ps1[index_ps1] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-            row_address_bank_ps1[index_ps1] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-        end
-        else begin
-            cmd_ras_bank_ps1[index_ps1] <= LP_ROW_PRE;
-            bank_address_bank_ps1[index_ps1] <= { P_BA_ADDR_WIDTH { 1'b0 } };
-            row_address_bank_ps1[index_ps1] <= { P_ROW_ADDR_WIDTH { 1'b0 } };
-        end
-     end     
-end
-
-always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
-     if ( dummy_cnt_ps0 >= 32'd50 && dummy_cnt_ps1 >= 32'd50) begin
-        $finish;
-     end
-end
-
-/* FINE SIMULAZIONE */
-
-localparam LP_QUEUE_LEN = 16;
 
 /* RAS cmd PS0 */
-wire ready_to_cmd_ras_ps0;
+//wire ready_to_cmd_ras_ps0;
 wire [3:0] cmd_ras_ps0;
 wire [ P_BA_ADDR_WIDTH - 1 : 0 ]  bank_address_ras_ps0;
 wire [ P_ROW_ADDR_WIDTH - 1 : 0 ]  row_address_ras_ps0;
     
 /* CAS cmd PS0 */
-wire ready_to_cmd_cas_ps0;
+//wire ready_to_cmd_cas_ps0;
 wire [3:0] cmd_cas_ps0;
 wire [ P_BA_ADDR_WIDTH - 1 : 0 ] bank_address_cas_ps0;
 wire [ P_COL_ADDR_WIDTH - 1 : 0 ] column_address_cas_ps0;
 wire [ P_DATA_WIDTH - 1 : 0 ] wrt_data_cas_ps0;
     
 /* RAS cmd PS1 */
-wire ready_to_cmd_ras_ps1;
+//wire ready_to_cmd_ras_ps1;
 wire [3:0] cmd_ras_ps1;
 wire [ P_BA_ADDR_WIDTH - 1 : 0 ]  bank_address_ras_ps1;
 wire [ P_ROW_ADDR_WIDTH - 1 : 0 ]  row_address_ras_ps1;
 
 /* CAS cmd PS1 */
-wire ready_to_cmd_cas_ps1;
+//wire ready_to_cmd_cas_ps1;
 wire [3:0] cmd_cas_ps1;
 wire [ P_BA_ADDR_WIDTH - 1 : 0 ] bank_address_cas_ps1;
 wire [ P_COL_ADDR_WIDTH - 1 : 0 ] column_address_cas_ps1;
@@ -250,16 +166,15 @@ RAS_arbiter #(
     .P_BA_N_PS(P_BA_N_PS),
     .P_BA_N_G(P_BA_N_G), 
     .P_ROW_ADDR_WIDTH(P_ROW_ADDR_WIDTH),
-    .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH),
-    .P_QUEUE_LEN(LP_QUEUE_LEN)
+    .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH)
 ) RAS_arbiter_ps0 (
     .clk(dfi_clk),
     .rst_n (dfi_rst_n),
 
-    .cmd_ras_bank_picked(cmd_ras_bank_picked_ps0),
-    .cmd_ras_bank (cmd_ras_bank_ps0),
-    .bank_address_bank(bank_address_bank_ps0),
-    .row_address_bank(row_address_bank_ps0),
+    .cmd_ras_bank_picked(cmd_picked_ras[0:P_BA_N_PS-1]),
+    .cmd_ras_bank (cmd_bank[0:P_BA_N_PS-1]),
+    .bank_address_bank(bank_address_bank[0:P_BA_N_PS-1]),
+    .row_address_bank(row_address_bank[0:P_BA_N_PS-1]),
 
     .ready_to_cmd_ras(ready_to_cmd_ras_ps0),
     .cmd_ras(cmd_ras_ps0),
@@ -271,18 +186,16 @@ RAS_arbiter #(
     .P_BA_N_PS(P_BA_N_PS),
     .P_BA_N_G(P_BA_N_G), 
     .P_ROW_ADDR_WIDTH(P_ROW_ADDR_WIDTH),
-    .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH),
-    .P_QUEUE_LEN(LP_QUEUE_LEN)
+    .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH)
 
 ) RAS_arbiter_ps1 (
     .clk(dfi_clk),
     .rst_n (dfi_rst_n),
     
-    
-    .cmd_ras_bank_picked(cmd_ras_bank_picked_ps1),
-    .cmd_ras_bank (cmd_ras_bank_ps1),
-    .bank_address_bank(bank_address_bank_ps1),
-    .row_address_bank(row_address_bank_ps1),
+    .cmd_ras_bank_picked(cmd_picked_ras[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .cmd_ras_bank (cmd_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .bank_address_bank(bank_address_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .row_address_bank(row_address_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     
     .ready_to_cmd_ras(ready_to_cmd_ras_ps1),
     .cmd_ras(cmd_ras_ps1),
@@ -296,12 +209,17 @@ CAS_arbiter #(
     .P_BA_N_G(P_BA_N_G), 
     .P_COL_ADDR_WIDTH(P_COL_ADDR_WIDTH),
     .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH),
-    .P_DATA_WIDTH(P_DATA_WIDTH),
-    .P_QUEUE_LEN(LP_QUEUE_LEN)
+    .P_DATA_WIDTH(P_DATA_WIDTH)
 
 ) CAS_arbiter_ps0 (
     .clk(dfi_clk),
     .rst_n (dfi_rst_n),
+    
+    .cmd_cas_bank_picked(cmd_picked_cas[0:P_BA_N_PS-1]),
+    .cmd_cas_bank (cmd_bank[0:P_BA_N_PS-1]),
+    .bank_address_bank(bank_address_bank[0:P_BA_N_PS-1]),
+    .column_address_bank(column_address_bank[0:P_BA_N_PS-1]),
+    .wrt_data_bank(wrt_data_bank[0:P_BA_N_PS-1]),
 
     .ready_to_cmd_cas(ready_to_cmd_cas_ps0),
     .cmd_cas(cmd_cas_ps0),
@@ -315,12 +233,17 @@ CAS_arbiter #(
     .P_BA_N_G(P_BA_N_G), 
     .P_COL_ADDR_WIDTH(P_COL_ADDR_WIDTH),
     .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH),
-    .P_DATA_WIDTH(P_DATA_WIDTH),
-    .P_QUEUE_LEN(LP_QUEUE_LEN)
+    .P_DATA_WIDTH(P_DATA_WIDTH)
 
 ) CAS_arbiter_ps1 (
     .clk(dfi_clk),
     .rst_n (dfi_rst_n),
+
+    .cmd_cas_bank_picked(cmd_picked_cas[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .cmd_cas_bank (cmd_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .bank_address_bank(bank_address_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .column_address_bank(column_address_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    .wrt_data_bank(wrt_data_bank[P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
 
     .ready_to_cmd_cas(ready_to_cmd_cas_ps1),
     .cmd_cas(cmd_cas_ps1),

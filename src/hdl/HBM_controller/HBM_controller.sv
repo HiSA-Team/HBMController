@@ -21,7 +21,20 @@
 
 
 module HBM_controller # (
-    
+    parameter       P_DRIVE_PRECHARGE_CMD = 114,
+    parameter		P_PRECHG_THR= 200,
+    parameter		P_ACT_THR	= 40,
+    parameter		P_WRT_THR	= 60,
+    parameter		P_RD_THR	= 60,
+    parameter		P_DRIVE_ACT_CMD = 240,
+    parameter		P_MRS_CNT = 8'hc0,
+    parameter		P_ROW_ADDR_WIDTH = 16,
+    parameter		P_COL_ADDR_WIDTH = 12,
+    parameter		P_BA_ADDR_WIDTH	= 5, 
+    parameter       P_BA_N_PS       = 16,        /* Nunmero di Bank per PS */
+    parameter       P_BA_N_G        = 8,         /* Numero di Bank per gruppo */ 
+    parameter       P_DATA_WIDTH     = 256,
+    parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32         /* Numero totali di bank per canale */    
 )(
 
     input HBM_REF_CLK_0_buf,
@@ -96,10 +109,74 @@ wire              APB_0_PWRITE = 1'b0;
 wire     [ 31:0]  APB_0_PRDATA;
 wire              APB_0_PREADY;
 wire              APB_0_PSLVERR;
-wire          apb_seq_complete_0_s;
+wire              apb_seq_complete_0_s;
 
 
-channel_scheduler#()
+wire  [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1]    cmd_picked_bank;
+wire  [3:0]                                   cmd_bank                 [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire  [P_BA_ADDR_WIDTH-1 : 0]                 bank_address_bank        [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire  [P_ROW_ADDR_WIDTH-1 : 0]                row_address_bank         [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire  [P_COL_ADDR_WIDTH-1 : 0]                column_address_bank      [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire  [P_DATA_WIDTH-1 : 0]                    wrt_data_bank            [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+
+
+wire ready_to_cmd_ras_ps0;
+wire ready_to_cmd_cas_ps0;
+wire ready_to_cmd_ras_ps1;
+wire ready_to_cmd_cas_ps1;
+
+
+genvar i;
+generate 
+    for ( i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) begin : bank
+        if (i < P_BA_N_PS) begin
+            bank_scheduler#(
+                .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH),
+                .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH),
+                .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH), 
+                .P_DATA_WIDTH              (P_DATA_WIDTH),
+                .P_BANK_INDEX              (i)
+            ) bank_scheduler(
+                .clk                       (dfi_0_clk_buf),
+                .rst_n                     (dfi_0_rst_n),
+                .cmd_picked_bank           (cmd_picked_bank[i]),
+                .cmd_bank                  (cmd_bank[i]),
+                .bank_address_bank         (bank_address_bank[i]),
+                .row_address_bank          (row_address_bank[i]),
+                .column_address_bank       (column_address_bank[i]),
+                .wrt_data_bank             (wrt_data_bank[i]),
+                .ready_to_cmd_ras          (ready_to_cmd_ras_ps0),
+                .ready_to_cmd_cas          (ready_to_cmd_cas_ps0)
+            );
+        end
+        else begin
+            bank_scheduler#(
+                .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH),
+                .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH),
+                .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH), 
+                .P_DATA_WIDTH              (P_DATA_WIDTH),
+                .P_BANK_INDEX              (i)
+            ) bank_scheduler(
+                .clk                       (dfi_0_clk_buf),
+                .rst_n                     (dfi_0_rst_n),
+                .cmd_picked_bank           (cmd_picked_bank[i]),
+                .cmd_bank                  (cmd_bank[i]),
+                .bank_address_bank         (bank_address_bank[i]),
+                .row_address_bank          (row_address_bank[i]),
+                .column_address_bank       (column_address_bank[i]),
+                .wrt_data_bank             (wrt_data_bank[i]),
+                .ready_to_cmd_ras          (ready_to_cmd_ras_ps1),
+                .ready_to_cmd_cas          (ready_to_cmd_cas_ps1)
+            );
+        end
+    end
+endgenerate
+
+
+
+channel_scheduler#(
+    .P_TOTAL_PER_CHANNEL_BANK_N(P_TOTAL_PER_CHANNEL_BANK_N)
+)
 channel_0_scheduler
 (
     //DFI INTERFACE SIGNALS
@@ -149,7 +226,22 @@ channel_0_scheduler
     .dfi_dw_rddata_dbi_p1                  (dfi_0_dw_rddata_dbi_p1),
     .dfi_dw_rddata_par_p1                  (dfi_0_dw_rddata_par_p1),
     .dfi_ctrlupd_req                       (dfi_0_ctrlupd_req     ),
-    .dfi_phyupd_ack                        (dfi_0_phyupd_ack      )
+    .dfi_phyupd_ack                        (dfi_0_phyupd_ack      ),
+    
+     /* Interfaccia verso i bank scheduler */
+    .cmd_picked_bank             (cmd_picked_bank),
+    .cmd_bank                    (cmd_bank),
+    .bank_address_bank           (bank_address_bank),
+    .row_address_bank            (row_address_bank),
+    .column_address_bank         (column_address_bank),
+    .wrt_data_bank               (wrt_data_bank),
+    
+    .ready_to_cmd_ras_ps0        (ready_to_cmd_ras_ps0),
+    .ready_to_cmd_cas_ps0        (ready_to_cmd_cas_ps0),
+    .ready_to_cmd_ras_ps1        (ready_to_cmd_ras_ps1),
+    .ready_to_cmd_cas_ps1        (ready_to_cmd_cas_ps1)
+
+    
 );
 
 
