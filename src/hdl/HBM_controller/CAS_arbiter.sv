@@ -61,6 +61,8 @@ localparam LP_ACTUAL_BANK_SERVING_WIDTH       = $clog2(P_BA_N_G);
 reg [ LP_ACTUAL_BANK_GROUP_SERVING_WIDTH - 1 : 0 ] actual_bank_group_serving ;
 reg [ LP_ACTUAL_BANK_SERVING_WIDTH : 0 ] actual_bank_serving [0 : LP_BG_N - 1];
 reg [ LP_ACTUAL_BANK_SERVING_WIDTH : 0 ] selected_bank_index;
+wire [0 : P_BA_N_G-1] selected_bank_index_i;
+
 
 reg [3:0] actual_cmd_serving_type;     /* Comando attuale RD o WRT */
 
@@ -84,24 +86,52 @@ assign cmd_cas_bank_picked = r_cmd_cas_bank_picked;
 
 reg all_bad_type; 
 
-//reg [7:0] bank_done_cnt [0:LP_BG_N-1];  /* Da vedere bene */
 
+//always_comb begin
+//    if ( rst_n == 1'b0 ) begin
+//        selected_bank_index <= { LP_ACTUAL_BANK_SERVING_WIDTH + 1 {1'b1} };
+//    end
+//    else begin
+//        all_bad_type <= 1'b1;
+//        for ( integer i = actual_bank_serving[actual_bank_group_serving]; i < P_BA_N_G; i = i + 1 ) begin
+//            selected_bank_index <= i;
+//            if ( cmd_cas_bank[i + (actual_bank_group_serving*P_BA_N_G)] != LP_GENERAL_NOP && cmd_cas_bank[i + (actual_bank_group_serving*P_BA_N_G)] == actual_cmd_serving_type ) begin
+//                all_bad_type <= 1'b0;
+//                break;
+//            end
+//        end
+//    end
+//end
+
+genvar i;
+generate
+    for ( i = 0 ; i <  P_BA_N_G; i = i + 1) begin
+        assign selected_bank_index_i[i] = (i >= actual_bank_serving[actual_bank_group_serving]) && ( cmd_cas_bank[i + (actual_bank_group_serving*P_BA_N_G)] != LP_GENERAL_NOP && cmd_cas_bank[i + (actual_bank_group_serving*P_BA_N_G)] == actual_cmd_serving_type );
+    end
+endgenerate
+
+/* QUESTO POTREBBE ESSERE SOSTITUITO CON UN ENCODER SE NECESSARIO (IN EFFETTI È LETTERALMENTE UN ENCODER UN Pò PERSONALIZZATO :) ) */
 always_comb begin
     if ( rst_n == 1'b0 ) begin
         selected_bank_index <= { LP_ACTUAL_BANK_SERVING_WIDTH + 1 {1'b1} };
+        all_bad_type <= 1'b1;
     end
     else begin
-        all_bad_type <= 1'b1;
-        for ( integer i = actual_bank_serving[actual_bank_group_serving]; i < P_BA_N_G; i = i + 1 ) begin
-            selected_bank_index <= i;
-            if ( cmd_cas_bank[i + (actual_bank_group_serving*P_BA_N_G)] != LP_GENERAL_NOP && cmd_cas_bank[i + (actual_bank_group_serving*P_BA_N_G)] == actual_cmd_serving_type ) begin
-                all_bad_type <= 1'b0;
-                break;
+        if ( actual_bank_serving[actual_bank_group_serving] < P_BA_N_G ) begin
+            all_bad_type <= 1'b1;
+            for ( integer i = 0; i < P_BA_N_G; i = i + 1 ) begin
+                selected_bank_index <= i;
+                if ( selected_bank_index_i[i] == 1'b1 ) begin
+                    all_bad_type <= 1'b0;
+                    break;
+                end 
             end
+        end
+        else begin
+            all_bad_type <= 1'b1;
         end
     end
 end
-
 
 
 genvar j;
@@ -138,7 +168,7 @@ always @ ( posedge clk or negedge rst_n ) begin
             r_column_address_cas <= column_address_bank[selected_bank_index + ( actual_bank_group_serving * P_BA_N_G )];
             r_wrt_data_cas       <= wrt_data_bank[selected_bank_index + ( actual_bank_group_serving * P_BA_N_G )];
         end 
-        else if (ready_to_cmd_cas &&  all_bad_type == 1'b1) begin
+        else if (ready_to_cmd_cas &&  all_bad_type == 1'b1 ) begin
             r_cmd_cas           <= LP_GENERAL_NOP;
         end        
     end
@@ -205,7 +235,6 @@ generate
                     else if ( (k != actual_bank_group_serving)  && (round_done_sum >= LP_BG_N-1) && (selected_bank_index + 1'b1 == P_BA_N_G)  ) begin
                         actual_bank_serving[k] <= { LP_ACTUAL_BANK_SERVING_WIDTH+1 { 1'b0 } };
                     end
-                                       
                 end
             end
         end 

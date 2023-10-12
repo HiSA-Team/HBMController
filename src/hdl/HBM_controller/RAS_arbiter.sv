@@ -68,24 +68,38 @@ reg [ACTUAL_BG_CMD_RAS_SERVING_WIDTH-1 : 0] actual_bg_cmd_ras_serving [0 : LP_BG
 reg [ACTUAL_BG_SERVING_WIDTH - 1 : 0] actual_bg_serving;
 
 reg [ACTUAL_BG_CMD_RAS_SERVING_WIDTH:0] selected_cmd_index;
+wire [0 : P_BA_N_G-1] selected_cmd_index_i;
 
 assign cmd_ras = r_cmd_ras;
 assign bank_address_ras = r_bank_address_ras;
 assign row_address_ras = r_row_address_ras;
 
 /* Cerco il cmd da prendere all'interno del gruppo che sto servendo al momento */
+genvar i;
+generate
+    for( i = 0; i < P_BA_N_G; i = i + 1 ) begin
+        assign selected_cmd_index_i[i] =  (i >= actual_bg_cmd_ras_serving[actual_bg_serving]) && (cmd_ras_bank[i+(actual_bg_serving*P_BA_N_G)] != LP_GENERAL_NOP) && (cmd_ras_bank[i+(actual_bg_serving*P_BA_N_G)] != LP_COL_WRT && cmd_ras_bank[i+(actual_bg_serving*P_BA_N_G)] != LP_COL_RD) ;
+    end
+endgenerate
+
+/* QUESTO POTREBBE ESSERE SOSTITUITO CON UN ENCODER SE NECESSARIO (IN EFFETTI È LETTERALMENTE UN ENCODER) */
 always_comb begin
-    if (rst_n == 1'b0 ) begin
+    if ( rst_n == 1'b0 ) begin
         selected_cmd_index <= {ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 } };
     end
     else begin
-        for ( integer i = actual_bg_cmd_ras_serving[actual_bg_serving]; i < P_BA_N_G; i = i + 1 ) begin
-            selected_cmd_index <= i;
-            if ( cmd_ras_bank[i+(actual_bg_serving*P_BA_N_G)] != LP_GENERAL_NOP && cmd_ras_bank[i+(actual_bg_serving*P_BA_N_G)] != LP_COL_WRT && cmd_ras_bank[i+(actual_bg_serving*P_BA_N_G)] != LP_COL_RD ) begin    /* Ho trovato il primo CMD Bank buono */
-                break;
-            end
+        if (|selected_cmd_index_i == 1'b0) begin
+            selected_cmd_index <= {ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 } };
         end
-    end
+        else begin
+            for (integer i = 0; i < P_BA_N_G; i = i + 1 ) begin
+                if ( selected_cmd_index_i[i] == 1'b1 ) begin
+                    selected_cmd_index <= i;
+                    break;
+                end
+            end 
+        end   
+    end 
 end
 
 genvar j;
@@ -120,7 +134,10 @@ always @( posedge clk or negedge rst_n ) begin
             r_bank_address_ras  <= bank_address_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] ;
             r_row_address_ras   <= row_address_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)];
         end 
-        else if (ready_to_cmd_ras && ((cmd_ras_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] == LP_GENERAL_NOP) || ( cmd_ras_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] != LP_COL_WRT ) || ( cmd_ras_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] != LP_COL_RD ) )  && (selected_cmd_index != { ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 }  } )) begin
+        else if (ready_to_cmd_ras && ((cmd_ras_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] == LP_GENERAL_NOP) || ( cmd_ras_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] == LP_COL_WRT ) || ( cmd_ras_bank[selected_cmd_index+(actual_bg_serving*P_BA_N_G)] == LP_COL_RD ) )  && (selected_cmd_index != { ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 }  } )) begin
+            r_cmd_ras <= LP_GENERAL_NOP;
+        end
+        else if (ready_to_cmd_ras && selected_cmd_index == { ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 }  }) begin
             r_cmd_ras <= LP_GENERAL_NOP;
         end
     end         
@@ -128,14 +145,11 @@ end
 
 always @( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0 ) begin        
-        /* Solitamente ci sono 2 Bank Group a PS (è quasi sempre così, credo che nelle Alveo sia sempre così) */
-        actual_bg_cmd_ras_serving[0] <= { ACTUAL_BG_CMD_RAS_SERVING_WIDTH { 1'b0 } };
-        actual_bg_cmd_ras_serving[1] <= { ACTUAL_BG_CMD_RAS_SERVING_WIDTH { 1'b0 } };
-        
+        for (integer i=0; i< LP_BG_N; i = i + 1 ) actual_bg_cmd_ras_serving[i] <= { ACTUAL_BG_CMD_RAS_SERVING_WIDTH { 1'b0 } };
      end
      else begin
-        if ( ( ready_to_cmd_ras ) && (selected_cmd_index != { ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 }  } )) begin 
-            if ( actual_bg_cmd_ras_serving[actual_bg_serving] <  P_BA_N_G -1 ) begin
+        if ( ready_to_cmd_ras ) begin 
+            if ( (actual_bg_cmd_ras_serving[actual_bg_serving] <  P_BA_N_G -1) && (selected_cmd_index != { ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 }  } )) begin
                 actual_bg_cmd_ras_serving[actual_bg_serving] <= selected_cmd_index + 1'b1;
             end
             else begin
@@ -150,7 +164,7 @@ always @( posedge clk or negedge rst_n ) begin
         actual_bg_serving <= { ACTUAL_BG_SERVING_WIDTH { 1'b0 } };
     end
     else begin
-        if ( (ready_to_cmd_ras) && (selected_cmd_index != { ACTUAL_BG_CMD_RAS_SERVING_WIDTH+1 { 1'b1 }  } )) begin 
+        if ( ready_to_cmd_ras ) begin 
             if ( actual_bg_serving < LP_BG_N - 1 ) begin
                 actual_bg_serving <= actual_bg_serving + 1'b1;
             end
