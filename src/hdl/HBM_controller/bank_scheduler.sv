@@ -399,7 +399,7 @@ always @ ( posedge clk or negedge rst_n ) begin
     end 
     else begin
         if ( cmd_cnt < P_QUEUE_LEN ) begin
-//            if (P_BANK_INDEX == 0 || P_BANK_INDEX == 16 || P_BANK_INDEX == 1 || P_BANK_INDEX == 17 || P_BANK_INDEX == 8 || P_BANK_INDEX == 24) begin 
+//            if (P_BANK_INDEX == 0 /*|| P_BANK_INDEX == 16 || P_BANK_INDEX == 1 || P_BANK_INDEX == 17 || P_BANK_INDEX == 8 || P_BANK_INDEX == 24*/) begin 
                 if ( dummy_cnt == 3'b000 ) begin
                     cmd_queue[head]   <= LP_ROW_PRE;
                 end
