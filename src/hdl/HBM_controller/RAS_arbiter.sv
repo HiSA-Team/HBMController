@@ -51,6 +51,7 @@ module RAS_arbiter#
 localparam LP_GENERAL_NOP = 4'b1111;
 localparam LP_COL_WRT	  = 4'b0001;
 localparam LP_COL_RD      = 4'b0101;
+localparam LP_ROW_REFPB     = 4'b1001; // Metto un 1 al MSB per distinguerlo dalla Write 
 
 
 reg [0 : P_BA_N_PS - 1] r_cmd_ras_bank_picked ;

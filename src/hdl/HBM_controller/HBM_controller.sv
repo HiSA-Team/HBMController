@@ -126,6 +126,119 @@ wire ready_to_cmd_ras_ps1;
 wire ready_to_cmd_cas_ps1;
 
 
+wire [3:0]                       cmd_dispatcher            [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire [P_BA_ADDR_WIDTH-1  : 0]    bank_addr_dispatcher      [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire [P_ROW_ADDR_WIDTH-1 : 0]    row_addr_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire [P_COL_ADDR_WIDTH-1 : 0]    col_addr_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire [P_DATA_WIDTH-1     : 0]    wrt_data_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+wire                             cmd_picked_dispatcher     [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+
+/* Registri per inoltrare le richieste ai command dispatcher */
+
+reg [1:0]                                                       input_request [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+reg [P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH-1 : 0 ]  input_address [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+reg [P_DATA_WIDTH-1 : 0]                                        input_data    [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+
+reg   request_valid    [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+wire  request_picked   [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+
+
+/* SIMULO LE RICHIESTE */
+always @ (posedge dfi_0_clk_buf or negedge dfi_0_rst_n) begin
+    if ( dfi_0_rst_n == 1'b0 ) begin
+        for (integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1) begin
+//            input_request[i] <= 2'b01;
+            input_address[i] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH { 1'b0 } };
+//            input_data[i]    <= { P_DATA_WIDTH { 1'b0 } };
+//            request_valid[i] <= 1'b1;
+        end 
+    end
+//    else begin 
+//        for (integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1) begin
+////            input_request[i] <= 2'b01;
+//            input_address[i] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH { 1'b0 } };
+////            input_data[i]    <= { P_DATA_WIDTH { 1'b0 } };
+////            request_valid[i] <= 1'b1;
+//        end
+//    end
+    
+end
+
+integer fd;
+string  line;
+string  request;
+reg [32:0] address;
+
+
+initial begin
+//    input_address[0] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH {1'b0}};
+    wait(dfi_0_rst_n == 1'b1);
+    
+    fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/output.txt", "r");
+    while(!$feof(fd))begin
+        $fgets(line, fd);
+//        $display(line);
+        
+        request = line.substr(0,1);
+        address <= line.substr(3,34).atobin();
+//        $display(address[32:28]);
+        request_valid[0] <= 1'b1;
+        wait(request_picked[address[32:28]] == 1'b1);
+        request_valid[0] <= 1'b0;
+        if (request == "RD") begin
+            input_request[address[32:28]] <= 2'b01;
+        end
+        else begin
+            input_request[address[32:28]] <= 2'b00;
+        end
+        input_address[address[32:28]] <= address;
+        wait(request_picked[address[32:28]] == 1'b0);
+    end
+    
+    $fclose(fd);
+    $finish;
+end
+
+
+/* FINE SIMULAZIONE */
+
+
+genvar j;
+generate 
+    for ( j = 0; j < P_TOTAL_PER_CHANNEL_BANK_N; j = j + 1 ) begin : command_dispatcher
+        command_dispatcher #(
+            .P_REQ_WIDTH(2),
+            .P_ADDR_WIDTH(P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH),
+            .P_DATA_WIDTH(P_DATA_WIDTH),
+            .P_ROW_ADDR_WIDTH(P_ROW_ADDR_WIDTH),
+            .P_COL_ADDR_WIDTH(P_COL_ADDR_WIDTH),
+            .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH),
+            .P_QUEUE_LEN(16)
+        ) command_dispatcher (
+            .clk(dfi_0_clk_buf),
+            .rst_n(dfi_0_rst_n),
+            
+            
+            /* Interfaccia verso l'esterno */
+            .input_request(input_request[j]),
+            .input_address(input_address[j]),
+            .input_data(input_data[j]),
+            .request_valid(request_valid[j]),
+            .request_picked(request_picked[j]),
+           
+            /* Interfaccia verso il bank scheduler */
+            .cmd_picked(cmd_picked_dispatcher[j]),
+            .cmd(cmd_dispatcher[j]),
+            .bank_addr(bank_addr_dispatcher[j]),
+            .row_addr(row_addr_dispatcher[j]),
+            .col_addr(col_addr_dispatcher[j]),
+            .wrt_data(wrt_data_dispatcher[j])
+        );
+
+    end
+endgenerate
+
+
 genvar i;
 generate 
     for ( i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) begin : bank
@@ -139,6 +252,14 @@ generate
             ) bank_scheduler(
                 .clk                       (dfi_0_clk_buf),
                 .rst_n                     (dfi_0_rst_n),
+                
+                .cmd_dispatcher            (cmd_dispatcher[i]),
+                .bank_addr_dispatcher      (bank_addr_dispatcher[i]),
+                .row_addr_dispatcher       (row_addr_dispatcher[i]),
+                .col_addr_dispatcher       (col_addr_dispatcher[i]),
+                .wrt_data_dispatcher       (wrt_data_dispatcher[i]),
+                .cmd_picked_dispatcher     (cmd_picked_dispatcher[i]),
+                
                 .cmd_picked_bank           (cmd_picked_bank[i]),
                 .cmd_bank                  (cmd_bank[i]),
                 .bank_address_bank         (bank_address_bank[i]),
@@ -159,6 +280,14 @@ generate
             ) bank_scheduler(
                 .clk                       (dfi_0_clk_buf),
                 .rst_n                     (dfi_0_rst_n),
+                
+                .cmd_dispatcher            (cmd_dispatcher[i]),
+                .bank_addr_dispatcher      (bank_addr_dispatcher[i]),
+                .row_addr_dispatcher       (row_addr_dispatcher[i]),
+                .col_addr_dispatcher       (col_addr_dispatcher[i]),
+                .wrt_data_dispatcher       (wrt_data_dispatcher[i]),
+                .cmd_picked_dispatcher     (cmd_picked_dispatcher[i]),
+                                
                 .cmd_picked_bank           (cmd_picked_bank[i]),
                 .cmd_bank                  (cmd_bank[i]),
                 .bank_address_bank         (bank_address_bank[i]),
@@ -171,7 +300,6 @@ generate
         end
     end
 endgenerate
-
 
 
 channel_scheduler#(

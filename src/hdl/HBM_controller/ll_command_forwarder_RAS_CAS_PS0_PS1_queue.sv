@@ -145,11 +145,15 @@ localparam LP_COL_MRS		= 4'b0000;
 /* ROW COMMANDS */
 localparam LP_ROW_NOP		= 3'b111;
 localparam LP_ROW_ACT		= 3'b010;
-localparam LP_ROW_PRE		= 3'b011;  //WITH R[10] -> L
+localparam LP_ROW_PRE		= 3'b011;  // WITH R[10] -> L
 localparam LP_ROW_PREA		= 3'b011;  // WITH R[10] -> H
+//localparam LP_ROW_REFA      = 4'b1001;  // WITH R[4] on Falling -> H  // Questo si confonde agevolmente con la WRT
+localparam LP_ROW_REFPB     = 4'b1001;  // WITH R[4] on Falling -> H  // Questo si confonde agevolmente con la WRT, metto un 1 al MSB per distinguerlo dalla Write
+
 
 localparam LP_GENERAL_NOP   = 4'b1111;
 
+/* MODE REGISTERS */
 localparam LP_MRS_CMD = 3'b000;
 localparam LP_MRS0_A = 4'b0001;
 localparam LP_MRS1_A = 4'b0001;
@@ -171,8 +175,8 @@ localparam LP_BA4_1     = 1'b1;      /* Pseudo Channel 1 */
 
 /* SAME BANK  */
 localparam  tRCD    =      32'd11;     /* Sicuro */
-localparam  tRP     =      32'd0;
-localparam  tRC     =      32'd0;
+localparam  tRP     =      32'd0;      /* PRE to ACT/REF delay */
+localparam  tRC     =      32'd0;      /* ACT to ACT/Per Bank REF delay */
 localparam  tRAS    =      32'd22;     /* Sicuro */
 localparam  tWL     =      32'd2;      /* Sicuro */      
 localparam  tRL     =      32'd0;
@@ -185,10 +189,13 @@ localparam  tWTRl   =      32'd8;      /* Sicuro */
 
 /* DIFFERENT BANKS */
 localparam  tRTPs   =      32'd4;
-localparam  tRRD    =      32'd4;
+localparam  tRRD    =      32'd4;      /* ACT to ACT/Per Bank REF delay */
 localparam  tFAW    =      32'd30;
 localparam  tWTRs   =      32'd8;
 localparam  tCCDs   =      32'd0;
+
+localparam  tRREFD  =      32'd0;     /* Per Bank REF to Per Bank REF/ACT (Different Banks) */
+localparam  tRFCpb  =      32'd0;     /* Per Bank REF to Per Bank REF/ACT (Any Banks) */
 
 localparam  LP_BG_N = P_BA_N_PS/P_BA_N_G;      /* Numero di Bank Groups per PS */
 
@@ -850,7 +857,7 @@ always @( posedge dfi_clk or negedge dfi_rst_n ) begin
         sync_row_addr_ras_ps1 <= { P_ROW_ADDR_WIDTH { 1'b0 } };
     end 
     else begin 
-        if ( (cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == LP_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == LP_ROW_ACT || cmd_ras_ps0 == LP_ROW_PRE) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
+        if ( (cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE || cmd_ras_ps1 == LP_ROW_REFPB) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == LP_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == LP_ROW_ACT || cmd_ras_ps0 == LP_ROW_PRE || cmd_ras_ps0 == LP_ROW_REFPB) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
             double_act_ras_sync <= 1'b1;
             sync_cmd_ras_ps1 <= cmd_ras_ps1;
             sync_bank_addr_ras_ps1 <= bank_address_ras_ps1;
@@ -873,9 +880,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n )
 begin
     if( dfi_rst_n == 1'b0 ) begin
         r_row_cmd_p0    <= 12'hfff;
-        r_row_cmd_p1    <= 12'hfff;
-        
-        
+        r_row_cmd_p1    <= 12'hfff;        
     end
     
     else if( r_phy_tg_ps == LP_MRS ) begin
@@ -884,6 +889,7 @@ begin
     end
 
     else begin
+        
         if ( double_act_ras_sync ) begin
             if ( sync_cmd_ras_ps1 == LP_ROW_ACT )  begin
                 r_row_cmd_p0	 <= {sync_bank_addr_ras_ps1[3], sync_row_addr_ras_ps1[13], LP_BA4_1, LP_PAR, sync_row_addr_ras_ps1[12:11], sync_bank_addr_ras_ps1[2:0],1'b0/*r_RA[14]*/,LP_ROW_ACT[1:0]};
@@ -893,9 +899,13 @@ begin
                 r_row_cmd_p0		<= { sync_bank_addr_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, sync_bank_addr_ras_ps1[2:0], LP_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
             end
+            else if ( sync_cmd_ras_ps1 == LP_ROW_REFPB ) begin
+                r_row_cmd_p0	 <= {sync_bank_addr_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, sync_bank_addr_ras_ps1[2:0], LP_ROW_REFPB[2:0]};
+                r_row_cmd_p1	 <= 12'hfff;
+            end
         end
         else if ( (can_serve_actual_ras_ps0 && cmd_ras_ps0 != LP_GENERAL_NOP) || (can_serve_actual_ras_ps1 && cmd_ras_ps1 != LP_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            if ((cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == LP_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == LP_ROW_ACT || cmd_ras_ps0 == LP_ROW_PRE) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
+            if ((cmd_ras_ps0 == LP_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == LP_ROW_ACT || cmd_ras_ps1 == LP_ROW_PRE || cmd_ras_ps1 == LP_ROW_REFPB) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == LP_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == LP_ROW_ACT || cmd_ras_ps0 == LP_ROW_PRE || cmd_ras_ps0 == LP_ROW_REFPB) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
                 if ( cmd_ras_ps0 == LP_ROW_ACT )  begin
                     r_row_cmd_p0	 <= {bank_address_ras_ps0[3], row_address_ras_ps0[13], LP_BA4_0, LP_PAR, row_address_ras_ps0[12:11], bank_address_ras_ps0[2:0],1'b0/*r_RA[14]*/,LP_ROW_ACT[1:0]};
                     r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
@@ -903,6 +913,10 @@ begin
                 else if ( cmd_ras_ps0 == LP_ROW_PRE ) begin
                     r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], LP_ROW_PRE};
                     r_row_cmd_p1		<= 12'hfff;
+                end
+                else if ( cmd_ras_ps0 == LP_ROW_REFPB ) begin
+                     r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], LP_ROW_REFPB[2:0]};
+                     r_row_cmd_p1	 <= 12'hfff;
                 end
             end
             
@@ -930,6 +944,31 @@ begin
             else if ( (cmd_ras_ps1 == LP_ROW_PRE && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == LP_GENERAL_NOP || ~can_serve_actual_ras_ps0 )  ) begin
                 r_row_cmd_p0		<= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], LP_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
+            end
+            
+            else if ( (cmd_ras_ps0 == LP_ROW_REFPB && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == LP_GENERAL_NOP || ~can_serve_actual_ras_ps1 ) ) begin
+                r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], LP_ROW_REFPB[2:0]};
+                r_row_cmd_p1	 <= 12'hfff;
+            end
+            
+            else if ( (cmd_ras_ps1 == LP_ROW_REFPB && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == LP_GENERAL_NOP || ~can_serve_actual_ras_ps0 ) ) begin
+                r_row_cmd_p0	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], LP_ROW_REFPB[2:0]};
+                r_row_cmd_p1	 <= 12'hfff;
+            end
+            
+            else if ( (cmd_ras_ps0 == LP_ROW_REFPB && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == LP_ROW_PRE && can_serve_actual_ras_ps1 ) ) begin
+                r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], LP_ROW_REFPB[2:0]};
+                r_row_cmd_p1	 <= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], LP_ROW_PRE};
+            end
+            
+            else if ( (cmd_ras_ps1 == LP_ROW_REFPB && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == LP_ROW_PRE && can_serve_actual_ras_ps0 ) ) begin
+                r_row_cmd_p0	 <= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], LP_ROW_PRE};
+                r_row_cmd_p1	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], LP_ROW_REFPB[2:0]};
+            end
+            
+            else if ( (cmd_ras_ps0 == LP_ROW_REFPB && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == LP_ROW_REFPB && can_serve_actual_ras_ps1 ) ) begin
+                r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], LP_ROW_REFPB[2:0]};
+                r_row_cmd_p1	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], LP_ROW_REFPB[2:0]};
             end
             
             else begin
@@ -1066,40 +1105,45 @@ reg [63:0] last_rd_bg_cnt_ps0  [0 : LP_BG_N - 1];  /*  Last read bank group coun
 reg [63:0] last_wrt_bg_cnt_ps1 [0 : LP_BG_N - 1];  /*  Last write bank group counter, tempo trascorso dall'ultima write in un determinato bank group in PS1  */
 reg [63:0] last_rd_bg_cnt_ps1  [0 : LP_BG_N - 1];  /*  Last read bank group counter, tempo trascorso dall'ultima read in un determinato bank group in PS1    */       
 
+/* Flag per indicare se il comando CAS attuale rispetta tutti i vincoli temporali, sono divisi per bank group e per ps */
 /* C'è un abuso di segnali, short e long in un qualche modo si potrebbero anche accorpare */
 wire [0 : LP_BG_N - 1] actual_wrt_respect_short_cnstr_ps0;
 wire [0 : LP_BG_N - 1] actual_wrt_respect_long_cnstr_ps0;
-
 wire [0 : LP_BG_N - 1] actual_wrt_respect_short_cnstr_ps1;
 wire [0 : LP_BG_N - 1] actual_wrt_respect_long_cnstr_ps1;
-
 wire [0 : LP_BG_N - 1] actual_rd_respect_short_cnstr_ps0;
 wire [0 : LP_BG_N - 1] actual_rd_respect_long_cnstr_ps0;
-
 wire [0 : LP_BG_N - 1] actual_rd_respect_short_cnstr_ps1;
 wire [0 : LP_BG_N - 1] actual_rd_respect_long_cnstr_ps1;
 
 
-reg [63:0] last_act_bg_cnt_ps0 [0 : LP_BG_N - 1];
-reg [63:0] last_pre_bg_cnt_ps0 [0 : LP_BG_N - 1];
-reg [63:0] last_act_bg_cnt_ps1 [0 : LP_BG_N - 1];
-reg [63:0] last_pre_bg_cnt_ps1 [0 : LP_BG_N - 1];
+reg [63:0] last_act_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last act bank group counter, tempo trascorso dall'ultima ACT in un determinato bank group in PS0 */
+reg [63:0] last_pre_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last pre bank group counter, tempo trascorso dall'ultima PRE in un determinato bank group in PS0 */
+reg [63:0] last_act_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last act bank group counter, tempo trascorso dall'ultima ACT in un determinato bank group in PS1 */
+reg [63:0] last_pre_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last pre bank group counter, tempo trascorso dall'ultima PRE in un determinato bank group in PS1 */
+reg [63:0] last_ref_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last ref bank group counter, tempo trascorso dall'ultima REF in un determinato bank group in PS0 */ 
+reg [63:0] last_ref_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last ref bank group counter, tempo trascorso dall'ultima REF in un determinato bank group in PS1 */
 
-reg [63:0] four_act_window_cnt_ps0;
-reg [63:0] four_act_window_cnt_ps1;
-reg [P_BA_N_PS-1:0] act_cnt_ps0;
-reg [P_BA_N_PS-1:0] act_cnt_ps1;
+reg [63:0] four_act_window_cnt_ps0;                /* Durata di tFAW per ps0 */
+reg [63:0] four_act_window_cnt_ps1;                /* Durata di tFAW per ps1 */
+reg [P_BA_N_PS-1:0] act_cnt_ps0;                   /* Numero di ACT ps0 in una finestra tFAW  */
+reg [P_BA_N_PS-1:0] act_cnt_ps1;                   /* Numero di ACT ps1 in una finestra tFAW  */
 
+/* Flag per indicare se il comando RAS attuale rispetta tutti i vincoli temporali, sono divisi per bank group e per ps */
 /* C'è un abuso di segnali, short e long in un qualche modo si potrebbero anche accorpare */
 wire [0 : LP_BG_N - 1] actual_act_respect_cnstr_ps0;
 wire [0 : LP_BG_N - 1] actual_act_respect_cnstr_ps1;
-
 wire [0 : LP_BG_N - 1] actual_pre_respect_short_cnstr_ps0;
 wire [0 : LP_BG_N - 1] actual_pre_respect_long_cnstr_ps0;
-
 wire [0 : LP_BG_N - 1] actual_pre_respect_short_cnstr_ps1;
 wire [0 : LP_BG_N - 1] actual_pre_respect_long_cnstr_ps1;
 
+wire [0 : LP_BG_N - 1] actual_ref_respect_cnstr_ps0;
+wire [0 : LP_BG_N - 1] actual_ref_respect_cnstr_ps1;
+
+
+
+/* Aggiorno numero di ACT ps0 in una finestra tFAW */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         act_cnt_ps0 <= { P_BA_N_PS { 1'b0 } };
@@ -1117,6 +1161,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end
 end
 
+/* Aggiorno numero di ACT ps1 in una finestra tFAW */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         act_cnt_ps1 <= { P_BA_N_PS { 1'b0 } };
@@ -1134,6 +1179,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end
 end
 
+/* Aggiorno tempo tFAW per ps0 */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         four_act_window_cnt_ps0 <= { 64 { 1'b0 } };
@@ -1151,6 +1197,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end
 end
 
+/* Aggiorno tempo tFAW per ps1 */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         four_act_window_cnt_ps1 <= { 64 { 1'b0 } };
@@ -1324,23 +1371,62 @@ generate
             end
         end
         
-        assign actual_act_respect_cnstr_ps0[i] = ( (cmd_ras_ps0 == LP_ROW_ACT) && ( last_act_bg_cnt_ps0[i] >= tRRD ) && ( (act_cnt_ps0 < 8'd4) || (four_act_window_cnt_ps0 >= tFAW) ));
-        assign actual_act_respect_cnstr_ps1[i] = ( (cmd_ras_ps1 == LP_ROW_ACT) && ( last_act_bg_cnt_ps1[i] >= tRRD ) && ( (act_cnt_ps1 < 8'd4) || (four_act_window_cnt_ps1 >= tFAW) ));
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_ref_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_ras_ps0 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_ras_ps0 == LP_ROW_REFPB) && ( (bank_address_ras_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps0[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_ref_bg_cnt_ps0[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_ref_bg_cnt_ps0[i] == { 64 {1'b1 }} ) begin
+                    last_ref_bg_cnt_ps0[i] <= last_ref_bg_cnt_ps0[i];
+                end
+                else begin
+                    last_ref_bg_cnt_ps0[i] <= last_ref_bg_cnt_ps0[i] + 1'b1;
+                end
+            end
+        end
+        
+        
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if ( dfi_rst_n == 1'b0 ) begin
+                last_ref_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+            end 
+            else begin
+                if ( can_serve_actual_ras_ps1 && (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (cmd_ras_ps1 == LP_ROW_REFPB) && ( (bank_address_ras_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps1[3:0] < ((i+1)*P_BA_N_G)) )) begin
+                    last_ref_bg_cnt_ps1[i] <= { 64 { 1'b0 } };
+                end
+                else if ( last_ref_bg_cnt_ps1[i] == { 64 {1'b1 }} ) begin
+                    last_ref_bg_cnt_ps1[i] <= last_ref_bg_cnt_ps1[i];
+                end
+                else begin
+                    last_ref_bg_cnt_ps1[i] <= last_ref_bg_cnt_ps1[i] + 1'b1;
+                end
+            end
+        end
+        
+        assign actual_act_respect_cnstr_ps0[i] = ( (cmd_ras_ps0 == LP_ROW_ACT) && ( last_act_bg_cnt_ps0[i] >= tRRD ) && ( (act_cnt_ps0 < 8'd4) || (four_act_window_cnt_ps0 >= tFAW) ) && (last_ref_bg_cnt_ps0[i] >= tRREFD) );
+        assign actual_act_respect_cnstr_ps1[i] = ( (cmd_ras_ps1 == LP_ROW_ACT) && ( last_act_bg_cnt_ps1[i] >= tRRD ) && ( (act_cnt_ps1 < 8'd4) || (four_act_window_cnt_ps1 >= tFAW) ) && (last_ref_bg_cnt_ps0[i] >= tRREFD) );
     
         assign actual_pre_respect_long_cnstr_ps0[i]  = ( (cmd_ras_ps0 == LP_ROW_PRE)  && ((bank_address_ras_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps0[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_rd_bg_cnt_ps0[i] >= tRTPl )  );
         assign actual_pre_respect_long_cnstr_ps1[i]  = ( (cmd_ras_ps1 == LP_ROW_PRE)  && ((bank_address_ras_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps1[3:0] < ((i+1)*P_BA_N_G)) ) && ( last_rd_bg_cnt_ps1[i] >= tRTPl ) );
     
         assign actual_pre_respect_short_cnstr_ps0[i] = ( (cmd_ras_ps0 == LP_ROW_PRE)  && ( last_rd_bg_cnt_ps0[i] >= tRTPs ) );
         assign actual_pre_respect_short_cnstr_ps1[i] = ( (cmd_ras_ps1 == LP_ROW_PRE)  && ( last_rd_bg_cnt_ps1[i] >= tRTPs ) );
+        
+        assign actual_ref_respect_cnstr_ps0[i] = ( (cmd_ras_ps0 == LP_ROW_REFPB)  && ( last_ref_bg_cnt_ps0[i] >= tRREFD ) && ( last_ref_bg_cnt_ps0[i] >= tRFCpb ) && ( last_act_bg_cnt_ps0[i] >= tRRD ) );
+        assign actual_ref_respect_cnstr_ps1[i] = ( (cmd_ras_ps1 == LP_ROW_REFPB)  && ( last_ref_bg_cnt_ps0[i] >= tRREFD ) && ( last_ref_bg_cnt_ps0[i] >= tRFCpb ) && ( last_act_bg_cnt_ps0[i] >= tRRD ) );
     
     end
 endgenerate 
 
 
-assign can_serve_actual_cas_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (|actual_wrt_respect_long_cnstr_ps0) && (&actual_wrt_respect_short_cnstr_ps0) ) || ( (|actual_rd_respect_long_cnstr_ps0) && (&actual_rd_respect_short_cnstr_ps0) ) ;
+assign can_serve_actual_cas_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && ( (|actual_wrt_respect_long_cnstr_ps0) && (&actual_wrt_respect_short_cnstr_ps0) ) || ( (|actual_rd_respect_long_cnstr_ps0) && (&actual_rd_respect_short_cnstr_ps0) ) ;
 assign can_serve_actual_cas_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && ( (|actual_wrt_respect_long_cnstr_ps1) && (&actual_wrt_respect_short_cnstr_ps1) ) || ( (|actual_rd_respect_long_cnstr_ps1) && (&actual_rd_respect_short_cnstr_ps1) ) ;
 
-assign can_serve_actual_ras_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps0) || ((|actual_pre_respect_long_cnstr_ps0) && (&actual_pre_respect_short_cnstr_ps0) ) ) && ~double_act_ras_sync ;
-assign can_serve_actual_ras_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps1) || ((|actual_pre_respect_long_cnstr_ps1) && (&actual_pre_respect_short_cnstr_ps1) ) ) && ~double_act_ras_sync ;
+assign can_serve_actual_ras_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps0) || (&actual_ref_respect_cnstr_ps0) || ((|actual_pre_respect_long_cnstr_ps0) && (&actual_pre_respect_short_cnstr_ps0) ) ) && ~double_act_ras_sync ;
+assign can_serve_actual_ras_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps1) || (&actual_ref_respect_cnstr_ps1) || ((|actual_pre_respect_long_cnstr_ps1) && (&actual_pre_respect_short_cnstr_ps1) ) ) && ~double_act_ras_sync ;
 
 endmodule

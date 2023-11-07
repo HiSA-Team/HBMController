@@ -33,6 +33,17 @@ module bank_scheduler #
     input                                         clk,
     input                                         rst_n,
 
+    /* Interfaccia verso il command_dispatcher */
+//    output [P_ROW_ADDR_WIDTH-1 : 0]               actual_row_open, 
+    input [3:0]                       cmd_dispatcher,
+    input [P_BA_ADDR_WIDTH-1  : 0]    bank_addr_dispatcher,
+    input [P_ROW_ADDR_WIDTH-1 : 0]    row_addr_dispatcher,
+    input [P_COL_ADDR_WIDTH-1 : 0]    col_addr_dispatcher,
+    input [P_DATA_WIDTH-1     : 0]    wrt_data_dispatcher,
+
+    output                            cmd_picked_dispatcher,
+
+
     /* Interfaccia verso il channel scheduler */
     input                                         cmd_picked_bank,
     output  [3:0]                                 cmd_bank,
@@ -46,7 +57,7 @@ module bank_scheduler #
 
 );
 
-/* COMMANDS  */
+/* COMMANDS */
 localparam LP_GENERAL_NOP   =  4'b1111;
 
 /* ROW COMMANDS */
@@ -54,6 +65,7 @@ localparam LP_ROW_NOP		= 3'b111;
 localparam LP_ROW_ACT		= 3'b010;
 localparam LP_ROW_PRE		= 3'b011;  //WITH R[10] -> L
 localparam LP_ROW_PREA		= 3'b011;  // WITH R[10] -> H
+localparam LP_ROW_REFPB     = 4'b1001; // Metto un 1 al MSB per distinguerlo dalla Write 
 
 /* COL COMMANDS */
 localparam LP_COL_WRT		= 4'b0001;
@@ -77,8 +89,8 @@ assign wrt_data_bank          = r_wrt_data_bank;
 
 /* SAME BANK  */
 localparam  tRCD    =      32'd11;     /* ACT to RD/WR delay */                 /* Verificato */
-localparam  tRP     =      32'd0;      /* PRE to ACT delay */
-localparam  tRC     =      32'd0;      /* ACT to ACT delay */
+localparam  tRP     =      32'd0;      /* PRE to ACT/REF delay */
+localparam  tRC     =      32'd0;      /* ACT to ACT/REF delay */
 localparam  tRAS    =      32'd22;     /* ACT to PRE delay */                   /* Verificato */
 localparam  tWL     =      32'd2;      /* WR to data bus transfer delay */      /* Verificato */      
 localparam  tRL     =      32'd0;
@@ -88,6 +100,10 @@ localparam  tCCDl   =      32'd1;      /* WR/RD to WR/RD delay */               
 localparam  tRTW    =      32'd0;      /* RD to WR delay */
 localparam  tWTRl   =      32'd8;      /* WR to RD delay */                     /* Verificato */
 localparam  tBURST  =      32'd0;      /* Data bus transfer */
+localparam  tRFCpb  =      32'd0;      /* Per Bank REF to Per Bank REF/ACT (Any Banks) */
+
+localparam  tREFP   =      32'd300;      /* Refresh Period */
+
 
 /* Registri per tenere traccia del tempo trascorso dall'ultimo comando specifico */
 reg [63:0] last_act_cnt;
@@ -97,6 +113,9 @@ reg [63:0] last_wrt_cnt;
 reg [63:0] last_rd_cnt;
 reg [63:0] last_wrt_for_pre_cnt;
 reg [63:0] last_rd_for_pre_cnt;
+
+reg [63:0] last_ref_cnt;    /* Contatore del tempo trascorso dall'ultimo refresh */
+reg need_refresh;
 
 wire can_serve_actual_act;
 wire can_serve_actual_pre;
@@ -113,6 +132,7 @@ reg waiting_for_rd_serve;
 
 reg [3:0] previous_cmd;
 
+reg [P_ROW_ADDR_WIDTH : 0] actual_row_open; 
 
 /* Coda dei comandi in ingresso */
 reg [3:0]                     cmd_queue         [0 : P_QUEUE_LEN - 1];
@@ -127,9 +147,12 @@ wire                          incr_cmd_cnt;
 wire                          deincr_cmd_cnt;
 
 
-/* Incremento e decremento il cnt della coda */
-assign incr_cmd_cnt   = cmd_cnt < P_QUEUE_LEN;
-assign deincr_cmd_cnt = can_serve_actual_cmd;
+reg r_cmd_picked_dispatcher;
+assign cmd_picked_dispatcher = r_cmd_picked_dispatcher;
+
+/* Incremento e decremento il cnt della coda */ 
+assign incr_cmd_cnt   = (cmd_cnt < P_QUEUE_LEN && cmd_dispatcher != LP_GENERAL_NOP);
+assign deincr_cmd_cnt = ~need_refresh && ((can_serve_actual_cmd && cmd_picked_bank && r_cmd_bank != LP_GENERAL_NOP) || (can_serve_actual_cmd && r_cmd_bank == LP_GENERAL_NOP));
 
 always @ ( posedge clk or negedge rst_n ) begin
     if ( rst_n == 1'b0 ) begin
@@ -148,12 +171,21 @@ always @ ( posedge clk or negedge rst_n ) begin
     end
 end
 
-assign can_serve_actual_act = /*cmd_picked_bank &&*/ ( cmd_cnt > 0 ) && (cmd_queue[tail] == LP_ROW_ACT) && (last_pre_cnt >= tRP)  && (last_act_cnt >= tRC);  
+assign can_serve_actual_act = /*cmd_picked_bank &&*/ ( cmd_cnt > 0 ) && (cmd_queue[tail] == LP_ROW_ACT) && (last_pre_cnt >= tRP)  && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb);  
 assign can_serve_actual_pre = /*cmd_picked_bank &&*/ ( cmd_cnt > 0 ) && (cmd_queue[tail] == LP_ROW_PRE) && (last_act_cnt >= tRAS) && ((last_rd_cnt  >= tRTPl && previous_cmd != LP_COL_RD) || (last_rd_for_pre_cnt  >= tRTPl && previous_cmd == LP_COL_RD && ~waiting_for_rd_serve) ) && ( (last_wrt_cnt >= (tWL + tWR + tBURST) && previous_cmd != LP_COL_WRT) || (last_wrt_for_pre_cnt >= (tWL + tWR + tBURST) && previous_cmd == LP_COL_WRT && ~waiting_for_wrt_serve) );                                     
 assign can_serve_actual_wrt = /*cmd_picked_bank &&*/ ( cmd_cnt > 0 ) && (cmd_queue[tail] == LP_COL_WRT) && ((previous_cmd != LP_ROW_ACT && last_act_cnt >= tRCD ) || (previous_cmd == LP_ROW_ACT && last_act_for_cas_cnt >= tRCD && ~waiting_for_act_serve)) && (last_rd_cnt  >= tRTW)   && (last_wrt_cnt >= tCCDl);
 assign can_serve_actual_rd  = /*cmd_picked_bank &&*/ ( cmd_cnt > 0 ) && (cmd_queue[tail] == LP_COL_RD)  && ((previous_cmd != LP_ROW_ACT && last_act_cnt >= tRCD ) || (previous_cmd == LP_ROW_ACT && last_act_for_cas_cnt >= tRCD && ~waiting_for_act_serve)) && (last_wrt_cnt >= tWTRl)  && (last_rd_cnt  >= tCCDl) ;
 
-assign can_serve_actual_cmd = can_serve_actual_act || can_serve_actual_pre || can_serve_actual_wrt || can_serve_actual_rd;
+
+wire can_serve_pre_ref;
+wire can_serve_act_ref;
+
+assign can_serve_actual_ref =  (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb);
+assign can_serve_pre_ref    =  (last_act_cnt >= tRAS) && ((last_rd_cnt  >= tRTPl && previous_cmd != LP_COL_RD) || (last_rd_for_pre_cnt  >= tRTPl && previous_cmd == LP_COL_RD && ~waiting_for_rd_serve) ) && ( (last_wrt_cnt >= (tWL + tWR + tBURST) && previous_cmd != LP_COL_WRT) || (last_wrt_for_pre_cnt >= (tWL + tWR + tBURST) && previous_cmd == LP_COL_WRT && ~waiting_for_wrt_serve) );
+assign can_serve_act_ref    =  (last_pre_cnt >= tRP)  && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb);
+
+assign can_serve_actual_cmd = can_serve_actual_act || can_serve_actual_pre || can_serve_actual_wrt || can_serve_actual_rd /*|| can_serve_actual_ref*/;
+
 
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
@@ -280,6 +312,24 @@ end
 
 always @ ( negedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
+        actual_row_open <= { P_ROW_ADDR_WIDTH+1{ 1'b1 } };
+    end
+    else begin
+        if ( cmd_picked_bank && (r_cmd_bank == LP_ROW_ACT ) ) begin
+            actual_row_open <= r_row_address_bank;
+        end
+        else if (cmd_picked_bank && (r_cmd_bank == LP_ROW_PRE) && ~need_refresh) begin
+            actual_row_open <= { P_ROW_ADDR_WIDTH+1{ 1'b1 } };
+        end
+        else begin
+            actual_row_open <= actual_row_open;
+        end
+    end
+end
+
+
+always @ ( negedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
         last_pre_cnt <= { 64 { 1'b0 } };
     end
     else begin
@@ -294,6 +344,7 @@ always @ ( negedge clk or negedge rst_n ) begin
         end
     end
 end
+
 
 always @ ( negedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
@@ -336,7 +387,7 @@ always @ ( posedge clk or negedge rst_n ) begin
         previous_cmd <= LP_GENERAL_NOP;
     end
     else begin
-        if ( /*can_serve_actual_cmd*/cmd_picked_bank  && r_cmd_bank != LP_GENERAL_NOP ) begin
+        if ( cmd_picked_bank  && r_cmd_bank != LP_GENERAL_NOP ) begin
             previous_cmd <= r_cmd_bank;
         end
         else begin
@@ -344,6 +395,58 @@ always @ ( posedge clk or negedge rst_n ) begin
         end
     end
 end
+
+reg sync_refresh;
+
+always @ ( posedge clk or negedge rst_n ) begin
+    if ( rst_n == 1'b0 ) begin
+        last_ref_cnt <=  { 64 { 1'b0 } };
+    end
+    else begin
+        if ( cmd_picked_bank && (r_cmd_bank == LP_ROW_REFPB) ) begin
+            last_ref_cnt <=  { 64 { 1'b0 } };
+        end
+        else if ( last_ref_cnt == { 64 { 1'b1 } } )  begin 
+            last_ref_cnt <= last_ref_cnt;
+        end
+        else begin
+            last_ref_cnt <= last_ref_cnt + 1'b1;
+        end
+    end
+end
+
+always @ ( posedge clk or negedge rst_n ) begin
+    if ( rst_n == 1'b0 ) begin
+        sync_refresh <= 1'b0;
+    end
+    else begin
+        if ( last_ref_cnt >= tREFP && ~need_refresh && ~sync_refresh ) begin
+            sync_refresh <= 1'b1;
+        end
+        else if (cmd_picked_bank && (r_cmd_bank == LP_ROW_REFPB) && sync_refresh) begin
+            sync_refresh <= 1'b0;
+        end
+    end
+end
+
+always @ ( posedge clk or negedge rst_n ) begin
+    if ( rst_n == 1'b0 ) begin
+        need_refresh <=  1'b0;
+    end
+    else begin
+        if ( last_ref_cnt >= tREFP && ~need_refresh && ~sync_refresh ) begin
+            need_refresh <= 1'b1;
+            
+        end
+        else if ( actual_row_open == { P_ROW_ADDR_WIDTH+1 {1'b1} } &&( need_refresh  && can_serve_actual_ref &&  (previous_cmd != LP_ROW_REFPB || (previous_cmd == LP_ROW_REFPB && actual_row_open == { P_ROW_ADDR_WIDTH+1 {1'b1} } ) ) && ((cmd_picked_bank && r_cmd_bank == LP_ROW_PRE) || (r_cmd_bank == LP_GENERAL_NOP && (previous_cmd == LP_ROW_PRE || actual_row_open == { P_ROW_ADDR_WIDTH+1 {1'b1} } ))) ) )  begin 
+            need_refresh <= 1'b0;
+        end
+        else if ( need_refresh && actual_row_open != { P_ROW_ADDR_WIDTH+1 {1'b1} } &&  can_serve_act_ref &&  previous_cmd != LP_ROW_ACT && ((cmd_picked_bank && r_cmd_bank == LP_ROW_REFPB) || (r_cmd_bank == LP_GENERAL_NOP && previous_cmd == LP_ROW_REFPB ))) begin
+            need_refresh <= 1'b0;
+        end
+    end
+end
+
 
 
 /* Prendo il comando in coda e lo mando al channel scheduler */
@@ -354,12 +457,44 @@ always @ ( posedge clk or negedge rst_n ) begin
         r_row_address_bank     <= { P_ROW_ADDR_WIDTH { 1'b0 } };
         r_column_address_bank  <= { P_COL_ADDR_WIDTH { 1'b0 } };
         r_wrt_data_bank        <= { P_DATA_WIDTH { 1'b0 } };
-        
+                
         tail                   <= 4'b0000;
         
     end
     else begin
-        if ( can_serve_actual_cmd && cmd_picked_bank && r_cmd_bank != LP_GENERAL_NOP ) begin            
+        if ( need_refresh  &&  can_serve_pre_ref && previous_cmd != LP_ROW_PRE && ((cmd_picked_bank && r_cmd_bank != LP_ROW_PRE) || r_cmd_bank == LP_GENERAL_NOP) && actual_row_open != { P_ROW_ADDR_WIDTH+1 {1'b1} }) begin
+            /* Qui potrei anche verificare se il prossimo comando in coda è proprio un precharge, in tal caso uso questo, devo ricordarmi però di settare dopo gli opportuni segnali di deincr */
+            r_cmd_bank              <= LP_ROW_PRE;
+            r_bank_address_bank     <= P_BANK_INDEX /*bank_addr_queue[tail]*/;
+            r_row_address_bank      <= { P_ROW_ADDR_WIDTH { 1'b0 } }; 
+            r_column_address_bank   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+            r_wrt_data_bank         <= { P_DATA_WIDTH { 1'b0 } };          
+        end
+        
+        else if ( need_refresh  && can_serve_actual_ref && (previous_cmd != LP_ROW_REFPB || (previous_cmd == LP_ROW_REFPB && actual_row_open == { P_ROW_ADDR_WIDTH+1 {1'b1} } ) ) && ((cmd_picked_bank && r_cmd_bank == LP_ROW_PRE) || (r_cmd_bank == LP_GENERAL_NOP && (previous_cmd == LP_ROW_PRE || actual_row_open == { P_ROW_ADDR_WIDTH+1 {1'b1} } ))) ) begin
+            r_cmd_bank              <=  LP_ROW_REFPB;
+            r_bank_address_bank     <= P_BANK_INDEX /*bank_addr_queue[tail]*/;
+            r_row_address_bank      <= { P_ROW_ADDR_WIDTH { 1'b0 } }; 
+            r_column_address_bank   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+            r_wrt_data_bank         <= { P_DATA_WIDTH { 1'b0 } }; 
+                   
+        end  
+        
+        else if ( need_refresh && actual_row_open != { P_ROW_ADDR_WIDTH+1 {1'b1} } &&  can_serve_act_ref &&  previous_cmd != LP_ROW_ACT && ((cmd_picked_bank && r_cmd_bank == LP_ROW_REFPB) || (r_cmd_bank == LP_GENERAL_NOP && previous_cmd == LP_ROW_REFPB ))) begin
+            r_cmd_bank              <= LP_ROW_ACT;
+            r_bank_address_bank     <= P_BANK_INDEX /*bank_addr_queue[tail]*/;
+            r_row_address_bank      <= actual_row_open; 
+            r_column_address_bank   <= { P_COL_ADDR_WIDTH { 1'b0 } };
+            r_wrt_data_bank         <= { P_DATA_WIDTH { 1'b0 } };
+            
+        end
+
+        else if ( need_refresh && cmd_picked_bank ) begin
+            r_cmd_bank              <= LP_GENERAL_NOP;
+        end
+               
+        /* BUONO */
+        else if (~need_refresh && can_serve_actual_cmd && cmd_picked_bank && r_cmd_bank != LP_GENERAL_NOP ) begin            
             r_cmd_bank              <= cmd_queue[tail];
             r_bank_address_bank     <= P_BANK_INDEX /*bank_addr_queue[tail]*/;
             r_row_address_bank      <= row_addr_queue[tail];
@@ -368,10 +503,10 @@ always @ ( posedge clk or negedge rst_n ) begin
             
             tail                    <= tail + 1'b1;
         end
-        else if ( ~can_serve_actual_cmd && cmd_picked_bank && r_cmd_bank != LP_GENERAL_NOP ) begin
+        else if ( ~need_refresh &&  ~can_serve_actual_cmd && cmd_picked_bank && r_cmd_bank != LP_GENERAL_NOP ) begin
             r_cmd_bank              <= LP_GENERAL_NOP;
         end
-        else if ( can_serve_actual_cmd && r_cmd_bank == LP_GENERAL_NOP ) begin
+        else if (~need_refresh &&  can_serve_actual_cmd && r_cmd_bank == LP_GENERAL_NOP ) begin
             r_cmd_bank              <= cmd_queue[tail];
             r_bank_address_bank     <= P_BANK_INDEX /*bank_addr_queue[tail]*/;
             r_row_address_bank      <= row_addr_queue[tail];
@@ -383,7 +518,6 @@ always @ ( posedge clk or negedge rst_n ) begin
     end 
 end
 
-reg  [2:0] dummy_cnt;
 
 /* Riempio la coda */
 always @ ( posedge clk or negedge rst_n ) begin
@@ -394,43 +528,30 @@ always @ ( posedge clk or negedge rst_n ) begin
         for ( integer i = 0; i < P_QUEUE_LEN; i = i + 1 ) col_addr_queue  [i]  <= { P_COL_ADDR_WIDTH { 1'b0 } };
         for ( integer i = 0; i < P_QUEUE_LEN; i = i + 1 ) wrt_data_queue  [i]  <= { P_DATA_WIDTH     { 1'b0 } };
         
+        r_cmd_picked_dispatcher <= 1'b0;
         head <= 4'b0000; 
         
     end 
     else begin
-        if ( cmd_cnt < P_QUEUE_LEN ) begin
-//            if (P_BANK_INDEX == 0 /*|| P_BANK_INDEX == 16 || P_BANK_INDEX == 1 || P_BANK_INDEX == 17 || P_BANK_INDEX == 8 || P_BANK_INDEX == 24*/) begin 
-                if ( dummy_cnt == 3'b000 ) begin
-                    cmd_queue[head]   <= LP_ROW_PRE;
-                end
-                else if ( dummy_cnt == 3'b001 ) begin
-                    cmd_queue[head]   <= LP_ROW_ACT;
-                end
-                else if (dummy_cnt >= 3'b010 && dummy_cnt < 3'b101)begin
-                    cmd_queue[head]   <= LP_COL_WRT;
-                end 
-                else if (dummy_cnt >= 3'b101 && dummy_cnt <= 3'b111 ) begin
-                    cmd_queue[head]   <= LP_COL_RD;
-                end
-                head <= head + 1'b1;
-//            end
-//            else begin
-//                cmd_queue[head]   <= LP_GENERAL_NOP;
-//                head <= head + 1'b1;
-//            end
+        if ( cmd_cnt < P_QUEUE_LEN && cmd_dispatcher != LP_GENERAL_NOP ) begin
+            cmd_queue       [head]    <= cmd_dispatcher;
+            bank_addr_queue [head]    <= bank_addr_dispatcher;
+            row_addr_queue  [head]    <= row_addr_dispatcher;   
+            col_addr_queue  [head]    <= col_addr_dispatcher;
+            wrt_data_queue  [head]    <= wrt_data_dispatcher;
+             
+            head <= head + 1'b1;
+            r_cmd_picked_dispatcher  <= 1'b1;
+        
         end 
+        else if (/*cmd_cnt < P_QUEUE_LEN &&*/ cmd_dispatcher == LP_GENERAL_NOP) begin
+            r_cmd_picked_dispatcher  <= 1'b1;
+        end
+        else begin
+            head <= head;
+            r_cmd_picked_dispatcher  <= 1'b0;
+        end
     end
-end
-
-
-/* PER SIMULARE */
-always @ ( posedge clk or negedge rst_n ) begin
-    if ( rst_n == 1'b0 ) begin
-        dummy_cnt <= 3'b000;
-    end 
-    else if ( cmd_cnt < P_QUEUE_LEN )  begin
-        dummy_cnt <= dummy_cnt + 1'b1;
-    end 
 end
 
 
