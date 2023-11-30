@@ -104,7 +104,10 @@ module channel_scheduler#
     output ready_to_cmd_ras_ps0,
     output ready_to_cmd_cas_ps0,
     output ready_to_cmd_ras_ps1,
-    output ready_to_cmd_cas_ps1
+    output ready_to_cmd_cas_ps1,
+    
+    output [(P_BA_N_PS*2)-1:0]          served_ras,
+    output [(P_BA_N_PS*2)-1:0]          served_cas
     
        
 );
@@ -333,7 +336,10 @@ ll_command_forwarder_RAS_CAS_PS0_PS1_queue #(
     .cmd_cas_ps1(cmd_cas_ps1),
     .bank_address_cas_ps1(bank_address_cas_ps1),
     .column_address_cas_ps1(column_address_cas_ps1),
-    .wrt_data_cas_ps1(wrt_data_cas_ps1)
+    .wrt_data_cas_ps1(wrt_data_cas_ps1),
+    
+    .served_ras(served_ras),
+    .served_cas(served_cas)
 );
 
 

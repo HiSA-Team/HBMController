@@ -143,6 +143,10 @@ reg   request_valid    [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
 wire  request_picked   [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
 
 
+wire [(P_BA_N_PS*2)-1:0]          served_ras;
+wire [(P_BA_N_PS*2)-1:0]          served_cas;
+
+
 /* SIMULO LE RICHIESTE */
 always @ (posedge dfi_0_clk_buf or negedge dfi_0_rst_n) begin
     if ( dfi_0_rst_n == 1'b0 ) begin
@@ -167,32 +171,38 @@ end
 integer fd;
 string  line;
 string  request;
-reg [32:0] address;
+reg [31:0] address;
+
+reg cnt_ps = 0;
 
 
 initial begin
 //    input_address[0] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH {1'b0}};
     wait(dfi_0_rst_n == 1'b1);
     
-    fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/output.txt", "r");
+    fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/output3.txt", "r");
     while(!$feof(fd))begin
         $fgets(line, fd);
 //        $display(line);
         
         request = line.substr(0,1);
-        address <= line.substr(3,34).atobin();
-//        $display(address[32:28]);
-        request_valid[0] <= 1'b1;
-        wait(request_picked[address[32:28]] == 1'b1);
-        request_valid[0] <= 1'b0;
+        address = line.substr(3,34).atobin();
+//        $display(address[31:27]);
+        request_valid[{cnt_ps, address[31:28]}] <= 1'b1;
+        wait(request_picked[{cnt_ps, address[31:28]}] == 1'b1);
+        request_valid[{cnt_ps, address[31:28]}] <= 1'b0;
         if (request == "RD") begin
-            input_request[address[32:28]] <= 2'b01;
+            input_request[{cnt_ps, address[31:28]}] <= 2'b01;
         end
         else begin
-            input_request[address[32:28]] <= 2'b00;
+            input_request[{cnt_ps, address[31:28]}] <= 2'b00;
         end
-        input_address[address[32:28]] <= address;
-        wait(request_picked[address[32:28]] == 1'b0);
+        
+        input_address[{cnt_ps, address[31:28]}] <= {cnt_ps, address};
+        
+        cnt_ps = cnt_ps + 1'b1;
+        
+        wait(request_picked[{cnt_ps, address[31:28]}] == 1'b0);
     end
     
     $fclose(fd);
@@ -266,8 +276,8 @@ generate
                 .row_address_bank          (row_address_bank[i]),
                 .column_address_bank       (column_address_bank[i]),
                 .wrt_data_bank             (wrt_data_bank[i]),
-                .ready_to_cmd_ras          (ready_to_cmd_ras_ps0),
-                .ready_to_cmd_cas          (ready_to_cmd_cas_ps0)
+                .served_ras                (served_ras[i]),
+                .served_cas                (served_cas[i])
             );
         end
         else begin
@@ -294,9 +304,9 @@ generate
                 .row_address_bank          (row_address_bank[i]),
                 .column_address_bank       (column_address_bank[i]),
                 .wrt_data_bank             (wrt_data_bank[i]),
-                .ready_to_cmd_ras          (ready_to_cmd_ras_ps1),
-                .ready_to_cmd_cas          (ready_to_cmd_cas_ps1)
-            );
+                .served_ras                (served_ras[i]),
+                .served_cas                (served_cas[i])
+            ); 
         end
     end
 endgenerate
@@ -367,7 +377,11 @@ channel_0_scheduler
     .ready_to_cmd_ras_ps0        (ready_to_cmd_ras_ps0),
     .ready_to_cmd_cas_ps0        (ready_to_cmd_cas_ps0),
     .ready_to_cmd_ras_ps1        (ready_to_cmd_ras_ps1),
-    .ready_to_cmd_cas_ps1        (ready_to_cmd_cas_ps1)
+    .ready_to_cmd_cas_ps1        (ready_to_cmd_cas_ps1),
+    
+    
+    .served_ras(served_ras),
+    .served_cas(served_cas)
 
     
 );
