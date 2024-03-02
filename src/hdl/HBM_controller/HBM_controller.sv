@@ -5,7 +5,7 @@
 // 
 // Create Date: 09/26/2023 02:23:55 PM
 // Design Name: 
-// Module Name: ll_command_forwarder_RAS_CAS_PS0_PS1_queue_top
+// Module Name: HBM_controller
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -21,20 +21,73 @@
 
 
 module HBM_controller # (
-    parameter       P_DRIVE_PRECHARGE_CMD = 114,
-    parameter		P_PRECHG_THR= 200,
-    parameter		P_ACT_THR	= 40,
-    parameter		P_WRT_THR	= 60,
-    parameter		P_RD_THR	= 60,
-    parameter		P_DRIVE_ACT_CMD = 240,
-    parameter		P_MRS_CNT = 8'hc0,
-    parameter		P_ROW_ADDR_WIDTH = 16,
-    parameter		P_COL_ADDR_WIDTH = 12,
-    parameter		P_BA_ADDR_WIDTH	= 5, 
-    parameter       P_BA_N_PS       = 16,        /* Nunmero di Bank per PS */
-    parameter       P_BA_N_G        = 8,         /* Numero di Bank per gruppo */ 
-    parameter       P_DATA_WIDTH     = 256,
-    parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32         /* Numero totali di bank per canale */    
+    parameter       P_DRIVE_PRECHARGE_CMD  = 114,
+    parameter		P_PRECHG_THR           = 200,
+    parameter		P_ACT_THR	           = 40,
+    parameter		P_WRT_THR	           = 60,
+    parameter		P_RD_THR	           = 60,
+    parameter		P_DRIVE_ACT_CMD        = 240,
+    parameter		P_MRS_CNT              = 8'hc0,
+
+    parameter		P_ROW_ADDR_WIDTH           = 16,
+    parameter		P_COL_ADDR_WIDTH           = 12,
+    parameter		P_BA_ADDR_WIDTH	           = 5, 
+    parameter       P_BA_N_PS                  = 16,        /* Number of Banks per PS, here we consider half bank for PS */
+    parameter       P_BA_N_G                   = 4,         /* Number of Banks per group */
+    parameter       P_DATA_WIDTH               = 256,
+    parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32,        /* Number of Banks per channel, again we consider half bank */
+
+    /* FIFO QUEUE LEN */
+    parameter       P_QUEUE_LEN             = 128,
+
+    /* WRT BUFFER LEN */
+    parameter       P_WRT_DATA_BUFFER_LEN   = 128,
+    
+    /* REQUESTS       */
+    parameter       P_WRT_REQ         =  2'd0,
+    parameter       P_RD_REQ          =  2'd1,
+
+    /* COMMANDS        */
+    parameter       P_GENERAL_NOP     =  4'b1111,
+
+    /* COLUMN COMMANDS */ 
+    parameter       P_COL_WRT		  =  4'b0001,
+    parameter       P_COL_RD          =  4'b0101,
+    parameter       P_COL_NOP         =  4'b1111,
+    parameter       P_COL_RD_AP		  =  4'b1101,
+    parameter       P_COL_WRT_AP	  =  4'b1001,
+    parameter       P_COL_MRS		  =  4'b0000,
+
+    /* ROW COMMANDS    */
+    parameter       P_ROW_NOP		  =  3'b111,
+    parameter       P_ROW_ACT		  =  3'b010,
+    parameter       P_ROW_PRE		  =  3'b011,
+    parameter       P_ROW_PREA	      =  3'b011,
+    parameter       P_ROW_REFPB       =  4'b1001, 
+    
+
+    /* HBM INTRA BANK TIMING CONSTRAINTS  */
+    parameter    tRCD     =  32'd14,
+    parameter    tRP      =  32'd14,
+    parameter    tRC      =  32'd1,
+    parameter    tRAS     =  32'd34,
+    parameter    tWL      =  32'd4,
+    parameter    tRL      =  32'd14,
+    parameter    tRTPl    =  32'd6,
+    parameter    tWR      =  32'd16,
+    parameter    tBURST   =  32'd2,
+    parameter    tRFCpb   =  32'd20,
+    parameter    tREFP    =  32'd1450,
+
+    /* HBM INTRA AND INTER BANK TIMING CONSTRAINTS */      
+    parameter    tCCDl    =  32'd1,
+    parameter    tRTW     =  32'd8, 
+    parameter    tWTRl    =  32'd8, /* 32'd10 */
+    parameter    tRRD     =  32'd8,
+    parameter    tFAW     =  32'd30,
+    parameter    tWTRs    =  32'd8,
+    parameter    tRREFD   =  32'd4
+
 )(
 
     input HBM_REF_CLK_0_buf,
@@ -133,8 +186,6 @@ wire [P_COL_ADDR_WIDTH-1 : 0]    col_addr_dispatcher       [0 : P_TOTAL_PER_CHAN
 wire [P_DATA_WIDTH-1     : 0]    wrt_data_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
 wire                             cmd_picked_dispatcher     [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
 
-/* Registri per inoltrare le richieste ai command dispatcher */
-
 reg [1:0]                                                       input_request [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
 reg [P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH-1 : 0 ]  input_address [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
 reg [P_DATA_WIDTH-1 : 0]                                        input_data    [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
@@ -147,26 +198,23 @@ wire [(P_BA_N_PS*2)-1:0]          served_ras;
 wire [(P_BA_N_PS*2)-1:0]          served_cas;
 
 
-/* SIMULO LE RICHIESTE */
-always @ (posedge dfi_0_clk_buf or negedge dfi_0_rst_n) begin
-    if ( dfi_0_rst_n == 1'b0 ) begin
-        for (integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1) begin
-//            input_request[i] <= 2'b01;
-            input_address[i] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH { 1'b0 } };
-//            input_data[i]    <= { P_DATA_WIDTH { 1'b0 } };
-//            request_valid[i] <= 1'b1;
-        end 
-    end
-//    else begin 
-//        for (integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1) begin
-////            input_request[i] <= 2'b01;
-//            input_address[i] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH { 1'b0 } };
-////            input_data[i]    <= { P_DATA_WIDTH { 1'b0 } };
-////            request_valid[i] <= 1'b1;
-//        end
-//    end
-    
-end
+/* Request ID and command ID - for tracking and debugging */
+/* From extern to dispatcher */
+reg  [63:0] r_input_req_id  [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+wire [63:0] input_req_id    [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+
+/* From dispatcher to bank scheduler */
+wire [63:0] req_id          [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+wire [63:0] cmd_id          [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+
+/* From bank scheduler to channel scheduler */
+wire [63:0] req_id_bank     [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+wire [63:0] cmd_id_bank     [0 : P_TOTAL_PER_CHANNEL_BANK_N-1];
+
+assign input_req_id = r_input_req_id;
+
+
+/* SIMULATION */
 
 integer fd;
 string  line;
@@ -174,35 +222,37 @@ string  request;
 reg [31:0] address;
 
 reg cnt_ps = 0;
-
+reg [63:0]counter_requests; 
 
 initial begin
-//    input_address[0] <= { P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH {1'b0}};
+    counter_requests <= {64{1'b0}};
     wait(dfi_0_rst_n == 1'b1);
     
-    fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/output3.txt", "r");
+    fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/fwd_softmax_workload.txt", "r");
     while(!$feof(fd))begin
         $fgets(line, fd);
-//        $display(line);
         
         request = line.substr(0,1);
-        address = line.substr(3,34).atobin();
-//        $display(address[31:27]);
-        request_valid[{cnt_ps, address[31:28]}] <= 1'b1;
-        wait(request_picked[{cnt_ps, address[31:28]}] == 1'b1);
-        request_valid[{cnt_ps, address[31:28]}] <= 1'b0;
+        address = line.substr(4,35).atobin();
         if (request == "RD") begin
-            input_request[{cnt_ps, address[31:28]}] <= 2'b01;
+            input_request[{address[2], address[6:3]}] <= 2'b01;
         end
         else begin
-            input_request[{cnt_ps, address[31:28]}] <= 2'b00;
+            input_request[{address[2], address[6:3]}] <= 2'b00;
         end
         
-        input_address[{cnt_ps, address[31:28]}] <= {cnt_ps, address};
+        input_address[{address[2], address[6:3]}] <= {1'b0,  address};
+        r_input_req_id[{address[2], address[6:3]}] <= counter_requests;
         
+        request_valid[{address[2], address[6:3]}] <= 1'b1;
+        wait(request_picked[{address[2], address[6:3]}] == 1'b1);
+        request_valid[{address[2], address[6:3]}] <= 1'b0;   
+        
+        $display("[ CONTROLLER %d ]: REQ: %d - CMD: %d (%d) sent at %d", 1'b0, counter_requests, 1'b0, 1'b0, $time);
+
+        wait(request_picked[{address[2], address[6:3]}] == 1'b0);
         cnt_ps = cnt_ps + 1'b1;
-        
-        wait(request_picked[{cnt_ps, address[31:28]}] == 1'b0);
+        counter_requests <= counter_requests + 1'b1;
     end
     
     $fclose(fd);
@@ -210,114 +260,140 @@ initial begin
 end
 
 
-/* FINE SIMULAZIONE */
-
-
-genvar j;
-generate 
-    for ( j = 0; j < P_TOTAL_PER_CHANNEL_BANK_N; j = j + 1 ) begin : command_dispatcher
-        command_dispatcher #(
-            .P_REQ_WIDTH(2),
-            .P_ADDR_WIDTH(P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH),
-            .P_DATA_WIDTH(P_DATA_WIDTH),
-            .P_ROW_ADDR_WIDTH(P_ROW_ADDR_WIDTH),
-            .P_COL_ADDR_WIDTH(P_COL_ADDR_WIDTH),
-            .P_BA_ADDR_WIDTH(P_BA_ADDR_WIDTH),
-            .P_QUEUE_LEN(16)
-        ) command_dispatcher (
-            .clk(dfi_0_clk_buf),
-            .rst_n(dfi_0_rst_n),
-            
-            
-            /* Interfaccia verso l'esterno */
-            .input_request(input_request[j]),
-            .input_address(input_address[j]),
-            .input_data(input_data[j]),
-            .request_valid(request_valid[j]),
-            .request_picked(request_picked[j]),
-           
-            /* Interfaccia verso il bank scheduler */
-            .cmd_picked(cmd_picked_dispatcher[j]),
-            .cmd(cmd_dispatcher[j]),
-            .bank_addr(bank_addr_dispatcher[j]),
-            .row_addr(row_addr_dispatcher[j]),
-            .col_addr(col_addr_dispatcher[j]),
-            .wrt_data(wrt_data_dispatcher[j])
-        );
-
-    end
-endgenerate
-
+/* END SIMULATION */
 
 genvar i;
 generate 
-    for ( i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) begin : bank
-        if (i < P_BA_N_PS) begin
-            bank_scheduler#(
-                .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH),
-                .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH),
-                .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH), 
-                .P_DATA_WIDTH              (P_DATA_WIDTH),
-                .P_BANK_INDEX              (i)
-            ) bank_scheduler(
-                .clk                       (dfi_0_clk_buf),
-                .rst_n                     (dfi_0_rst_n),
+    for ( i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) begin : dispatcher_bank_scheduler
+            command_dispatcher #(
+                .P_REQ_WIDTH       (2),
+                .P_ADDR_WIDTH      (P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH+P_BA_ADDR_WIDTH),
+                .P_DATA_WIDTH      (P_DATA_WIDTH),
+                .P_ROW_ADDR_WIDTH  (P_ROW_ADDR_WIDTH),
+                .P_COL_ADDR_WIDTH  (P_COL_ADDR_WIDTH),
+                .P_BA_ADDR_WIDTH   (P_BA_ADDR_WIDTH),
+
+
+                .P_QUEUE_LEN       (P_QUEUE_LEN  ),
+                .P_WRT_REQ         (P_WRT_REQ    ),
+                .P_RD_REQ          (P_RD_REQ     ),
+                .P_GENERAL_NOP     (P_GENERAL_NOP),
+                .P_ROW_NOP		   (P_ROW_NOP    ),
+                .P_ROW_ACT		   (P_ROW_ACT    ),
+                .P_ROW_PRE		   (P_ROW_PRE    ),
+                .P_ROW_PREA	       (P_ROW_PREA   ),
+                .P_COL_WRT		   (P_COL_WRT    ),
+                .P_COL_RD          (P_COL_RD     )
+            ) command_dispatcher (
+                .clk               (dfi_0_clk_buf     ),
+                .rst_n             (dfi_0_rst_n       ),
                 
-                .cmd_dispatcher            (cmd_dispatcher[i]),
-                .bank_addr_dispatcher      (bank_addr_dispatcher[i]),
-                .row_addr_dispatcher       (row_addr_dispatcher[i]),
-                .col_addr_dispatcher       (col_addr_dispatcher[i]),
-                .wrt_data_dispatcher       (wrt_data_dispatcher[i]),
-                .cmd_picked_dispatcher     (cmd_picked_dispatcher[i]),
-                
-                .cmd_picked_bank           (cmd_picked_bank[i]),
-                .cmd_bank                  (cmd_bank[i]),
-                .bank_address_bank         (bank_address_bank[i]),
-                .row_address_bank          (row_address_bank[i]),
-                .column_address_bank       (column_address_bank[i]),
-                .wrt_data_bank             (wrt_data_bank[i]),
-                .served_ras                (served_ras[i]),
-                .served_cas                (served_cas[i])
+                .input_req_id      (input_req_id[i]   ), 
+                .input_request     (input_request[i]  ),
+                .input_address     (input_address[i]  ),
+                .input_data        (input_data[i]     ),
+                .request_valid     (request_valid[i]  ),
+                .request_picked    (request_picked[i] ),
+               
+                .req_id            (req_id[i]                ),
+                .cmd_id            (cmd_id[i]                ),
+                .cmd_picked        (cmd_picked_dispatcher[i] ),
+                .cmd               (cmd_dispatcher[i]        ),
+                .bank_addr         (bank_addr_dispatcher[i]  ),
+                .row_addr          (row_addr_dispatcher[i]   ),
+                .col_addr          (col_addr_dispatcher[i]   ),
+                .wrt_data          (wrt_data_dispatcher[i]   )
             );
-        end
-        else begin
+    
+    
             bank_scheduler#(
-                .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH),
-                .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH),
-                .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH), 
-                .P_DATA_WIDTH              (P_DATA_WIDTH),
-                .P_BANK_INDEX              (i)
+                .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH ),
+                .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH ),
+                .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH  ), 
+                .P_DATA_WIDTH              (P_DATA_WIDTH     ),
+                .P_BANK_INDEX              (i                ),
+                .P_GENERAL_NOP             (P_GENERAL_NOP    ),
+                .P_ROW_NOP                 (P_ROW_NOP        ),
+                .P_ROW_ACT                 (P_ROW_ACT        ),
+                .P_ROW_PRE                 (P_ROW_PRE        ),  
+                .P_ROW_PREA                (P_ROW_PREA       ),  
+                .P_ROW_REFPB               (P_ROW_REFPB      ), 
+                .P_COL_WRT                 (P_COL_WRT        ),
+                .P_COL_RD                  (P_COL_RD         ),
+
+                .tRCD                      (tRCD   ),
+                .tRP                       (tRP    ),
+                .tRC                       (tRC    ),
+                .tRAS                      (tRAS   ),
+                .tWL                       (tWL    ),
+                .tRL                       (tRL    ),
+                .tRTPl                     (tRTPl  ),
+                .tWR                       (tWR    ),
+                .tBURST                    (tBURST ),
+                .tRFCpb                    (tRFCpb ),
+                .tREFP                     (tREFP  )  
+
+
             ) bank_scheduler(
-                .clk                       (dfi_0_clk_buf),
-                .rst_n                     (dfi_0_rst_n),
+                .clk                       (dfi_0_clk_buf ),
+                .rst_n                     (dfi_0_rst_n   ),
+                 
+                .req_id_dispatcher         (req_id[i]                ),
+                .cmd_id_dispatcher         (cmd_id[i]                ),
+                .cmd_dispatcher            (cmd_dispatcher[i]        ),
+                .bank_addr_dispatcher      (bank_addr_dispatcher[i]  ),
+                .row_addr_dispatcher       (row_addr_dispatcher[i]   ),
+                .col_addr_dispatcher       (col_addr_dispatcher[i]   ),
+                .wrt_data_dispatcher       (wrt_data_dispatcher[i]   ),
+                .cmd_picked_dispatcher     (cmd_picked_dispatcher[i] ),
                 
-                .cmd_dispatcher            (cmd_dispatcher[i]),
-                .bank_addr_dispatcher      (bank_addr_dispatcher[i]),
-                .row_addr_dispatcher       (row_addr_dispatcher[i]),
-                .col_addr_dispatcher       (col_addr_dispatcher[i]),
-                .wrt_data_dispatcher       (wrt_data_dispatcher[i]),
-                .cmd_picked_dispatcher     (cmd_picked_dispatcher[i]),
-                                
-                .cmd_picked_bank           (cmd_picked_bank[i]),
-                .cmd_bank                  (cmd_bank[i]),
-                .bank_address_bank         (bank_address_bank[i]),
-                .row_address_bank          (row_address_bank[i]),
-                .column_address_bank       (column_address_bank[i]),
-                .wrt_data_bank             (wrt_data_bank[i]),
-                .served_ras                (served_ras[i]),
-                .served_cas                (served_cas[i])
-            ); 
-        end
+
+                .cmd_picked_bank           (cmd_picked_bank[i]     ),
+                .req_id_bank               (req_id_bank[i]         ),
+                .cmd_id_bank               (cmd_id_bank[i]         ),
+                .cmd_bank                  (cmd_bank[i]            ),
+                .bank_address_bank         (bank_address_bank[i]   ),
+                .row_address_bank          (row_address_bank[i]    ),
+                .column_address_bank       (column_address_bank[i] ),
+                .wrt_data_bank             (wrt_data_bank[i]       ),
+                .served_ras                (served_ras[i]          ),
+                .served_cas                (served_cas[i]          )
+            );
     end
 endgenerate
 
 
 channel_scheduler#(
-    .P_TOTAL_PER_CHANNEL_BANK_N(P_TOTAL_PER_CHANNEL_BANK_N)
+    .P_TOTAL_PER_CHANNEL_BANK_N( P_TOTAL_PER_CHANNEL_BANK_N),
+    .P_WRT_DATA_BUFFER_LEN (P_WRT_DATA_BUFFER_LEN),
+
+    .P_COL_NOP		    (P_COL_NOP    ),
+    .P_COL_RD		    (P_COL_RD     ),
+    .P_COL_RD_AP		(P_COL_RD_AP  ),
+    .P_COL_WRT		    (P_COL_WRT    ),
+    .P_COL_WRT_AP	    (P_COL_WRT_AP ),
+    .P_COL_MRS		    (P_COL_MRS    ),
+
+    .P_ROW_NOP		    (P_ROW_NOP    ),
+    .P_ROW_ACT		    (P_ROW_ACT    ),
+    .P_ROW_PRE		    (P_ROW_PRE    ), 
+    .P_ROW_PREA		    (P_ROW_PREA   ),  
+    .P_ROW_REFPB        (P_ROW_REFPB  ), 
+    .P_GENERAL_NOP      (P_GENERAL_NOP),
+
+    .tWL        (tWL   ),      
+    .tRL        (tRL   ),
+    .tCCDl      (tCCDl ),      
+    .tRTW       (tRTW  ),
+    .tWTRl      (tWTRl ),      
+    .tRRD       (tRRD  ), 
+    .tFAW       (tFAW  ),
+    .tWTRs      (tWTRs ),
+    .tRREFD     (tRREFD)
+
 )
 channel_0_scheduler
 (
-    //DFI INTERFACE SIGNALS
     .dfi_clk                               (dfi_0_clk_buf),
     .dfi_rst_n                             (dfi_0_rst_n),
     
@@ -366,8 +442,9 @@ channel_0_scheduler
     .dfi_ctrlupd_req                       (dfi_0_ctrlupd_req     ),
     .dfi_phyupd_ack                        (dfi_0_phyupd_ack      ),
     
-     /* Interfaccia verso i bank scheduler */
     .cmd_picked_bank             (cmd_picked_bank),
+    .req_id_bank                 (req_id_bank),
+    .cmd_id_bank                 (cmd_id_bank),
     .cmd_bank                    (cmd_bank),
     .bank_address_bank           (bank_address_bank),
     .row_address_bank            (row_address_bank),
@@ -382,8 +459,6 @@ channel_0_scheduler
     
     .served_ras(served_ras),
     .served_cas(served_cas)
-
-    
 );
 
 
@@ -458,10 +533,6 @@ hbm_0 hbm_0_i
 
     ,.DRAM_0_STAT_CATTRIP          (DRAM_0_STAT_CATTRIP)
     ,.DRAM_0_STAT_TEMP             (DRAM_0_STAT_TEMP   )
-
 );
-
-
-
 
 endmodule
