@@ -38,10 +38,10 @@ module HBM_controller # (
     parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32,        /* Number of Banks per channel, again we consider half bank */
 
     /* FIFO QUEUE LEN */
-    parameter       P_QUEUE_LEN             = 128,
+    parameter       P_QUEUE_LEN             = 32,
 
     /* WRT BUFFER LEN */
-    parameter       P_WRT_DATA_BUFFER_LEN   = 128,
+    parameter       P_WRT_DATA_BUFFER_LEN   = 32,
     
     /* REQUESTS       */
     parameter       P_WRT_REQ         =  2'd0,
@@ -66,9 +66,9 @@ module HBM_controller # (
     parameter       P_ROW_REFPB       =  4'b1001, 
     
 
-    /* HBM INTRA BANK TIMING CONSTRAINTS  */
+    /* EXCLUSIVE HBM INTRA BANK TIMING CONSTRAINTS - FOR BANK SCHEDULERS  */
     parameter    tRCD     =  32'd14,
-    parameter    tRP      =  32'd14,
+    parameter    tRP      =  32'd14 ,
     parameter    tRC      =  32'd1,
     parameter    tRAS     =  32'd34,
     parameter    tWL      =  32'd4,
@@ -77,16 +77,16 @@ module HBM_controller # (
     parameter    tWR      =  32'd16,
     parameter    tBURST   =  32'd2,
     parameter    tRFCpb   =  32'd20,
-    parameter    tREFP    =  32'd1450,
+    parameter    tREFP    =  32'd1215,      /* Refresh Period*/  /* Maybe it is too conservative ? */
 
-    /* HBM INTRA AND INTER BANK TIMING CONSTRAINTS */      
+    /* HBM INTRA AND INTER BANK TIMING CONSTRAINTS - FOR LLCF */      
     parameter    tCCDl    =  32'd1,
-    parameter    tRTW     =  32'd8, 
-    parameter    tWTRl    =  32'd8, /* 32'd10 */
-    parameter    tRRD     =  32'd8,
+    parameter    tRTW     =  /*32'd8*/ 32'd8, 
+    parameter    tWTRl    =  /*32'd8*/ 32'd8,
+    parameter    tRRD     =  /*32'd8*/ 32'd6,
     parameter    tFAW     =  32'd30,
-    parameter    tWTRs    =  32'd8,
-    parameter    tRREFD   =  32'd4
+    parameter    tWTRs    =  /*32'd8*/ 32'd6,
+    parameter    tRREFD   =  32'd4 
 
 )(
 
@@ -235,22 +235,22 @@ initial begin
         request = line.substr(0,1);
         address = line.substr(4,35).atobin();
         if (request == "RD") begin
-            input_request[{address[2], address[6:3]}] <= 2'b01;
+            input_request[{1'b0, address[31:28]}] <= 2'b01;
         end
         else begin
-            input_request[{address[2], address[6:3]}] <= 2'b00;
+            input_request[{1'b0, address[31:28]}] <= 2'b00;
         end
         
-        input_address[{address[2], address[6:3]}] <= {1'b0,  address};
-        r_input_req_id[{address[2], address[6:3]}] <= counter_requests;
+        input_address[{1'b0, address[31:28]}] <= {1'b0,  address};
+        r_input_req_id[{1'b0, address[31:28]}] <= counter_requests;
         
-        request_valid[{address[2], address[6:3]}] <= 1'b1;
-        wait(request_picked[{address[2], address[6:3]}] == 1'b1);
-        request_valid[{address[2], address[6:3]}] <= 1'b0;   
+        request_valid[{1'b0, address[31:28]}] <= 1'b1;
+        wait(request_picked[{1'b0, address[31:28]}] == 1'b1);
+        request_valid[{1'b0, address[31:28]}] <= 1'b0;   
         
         $display("[ CONTROLLER %d ]: REQ: %d - CMD: %d (%d) sent at %d", 1'b0, counter_requests, 1'b0, 1'b0, $time);
 
-        wait(request_picked[{address[2], address[6:3]}] == 1'b0);
+        wait(request_picked[{1'b0, address[31:28]}] == 1'b0);
         cnt_ps = cnt_ps + 1'b1;
         counter_requests <= counter_requests + 1'b1;
     end

@@ -118,9 +118,9 @@ wire [P_COL_ADDR_WIDTH-1 : 0] column_address;
 wire [P_BA_ADDR_WIDTH-1  : 0] bank_address;
  
 /* 16R-10C-2BG-2B-PS-2C */
-assign row_address    =  input_address[32:17];
-assign column_address =  {input_address[16:7], input_address[1:0]};
-assign bank_address   =  {input_address[2], input_address[6:3]};
+// assign row_address    =  input_address[32:17];
+// assign column_address =  {input_address[16:7], input_address[1:0]};
+// assign bank_address   =  {input_address[2], input_address[6:3]};
 
 /* 16R-10C-2B-2BG-PS-2C */
 // assign row_address    =  input_address[32:17];
@@ -128,9 +128,9 @@ assign bank_address   =  {input_address[2], input_address[6:3]};
 // assign bank_address   =  {input_address[2], input_address[4:3],input_address[6:5]};
 
 /* PS-2BG-2B-16R-12C */
-// assign row_address    =  {input_address[27:12]};
-// assign column_address =  {input_address[11:0]};
-// assign bank_address   =  {input_address[32:28]};
+assign row_address    =  {input_address[27:12]};
+assign column_address =  {input_address[11:0]};
+assign bank_address   =  {input_address[32:28]};
 
 /* 16R-PS-2BG-2B-12C */ 
 // assign row_address    =  {input_address[32:17]};

@@ -34,7 +34,7 @@ module bank_scheduler #
     parameter  tWR           =      32'd16,       /* End of a WR operation to PRE delay */
     parameter  tBURST        =      32'd2,        /* Data bus transfer */
     parameter  tRFCpb        =      32'd20,       /* Per Bank REF to Per Bank REF/ACT (Any Banks) */
-    parameter  tREFP         =      32'd1450      /* Refresh Period*/
+    parameter  tREFP         =      32'd1215      /* Refresh Period*/  /* Maybe it is too conservative ? */
 )
 (
     input   clk,
@@ -115,8 +115,6 @@ reg  [P_DATA_WIDTH-1 : 0]            wrt_data_inter;
 reg  [63:0]                          req_id_inter;
 reg  [63:0]                          cmd_id_inter; 
 
-
-
 /* Command Dispatcher interface */
 reg r_cmd_picked_dispatcher;
 assign cmd_picked_dispatcher = r_cmd_picked_dispatcher;
@@ -128,15 +126,12 @@ reg [7:0]  last_pre_cnt;
 reg [7:0]  last_wrt_cnt;
 reg [7:0]  last_rd_cnt;
 
-/* Extra counter registers */
-reg [7:0]  last_rd_for_pre_cnt;
-reg [7:0]  last_wrt_for_pre_cnt;
-reg [7:0]  last_act_for_cas_cnt;
-
 /* Waiting registers, need to wait that a CMD is served by LLCF */
 reg [1:0]  waiting_for_rd_serve;
 reg [1:0]  waiting_for_wrt_serve;
 reg [1:0]  waiting_for_act_serve;
+reg [1:0]  waiting_for_pre_serve;
+reg [1:0]  waiting_for_ref_serve;
 
 reg [3:0]  previous_cmd;  /* Previous executed command */
 
@@ -165,11 +160,11 @@ reg [31:0] ref_occurrences_cnt; /* Counter just to give some id to refresh gener
 reg busy;
 
 /* Can serve actual command combinatorial logic */
-assign can_serve_actual_act = (cmd_inter == P_ROW_ACT) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb);  
-assign can_serve_actual_pre = (cmd_inter == P_ROW_PRE) && (last_act_cnt >= tRAS) && ((last_rd_cnt  >= tRTPl && previous_cmd != P_COL_RD) || (last_rd_for_pre_cnt  >= tRTPl && previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00) ) && ((last_wrt_cnt >= (tWL + tWR + tBURST) && previous_cmd != P_COL_WRT) ||(last_wrt_for_pre_cnt >= (tWL + tWR + tBURST) && previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00));
-assign can_serve_actual_ref = (cmd_inter == P_ROW_REFPB) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb);
-assign can_serve_actual_rd  = (cmd_inter == P_COL_RD) && ((previous_cmd != P_ROW_ACT && last_act_cnt >= tRCD) || (previous_cmd == P_ROW_ACT && last_act_for_cas_cnt >= tRCD && waiting_for_act_serve == 2'b00));
-assign can_serve_actual_wrt = (cmd_inter == P_COL_WRT) && ((previous_cmd != P_ROW_ACT && last_act_cnt >= tRCD ) || (previous_cmd == P_ROW_ACT && last_act_for_cas_cnt >= tRCD && waiting_for_act_serve == 2'b00));
+assign can_serve_actual_act = (cmd_inter == P_ROW_ACT) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && ( (previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00) || (previous_cmd == P_ROW_REFPB && waiting_for_ref_serve == 2'b00) );  
+assign can_serve_actual_pre = (cmd_inter == P_ROW_PRE) && (last_act_cnt >= tRAS) && (last_rd_cnt  >= tRTPl) && (last_wrt_cnt >= (tWL + tWR + tBURST)) && ( (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00));
+assign can_serve_actual_ref = (cmd_inter == P_ROW_REFPB) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && ( previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00 );
+assign can_serve_actual_rd  = (cmd_inter == P_COL_RD) && (last_act_cnt >= tRCD) && ((previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00 ));
+assign can_serve_actual_wrt = (cmd_inter == P_COL_WRT) && (last_act_cnt >= tRCD ) && ((previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00 ));
 assign can_serve_actual_cmd = can_serve_actual_act | can_serve_actual_pre | can_serve_actual_ref | can_serve_actual_rd | can_serve_actual_wrt;
 
 /***********************/
@@ -177,10 +172,11 @@ assign can_serve_actual_cmd = can_serve_actual_act | can_serve_actual_pre | can_
 /***********************/
 always @(posedge clk or negedge rst_n) begin
     if ( rst_n == 1'b0 ) begin
-        previous_cmd <= P_GENERAL_NOP;
+        // previous_cmd <= P_GENERAL_NOP;
+        previous_cmd <= P_COL_RD;
     end
     else begin
-        if ( r_cmd_bank != P_GENERAL_NOP && cmd_picked_bank ) begin
+        if ( r_cmd_bank != P_GENERAL_NOP /*&& cmd_picked_bank*/ ) begin
             previous_cmd <= r_cmd_bank;
         end
         else begin
@@ -452,8 +448,8 @@ always @(posedge clk or negedge rst_n) begin
         need_refresh <= 1'b0;
     end
     else begin
-        /* need_refresh is set when time is up */
-        if ( last_ref_cnt >= tREFP && need_refresh == 1'b0) begin
+        /* need_refresh is set when time is up, we are in normal execution and the last refresh is obviously served... */
+        if ( last_ref_cnt >= tREFP && need_refresh == 1'b0 && waiting_for_ref_serve == 2'b00 ) begin
             need_refresh <= 1'b1;
         end
         else if (need_refresh_reset) begin
@@ -532,16 +528,20 @@ end
 /***********************/
 /* COUNTERS MANAGEMENT */
 /***********************/
+
+/*******************/
+/* REFRESH COUNTER */
+/*******************/
 /* Last REFRESH counter driver */
-always @(negedge clk or negedge rst_n) begin
-    if ( rst_n == 1'b0 ) begin
-        last_ref_cnt <= {16{1'b0}};
+always @ ( negedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        last_ref_cnt <= { 16 { 1'b0 } };
     end
     else begin
-        if ( r_cmd_bank == P_ROW_REFPB && cmd_picked_bank ) begin
-            last_ref_cnt <= 1'b0;
+        if ( waiting_for_ref_serve == 2'b10 && served_ras ) begin
+            last_ref_cnt <= { 16 { 1'b0 } };
         end
-        else if ( last_ref_cnt == {16{1'b1}} ) begin
+        else if (last_ref_cnt == {16{1'b1}}) begin
             last_ref_cnt <= last_ref_cnt;
         end
         else begin
@@ -549,17 +549,43 @@ always @(negedge clk or negedge rst_n) begin
         end
     end
 end
-
-/* Last ACTIVATE counter driver */
-always @(negedge clk or negedge rst_n) begin
-    if ( rst_n == 1'b0 ) begin
-        last_act_cnt <= {8{1'b0}};
+/* Waiting for REF serve management */
+always @ ( posedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        waiting_for_ref_serve <=  2'b00;
     end
     else begin
-        if ( r_cmd_bank == P_ROW_ACT && cmd_picked_bank ) begin
-            last_act_cnt <= 1'b0;
+        if (r_cmd_bank == P_ROW_REFPB && waiting_for_ref_serve == 2'b00 && ~cmd_picked_bank) begin
+            waiting_for_ref_serve <= 2'b01;
         end
-        else if ( last_act_cnt == {8{1'b1}} ) begin
+        else if (r_cmd_bank == P_ROW_REFPB && waiting_for_ref_serve == 2'b00 && cmd_picked_bank) begin
+            waiting_for_ref_serve <= 2'b10;
+        end
+        else if ( cmd_picked_bank && (r_cmd_bank == P_ROW_REFPB) && waiting_for_ref_serve == 2'b01 ) begin
+            waiting_for_ref_serve <= 2'b10;
+        end
+        else if (waiting_for_ref_serve == 2'b10 && served_ras) begin
+            waiting_for_ref_serve <=  2'b00;
+        end
+        else begin
+            waiting_for_ref_serve <= waiting_for_ref_serve;
+        end
+    end
+end
+
+/********************/
+/* ACTIVATE COUNTER */
+/********************/
+/* Last ACTIVATE counter driver */
+always @ ( negedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        last_act_cnt <= { 8 { 1'b0 } };
+    end
+    else begin
+        if ( waiting_for_act_serve == 2'b10 && served_ras ) begin
+            last_act_cnt <= { 8 { 1'b0 } };
+        end
+        else if (last_act_cnt == {8{1'b1}}) begin
             last_act_cnt <= last_act_cnt;
         end
         else begin
@@ -567,17 +593,43 @@ always @(negedge clk or negedge rst_n) begin
         end
     end
 end
-
-/* Last PRECHARGE counter driver */
-always @(negedge clk or negedge rst_n) begin
-    if ( rst_n == 1'b0 ) begin
-        last_pre_cnt <= {8{1'b0}};
+/* Waiting for ACT serve management */
+always @ ( posedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        waiting_for_act_serve <=  2'b00;
     end
     else begin
-        if ( r_cmd_bank == P_ROW_PRE && cmd_picked_bank ) begin
-            last_pre_cnt <= 1'b0;
+        if (r_cmd_bank == P_ROW_ACT && waiting_for_act_serve == 2'b00 && ~cmd_picked_bank) begin
+            waiting_for_act_serve <= 2'b01;
         end
-        else if ( last_pre_cnt == {8{1'b1}} ) begin
+        else if (r_cmd_bank == P_ROW_ACT && waiting_for_act_serve == 2'b00 && cmd_picked_bank) begin
+            waiting_for_act_serve <= 2'b10;
+        end
+        else if ( cmd_picked_bank && (r_cmd_bank == P_ROW_ACT) && waiting_for_act_serve == 2'b01 ) begin
+            waiting_for_act_serve <= 2'b10;
+        end
+        else if (waiting_for_act_serve == 2'b10 && served_ras) begin
+            waiting_for_act_serve <=  2'b00;
+        end
+        else begin
+            waiting_for_act_serve <= waiting_for_act_serve;
+        end
+    end
+end
+
+/*********************/
+/* PRECHARGE COUNTER */
+/*********************/
+/* Last PRECHARGE counter driver */
+always @ ( negedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        last_pre_cnt <= { 8 { 1'b0 } };
+    end
+    else begin
+        if ( waiting_for_pre_serve == 2'b10 && served_ras ) begin
+            last_pre_cnt <= { 8 { 1'b0 } };
+        end
+        else if (last_pre_cnt == {8{1'b1}}) begin
             last_pre_cnt <= last_pre_cnt;
         end
         else begin
@@ -585,35 +637,43 @@ always @(negedge clk or negedge rst_n) begin
         end
     end
 end
-
-/* Last WRITE counter driver */
-always @(negedge clk or negedge rst_n) begin
-    if ( rst_n == 1'b0 ) begin
-        last_wrt_cnt <= {8{1'b0}};
+/* Waiting for PRE serve management */
+always @ ( posedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        waiting_for_pre_serve <=  2'b00;
     end
     else begin
-        if ( r_cmd_bank == P_COL_WRT && cmd_picked_bank ) begin
-            last_wrt_cnt <= 1'b0;
+        if (r_cmd_bank == P_ROW_PRE && waiting_for_pre_serve == 2'b00 && ~cmd_picked_bank) begin
+            waiting_for_pre_serve <= 2'b01;
         end
-        else if ( last_wrt_cnt == {8{1'b1}} ) begin
-            last_wrt_cnt <= last_wrt_cnt;
+        else if (r_cmd_bank == P_ROW_PRE && waiting_for_pre_serve == 2'b00 && cmd_picked_bank) begin
+            waiting_for_pre_serve <= 2'b10;
+        end
+        else if ( cmd_picked_bank && (r_cmd_bank == P_ROW_PRE) && waiting_for_pre_serve == 2'b01 ) begin
+            waiting_for_pre_serve <= 2'b10;
+        end
+        else if (waiting_for_pre_serve == 2'b10 && served_ras) begin
+            waiting_for_pre_serve <=  2'b00;
         end
         else begin
-            last_wrt_cnt <= last_wrt_cnt + 1'b1;
+            waiting_for_pre_serve <= waiting_for_pre_serve;
         end
     end
 end
 
+/****************/
+/* READ COUNTER */
+/****************/
 /* Last READ counter driver */
-always @(negedge clk or negedge rst_n) begin
-    if ( rst_n == 1'b0 ) begin
-        last_rd_cnt <= {8{1'b0}};
+always @ ( negedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        last_rd_cnt <= { 8 { 1'b0 } };
     end
     else begin
-        if ( r_cmd_bank == P_COL_RD && cmd_picked_bank ) begin
-            last_rd_cnt <= 1'b0;
+        if ( waiting_for_rd_serve == 2'b10 && served_cas ) begin
+            last_rd_cnt <= { 8 { 1'b0 } };
         end
-        else if ( last_rd_cnt == {8{1'b1}} ) begin
+        else if (last_rd_cnt == {8{1'b1}}) begin
             last_rd_cnt <= last_rd_cnt;
         end
         else begin
@@ -621,25 +681,7 @@ always @(negedge clk or negedge rst_n) begin
         end
     end
 end
-
-/* Last READ for PRECHARGE counter, this is reset when the read is served by LLCF (actually arrives to HBM) and not when is issued to CAS Arbiter */
-always @ ( negedge clk or negedge rst_n ) begin
-    if (rst_n == 1'b0) begin
-        last_rd_for_pre_cnt <= { 8 { 1'b0 } };
-    end
-    else begin
-        if ( waiting_for_rd_serve == 2'b10 && served_cas ) begin
-            last_rd_for_pre_cnt <= { 8 { 1'b0 } };
-        end
-        else if (last_rd_for_pre_cnt == {8{1'b1}}) begin
-            last_rd_for_pre_cnt <= last_rd_for_pre_cnt;
-        end
-        else begin
-            last_rd_for_pre_cnt <= last_rd_for_pre_cnt + 1'b1;
-        end
-    end
-end
-
+/* Waiting for RD serve management */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         waiting_for_rd_serve <=  2'b00;
@@ -663,23 +705,27 @@ always @ ( posedge clk or negedge rst_n ) begin
     end
 end
 
+/*****************/
+/* WRITE COUNTER */
+/*****************/
+/* Last WRITE counter driver */
 always @ ( negedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_wrt_for_pre_cnt <= { 8 { 1'b0 } };
+        last_wrt_cnt <= { 8 { 1'b0 } };
     end
     else begin
         if ( waiting_for_wrt_serve == 2'b10 && served_cas ) begin
-            last_wrt_for_pre_cnt <= { 8 { 1'b0 } };
+            last_wrt_cnt <= { 8 { 1'b0 } };
         end
-        else if (last_wrt_for_pre_cnt == {8{1'b1}}) begin
-            last_wrt_for_pre_cnt <= last_wrt_for_pre_cnt;
+        else if (last_wrt_cnt == {8{1'b1}}) begin
+            last_wrt_cnt <= last_wrt_cnt;
         end
         else begin
-            last_wrt_for_pre_cnt <= last_wrt_for_pre_cnt + 1'b1;
+            last_wrt_cnt <= last_wrt_cnt + 1'b1;
         end
     end
 end
-
+/* Waiting for WRT serve management */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         waiting_for_wrt_serve <=  2'b00;
@@ -699,43 +745,6 @@ always @ ( posedge clk or negedge rst_n ) begin
         end
         else begin
             waiting_for_wrt_serve <= waiting_for_wrt_serve;
-        end
-    end
-end
-
-always @ ( posedge clk or negedge rst_n ) begin
-    if (rst_n == 1'b0) begin
-        waiting_for_act_serve <=  2'b00;
-    end
-    else begin
-        if (r_cmd_bank == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) begin
-            waiting_for_act_serve <= 2'b01;
-        end
-        else if ( cmd_picked_bank && (r_cmd_bank == P_ROW_ACT) && waiting_for_act_serve == 2'b01 ) begin
-            waiting_for_act_serve <= 2'b10;
-        end
-        else if (waiting_for_act_serve == 2'b10 && served_ras) begin
-            waiting_for_act_serve <=  2'b00;
-        end
-        else begin
-            waiting_for_act_serve <= waiting_for_act_serve;
-        end
-    end
-end
-
-always @ ( negedge clk or negedge rst_n ) begin
-    if (rst_n == 1'b0) begin
-        last_act_for_cas_cnt <= {8{ 1'b0 } };
-    end
-    else begin
-        if ( waiting_for_act_serve == 2'b10 && served_ras ) begin
-            last_act_for_cas_cnt <= {8{ 1'b0 } };
-        end
-        else if (last_act_for_cas_cnt == {8{1'b1}}) begin
-            last_act_for_cas_cnt <= last_act_for_cas_cnt;
-        end
-        else begin
-            last_act_for_cas_cnt <= last_act_for_cas_cnt + 1'b1;
         end
     end
 end
