@@ -1577,7 +1577,7 @@ generate
         end
         
         assign actual_act_respect_cnstr_ps0[i] = ( (cmd_ras_ps0 == P_ROW_ACT) && ( last_act_bg_cnt_ps0[i] >= tRRD-1'b1 ) && ( (act_cnt_ps0 < 8'd4) || (four_act_window_cnt_ps0 >= tFAW-1'b1) ) && (last_ref_bg_cnt_ps0[i] >= tRREFD) );
-        assign actual_act_respect_cnstr_ps1[i] = ( (cmd_ras_ps1 == P_ROW_ACT) && ( last_act_bg_cnt_ps1[i] >= tRRD-1'b1 ) && ( (act_cnt_ps1 < 8'd4) || (four_act_window_cnt_ps1 >= tFAW-1'b1) ) && (last_ref_bg_cnt_ps0[i] >= tRREFD) );
+        assign actual_act_respect_cnstr_ps1[i] = ( (cmd_ras_ps1 == P_ROW_ACT) && ( last_act_bg_cnt_ps1[i] >= tRRD-1'b1 ) && ( (act_cnt_ps1 < 8'd4) || (four_act_window_cnt_ps1 >= tFAW-1'b1) ) && (last_ref_bg_cnt_ps1[i] >= tRREFD) );
     
         assign actual_pre_respect_long_cnstr_ps0[i]  = ( (cmd_ras_ps0 == P_ROW_PRE)  && ((bank_address_ras_ps0[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps0[3:0] < ((i+1)*P_BA_N_G)) ) /* && ( last_rd_bg_cnt_ps0[i] >= tRTPl )*/  );
         assign actual_pre_respect_long_cnstr_ps1[i]  = ( (cmd_ras_ps1 == P_ROW_PRE)  && ((bank_address_ras_ps1[3:0] >= (i*P_BA_N_G)) && (bank_address_ras_ps1[3:0] < ((i+1)*P_BA_N_G)) ) /* && ( last_rd_bg_cnt_ps1[i] >= tRTPl )*/  );

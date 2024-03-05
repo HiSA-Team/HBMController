@@ -157,12 +157,14 @@ reg [1:0] refresh_next_state;
 reg need_refresh;
 reg [31:0] ref_occurrences_cnt; /* Counter just to give some id to refresh generated commands */
 
+reg need_activate_after_refresh;
+
 reg busy;
 
 /* Can serve actual command combinatorial logic */
 assign can_serve_actual_act = (cmd_inter == P_ROW_ACT) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && ( (previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00) || (previous_cmd == P_ROW_REFPB && waiting_for_ref_serve == 2'b00) );  
 assign can_serve_actual_pre = (cmd_inter == P_ROW_PRE) && (last_act_cnt >= tRAS) && (last_rd_cnt  >= tRTPl) && (last_wrt_cnt >= (tWL + tWR + tBURST)) && ( (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00));
-assign can_serve_actual_ref = (cmd_inter == P_ROW_REFPB) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && ( previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00 );
+assign can_serve_actual_ref = (cmd_inter == P_ROW_REFPB) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && (( previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00 ) || (previous_cmd != P_ROW_PRE) );
 assign can_serve_actual_rd  = (cmd_inter == P_COL_RD) && (last_act_cnt >= tRCD) && ((previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00 ));
 assign can_serve_actual_wrt = (cmd_inter == P_COL_WRT) && (last_act_cnt >= tRCD ) && ((previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00 ));
 assign can_serve_actual_cmd = can_serve_actual_act | can_serve_actual_pre | can_serve_actual_ref | can_serve_actual_rd | can_serve_actual_wrt;
@@ -211,7 +213,7 @@ always @(posedge clk or negedge rst_n) begin
         else if ( busy == 1'b0 && need_refresh && refresh_present_state == LP_REF_IDLE && cmd_inter == P_GENERAL_NOP && active_row != {P_ROW_ADDR_WIDTH+1{1'b1}} ) begin
             busy <= 1'b1;
         end
-        /* We are in refresh procedure, here the cmd_inter is empty, but the last cmd_inter was a no PRE cmd, we are going to fill it with a PRE cmd */
+        /* We are in refresh procedure, here the cmd_inter is empty, but the last cmd_inter was a no PRE cmd, we are going to fill it with a PRE cmd or a REF */
         else if ( busy == 1'b0 && need_refresh && refresh_present_state == LP_REF_IDLE && cmd_inter != P_ROW_PRE ) begin
             busy <= 1'b1;
         end
@@ -224,7 +226,7 @@ always @(posedge clk or negedge rst_n) begin
             busy <= 1'b1;
         end
         /* We are in refresh procedure, here the cmd_inter is empty and the cmd_dispatcher is a non ACT cmd, we are going to fill it with a ACT cmd */
-        else if ( need_refresh && refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_dispatcher != P_ROW_ACT ) begin
+        else if ( need_refresh && refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_dispatcher != P_ROW_ACT && need_activate_after_refresh ) begin
             busy <= 1'b1;
         end
         /* We are in refresh procedure, here the cmd_inter is empty and the cmd_dispatcher is a ACT cmd, we are going to fill it with the ACT coming from dispatcher */
@@ -367,7 +369,7 @@ always @(posedge clk or negedge rst_n) begin
             column_address_inter <= column_address_inter;
             row_address_inter <= active_row;
         end
-        else if ( busy == 1'b0 &&  need_refresh && refresh_present_state == LP_REF_IDLE && cmd_inter != P_ROW_PRE ) begin
+        else if ( busy == 1'b0 &&  need_refresh && refresh_present_state == LP_REF_IDLE && cmd_inter != P_ROW_PRE && cmd_inter != P_GENERAL_NOP ) begin
             cmd_inter <= P_ROW_PRE;
             cmd_id_inter <= 64'd0;
             req_id_inter <= {P_BANK_INDEX, ref_occurrences_cnt, {27 {1'b1}}};
@@ -375,6 +377,18 @@ always @(posedge clk or negedge rst_n) begin
             column_address_inter <= column_address_inter;
             row_address_inter <= active_row;
         end
+
+        else if ( busy == 1'b0 &&  need_refresh && refresh_present_state == LP_REF_IDLE && cmd_inter == P_GENERAL_NOP && active_row == {P_ROW_ADDR_WIDTH+1{1'b1}} ) begin
+            cmd_inter <= P_ROW_REFPB;
+            cmd_id_inter <= 64'd1;
+            req_id_inter <= {P_BANK_INDEX, ref_occurrences_cnt, {27 {1'b1}}};
+            bank_address_inter <= P_BANK_INDEX;
+            column_address_inter <= column_address_inter;
+            row_address_inter <= active_row;
+
+            ref_occurrences_cnt <= ref_occurrences_cnt + 1'b1;
+        end
+
         else if ( need_refresh && refresh_present_state == LP_REF_PRE_WAIT && busy == 1'b0 && cmd_inter != P_ROW_PRE ) begin
             cmd_inter <= P_ROW_PRE;
             cmd_id_inter <= 64'd0;
@@ -395,7 +409,7 @@ always @(posedge clk or negedge rst_n) begin
             ref_occurrences_cnt <= ref_occurrences_cnt + 1'b1;
         end
 
-        else if ( need_refresh && refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_dispatcher != P_ROW_ACT ) begin
+        else if ( need_refresh && refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_dispatcher != P_ROW_ACT && need_activate_after_refresh ) begin
             cmd_inter <= P_ROW_ACT;
             cmd_id_inter <= 64'd2;
             req_id_inter <= {P_BANK_INDEX, ref_occurrences_cnt, {27 {1'b1}}};
@@ -413,8 +427,6 @@ always @(posedge clk or negedge rst_n) begin
             req_id_inter <= req_id_dispatcher;
             cmd_id_inter <= cmd_id_dispatcher;
         end
-
-
     end
 end
 
@@ -438,11 +450,32 @@ always @(posedge clk or negedge rst_n) begin
     end
 end
 
+/*******************************************/
+/* ACT IS NEEDED AFTER REFRESH PROCEDURE ? */
+/*******************************************/
+always @(posedge clk or negedge rst_n) begin
+    if ( rst_n == 1'b0 ) begin
+        need_activate_after_refresh <= 1'b0;
+    end
+    else begin
+        if ( refresh_present_state == LP_REF_IDLE && need_refresh && cmd_inter == P_ROW_PRE ) begin
+            need_activate_after_refresh <= 1'b0;
+        end
+        else if ( refresh_present_state == LP_REF_IDLE && need_refresh && cmd_inter != P_ROW_PRE && cmd_inter != P_GENERAL_NOP) begin
+            need_activate_after_refresh <= 1'b1;
+        end
+        else if ( refresh_present_state == LP_REF_IDLE && need_refresh && cmd_inter == P_GENERAL_NOP && active_row != {P_ROW_ADDR_WIDTH+1{1'b1}} ) begin
+            need_activate_after_refresh <= 1'b1;
+        end
+    end
+end
+
+
 /***************************/
 /* NEED REFRESH MANAGEMENT */
 /***************************/
 wire need_refresh_reset;
-assign need_refresh_reset = (need_refresh == 1'b1) && (( refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher == P_ROW_ACT) || (refresh_present_state == LP_REF_ACT && busy == 1'b0 && cmd_inter == P_ROW_ACT) );
+assign need_refresh_reset = (need_refresh == 1'b1) && (( refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher == P_ROW_ACT) || (refresh_present_state == LP_REF_ACT && busy == 1'b0 && cmd_inter == P_ROW_ACT) || ( busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher != P_ROW_ACT && ~need_activate_after_refresh ) );
 always @(posedge clk or negedge rst_n) begin
     if ( rst_n == 1'b0 ) begin
         need_refresh <= 1'b0;
@@ -479,7 +512,7 @@ always @( * ) begin
         LP_REF_IDLE:
         begin
             if( need_refresh ) begin
-                if ( cmd_inter != P_ROW_PRE || active_row != {P_ROW_ADDR_WIDTH+1{1'b1}} || cmd_inter != P_GENERAL_NOP ) begin
+                if ( active_row != {P_ROW_ADDR_WIDTH+1{1'b1}} || cmd_inter != P_GENERAL_NOP ) begin
                     refresh_next_state <= LP_REF_PRE_WAIT;
                 end
                 else begin
@@ -501,8 +534,12 @@ always @( * ) begin
         end
         LP_REF_REF:
         begin
-            if ( busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher != P_ROW_ACT ) begin
+            if ( busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher != P_ROW_ACT && need_activate_after_refresh ) begin
                 refresh_next_state <= LP_REF_ACT;
+            end
+
+            else if ( busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher != P_ROW_ACT && ~need_activate_after_refresh) begin
+                refresh_next_state <= LP_REF_IDLE;
             end
             
             else if ( busy == 1'b0 && cmd_inter == P_ROW_REFPB && cmd_dispatcher == P_ROW_ACT) begin

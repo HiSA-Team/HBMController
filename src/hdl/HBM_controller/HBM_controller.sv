@@ -38,10 +38,10 @@ module HBM_controller # (
     parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32,        /* Number of Banks per channel, again we consider half bank */
 
     /* FIFO QUEUE LEN */
-    parameter       P_QUEUE_LEN             = 32,
+    parameter       P_QUEUE_LEN             = 128,
 
     /* WRT BUFFER LEN */
-    parameter       P_WRT_DATA_BUFFER_LEN   = 32,
+    parameter       P_WRT_DATA_BUFFER_LEN   = 128,
     
     /* REQUESTS       */
     parameter       P_WRT_REQ         =  2'd0,
@@ -235,22 +235,22 @@ initial begin
         request = line.substr(0,1);
         address = line.substr(4,35).atobin();
         if (request == "RD") begin
-            input_request[{1'b0, address[31:28]}] <= 2'b01;
+            input_request[{address[2], address[6:3]}] <= 2'b01;
         end
         else begin
-            input_request[{1'b0, address[31:28]}] <= 2'b00;
+            input_request[{address[2], address[6:3]}] <= 2'b00;
         end
         
-        input_address[{1'b0, address[31:28]}] <= {1'b0,  address};
-        r_input_req_id[{1'b0, address[31:28]}] <= counter_requests;
+        input_address[{address[2], address[6:3]}] <= {1'b0,  address};
+        r_input_req_id[{address[2], address[6:3]}] <= counter_requests;
         
-        request_valid[{1'b0, address[31:28]}] <= 1'b1;
-        wait(request_picked[{1'b0, address[31:28]}] == 1'b1);
-        request_valid[{1'b0, address[31:28]}] <= 1'b0;   
+        request_valid[{address[2], address[6:3]}] <= 1'b1;
+        wait(request_picked[{address[2], address[6:3]}] == 1'b1);
+        request_valid[{address[2], address[6:3]}] <= 1'b0;   
         
         $display("[ CONTROLLER %d ]: REQ: %d - CMD: %d (%d) sent at %d", 1'b0, counter_requests, 1'b0, 1'b0, $time);
 
-        wait(request_picked[{1'b0, address[31:28]}] == 1'b0);
+        wait(request_picked[{address[2], address[6:3]}] == 1'b0);
         cnt_ps = cnt_ps + 1'b1;
         counter_requests <= counter_requests + 1'b1;
     end
