@@ -1,7 +1,7 @@
 module bank_scheduler # 
 (
-    parameter		P_ROW_ADDR_WIDTH = 16,
-    parameter		P_COL_ADDR_WIDTH = 12,
+    parameter		P_ROW_ADDR_WIDTH = 14,
+    parameter		P_COL_ADDR_WIDTH = 6,
     parameter		P_BA_ADDR_WIDTH	 = 5, 
     parameter       P_DATA_WIDTH     = 256,
     parameter       P_QUEUE_LEN      = 2,
@@ -16,7 +16,7 @@ module bank_scheduler #
     parameter P_ROW_ACT      = 3'b010,
     parameter P_ROW_PRE      = 3'b011,  /* WITH R[10] -> L */
     parameter P_ROW_PREA     = 3'b011,  /* WITH R[10] -> H */
-    parameter P_ROW_REFPB    = 4'b1001, /* 1 at MSB to distinguish it from WRT */  
+    parameter P_ROW_REFPB    = 4'b1100, /* 1 at MSB to distinguish it from WRT */  
 
     /* COL COMMANDS */
     parameter P_COL_WRT      = 4'b0001,
@@ -33,16 +33,16 @@ module bank_scheduler #
     parameter  tRTPl         =      32'd6,        /* RD to PRE delay */
     parameter  tWR           =      32'd16,       /* End of a WR operation to PRE delay */
     parameter  tBURST        =      32'd2,        /* Data bus transfer */
-    parameter  tRFCpb        =      32'd20,       /* Per Bank REF to Per Bank REF/ACT (Any Banks) */
-    parameter  tREFP         =      32'd1215      /* Refresh Period*/  /* Maybe it is too conservative ? */
+    parameter  tRFCpb        =      32'd73,       /* Per Bank REF to Per Bank REF/ACT (Any Banks) */
+    parameter  tREFP         =      32'd1180      /* Refresh Period*/  /* Maybe it is too conservative ? */
 )
 (
     input   clk,
     input   rst_n,
 
     /* Interface to command_dispatcher */
-    input [63:0]                      req_id_dispatcher,
-    input [63:0]                      cmd_id_dispatcher,
+    input [20:0]                      req_id_dispatcher,
+    input [20:0]                      cmd_id_dispatcher,
     input [3:0]                       cmd_dispatcher,
     input [P_BA_ADDR_WIDTH-1  : 0]    bank_addr_dispatcher,
     input [P_ROW_ADDR_WIDTH-1 : 0]    row_addr_dispatcher,
@@ -59,8 +59,8 @@ module bank_scheduler #
     output  [P_ROW_ADDR_WIDTH-1 : 0]              row_address_bank,
     output  [P_COL_ADDR_WIDTH-1 : 0]              column_address_bank,
     output  [P_DATA_WIDTH-1 : 0]                  wrt_data_bank,
-    output  [63:0]                                req_id_bank,
-    output  [63:0]                                cmd_id_bank,           
+    output  [20:0]                                req_id_bank,
+    output  [20:0]                                cmd_id_bank,           
     
     input   served_ras,
     input   served_cas
@@ -89,8 +89,8 @@ module bank_scheduler #
 /*************************************************************************/
 
 /* Channel Scheduler interface */
-reg  [63:0]                      r_req_id_bank;
-reg  [63:0]                      r_cmd_id_bank;
+reg  [20:0]                      r_req_id_bank;
+reg  [20:0]                      r_cmd_id_bank;
 reg  [3:0]                       r_cmd_bank;
 reg  [P_BA_ADDR_WIDTH-1 : 0]     r_bank_address_bank;
 reg  [P_ROW_ADDR_WIDTH-1 : 0]    r_row_address_bank;
@@ -112,15 +112,16 @@ reg  [P_BA_ADDR_WIDTH-1 : 0]         bank_address_inter;
 reg  [P_ROW_ADDR_WIDTH-1 : 0]        row_address_inter;
 reg  [P_COL_ADDR_WIDTH-1 : 0]        column_address_inter;
 reg  [P_DATA_WIDTH-1 : 0]            wrt_data_inter;
-reg  [63:0]                          req_id_inter;
-reg  [63:0]                          cmd_id_inter; 
+reg  [20:0]                          req_id_inter;
+reg  [20:0]                          cmd_id_inter; 
 
 /* Command Dispatcher interface */
 reg r_cmd_picked_dispatcher;
 assign cmd_picked_dispatcher = r_cmd_picked_dispatcher;
 
 /* Counters registers */
-reg [15:0] last_ref_cnt;
+reg [7:0] last_ref_cnt;
+reg [15:0] last_ref_cnt_for_need_refresh;
 reg [7:0]  last_act_cnt;
 reg [7:0]  last_pre_cnt;
 reg [7:0]  last_wrt_cnt;
@@ -163,11 +164,11 @@ reg busy;
 
 /* Can serve actual command combinatorial logic */
 assign can_serve_actual_act = (cmd_inter == P_ROW_ACT) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && ( (previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00) || (previous_cmd == P_ROW_REFPB && waiting_for_ref_serve == 2'b00) );  
-assign can_serve_actual_pre = (cmd_inter == P_ROW_PRE) && (last_act_cnt >= tRAS) && (last_rd_cnt  >= tRTPl) && (last_wrt_cnt >= (tWL + tWR + tBURST)) && ( (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00));
+assign can_serve_actual_pre = (cmd_inter == P_ROW_PRE) && (last_act_cnt >= tRAS) && (last_rd_cnt  >= tRTPl) && (last_wrt_cnt >= (tWL + tWR + tBURST)) && ( (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00) || (previous_cmd == P_ROW_REFPB) );
 assign can_serve_actual_ref = (cmd_inter == P_ROW_REFPB) && (last_pre_cnt >= tRP) && (last_act_cnt >= tRC) && (last_ref_cnt >= tRFCpb) && (( previous_cmd == P_ROW_PRE && waiting_for_pre_serve == 2'b00 ) || (previous_cmd != P_ROW_PRE) );
 assign can_serve_actual_rd  = (cmd_inter == P_COL_RD) && (last_act_cnt >= tRCD) && ((previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00 ));
 assign can_serve_actual_wrt = (cmd_inter == P_COL_WRT) && (last_act_cnt >= tRCD ) && ((previous_cmd == P_ROW_ACT && waiting_for_act_serve == 2'b00 ) || ( previous_cmd == P_COL_WRT && waiting_for_wrt_serve == 2'b00 ) || (previous_cmd == P_COL_RD && waiting_for_rd_serve == 2'b00 ));
-assign can_serve_actual_cmd = can_serve_actual_act | can_serve_actual_pre | can_serve_actual_ref | can_serve_actual_rd | can_serve_actual_wrt;
+assign can_serve_actual_cmd = (can_serve_actual_act | can_serve_actual_pre | can_serve_actual_ref | can_serve_actual_rd | can_serve_actual_wrt) && busy == 1'b1;
 
 /***********************/
 /* PREVIOUS CMD UPDATE */
@@ -406,7 +407,9 @@ always @(posedge clk or negedge rst_n) begin
             column_address_inter <= column_address_inter;
             row_address_inter <= active_row;
 
-            ref_occurrences_cnt <= ref_occurrences_cnt + 1'b1;
+            if ( ~need_activate_after_refresh ) begin
+                ref_occurrences_cnt <= ref_occurrences_cnt + 1'b1;
+            end
         end
 
         else if ( need_refresh && refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_dispatcher != P_ROW_ACT && need_activate_after_refresh ) begin
@@ -416,6 +419,8 @@ always @(posedge clk or negedge rst_n) begin
             bank_address_inter <= P_BANK_INDEX;
             column_address_inter <= column_address_inter;
             row_address_inter <= active_row;
+
+            ref_occurrences_cnt <= ref_occurrences_cnt + 1'b1;
         end
 
         else if ( need_refresh && refresh_present_state == LP_REF_REF && busy == 1'b0 && cmd_dispatcher == P_ROW_ACT ) begin
@@ -426,6 +431,10 @@ always @(posedge clk or negedge rst_n) begin
             wrt_data_inter <= wrt_data_dispatcher;
             req_id_inter <= req_id_dispatcher;
             cmd_id_inter <= cmd_id_dispatcher;
+
+            if ( need_activate_after_refresh ) begin
+                ref_occurrences_cnt <= ref_occurrences_cnt + 1'b1;
+            end
         end
     end
 end
@@ -441,7 +450,7 @@ always @(posedge clk or negedge rst_n) begin
         if ( r_cmd_bank == P_ROW_ACT && cmd_picked_bank ) begin
             active_row <= r_row_address_bank;
         end 
-        else if ( r_cmd_bank == P_ROW_PRE && cmd_picked_bank ) begin
+        else if ( r_cmd_bank == P_ROW_PRE && cmd_picked_bank && (~need_refresh || ( need_refresh && refresh_present_state == LP_REF_IDLE && cmd_inter == P_ROW_PRE))) begin
             active_row <= {P_ROW_ADDR_WIDTH+1{1'b1}};
         end
         else begin
@@ -481,8 +490,8 @@ always @(posedge clk or negedge rst_n) begin
         need_refresh <= 1'b0;
     end
     else begin
-        /* need_refresh is set when time is up, we are in normal execution and the last refresh is obviously served... */
-        if ( last_ref_cnt >= tREFP && need_refresh == 1'b0 && waiting_for_ref_serve == 2'b00 ) begin
+        /* need_refresh is set when time is up, we are in normal execution (need_refresh is 0) and the last refresh is obviously served... */
+        if ( last_ref_cnt_for_need_refresh >= tREFP && need_refresh == 1'b0 && waiting_for_ref_serve == 2'b00 ) begin
             need_refresh <= 1'b1;
         end
         else if (need_refresh_reset) begin
@@ -569,16 +578,36 @@ end
 /*******************/
 /* REFRESH COUNTER */
 /*******************/
+
+/* Last REFRESH counter for need_refresh driver */
+always @ ( negedge clk or negedge rst_n ) begin
+    if (rst_n == 1'b0) begin
+        last_ref_cnt_for_need_refresh <= { 16 { 1'b0 } };
+    end
+    else begin
+        /* Reset when need_refresh is set */
+        if ( last_ref_cnt_for_need_refresh >= tREFP && need_refresh == 1'b1 ) begin
+            last_ref_cnt_for_need_refresh <= { 16 { 1'b0 } };
+        end
+        else if (last_ref_cnt_for_need_refresh == {16{1'b1}}) begin
+            last_ref_cnt_for_need_refresh <= last_ref_cnt_for_need_refresh;
+        end
+        else begin
+            last_ref_cnt_for_need_refresh <= last_ref_cnt_for_need_refresh + 1'b1;
+        end
+    end
+end
+
 /* Last REFRESH counter driver */
 always @ ( negedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_ref_cnt <= { 16 { 1'b0 } };
+        last_ref_cnt <= { 8 { 1'b0 } };
     end
     else begin
         if ( waiting_for_ref_serve == 2'b10 && served_ras ) begin
-            last_ref_cnt <= { 16 { 1'b0 } };
+            last_ref_cnt <= { 8 { 1'b0 } };
         end
-        else if (last_ref_cnt == {16{1'b1}}) begin
+        else if (last_ref_cnt == { 8 { 1'b1 } }) begin
             last_ref_cnt <= last_ref_cnt;
         end
         else begin

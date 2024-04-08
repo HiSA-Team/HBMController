@@ -33,7 +33,7 @@ module RAS_arbiter#
     parameter       P_ROW_PRE		 = 3'b011,
     parameter       P_COL_WRT	     = 4'b0001,
     parameter       P_COL_RD         = 4'b0101,
-    parameter       P_ROW_REFPB      = 4'b1001
+    parameter       P_ROW_REFPB      = /*4'b1001*/ 4'b1100
 )
 (
     input            clk,
@@ -41,8 +41,8 @@ module RAS_arbiter#
 
     /* Interface to Bank Scheduler */
     output [0 : P_BA_N_PS - 1]       cmd_ras_bank_picked,
-    input  [63:0]                    req_ras_id_bank         [0 : P_BA_N_PS - 1], 
-    input  [63:0]                    cmd_ras_id_bank         [0 : P_BA_N_PS - 1],
+    input  [20:0]                    req_ras_id_bank         [0 : P_BA_N_PS - 1], 
+    input  [20:0]                    cmd_ras_id_bank         [0 : P_BA_N_PS - 1],
     input  [3:0]                     cmd_ras_bank            [0 : P_BA_N_PS - 1],
     input  [P_BA_ADDR_WIDTH-1 : 0]   bank_address_bank       [0 : P_BA_N_PS - 1],
     input  [P_ROW_ADDR_WIDTH-1 : 0]  row_address_bank        [0 : P_BA_N_PS - 1],
@@ -50,8 +50,8 @@ module RAS_arbiter#
     /* Interface to LLCF */
     input  ready_to_cmd_ras,
     output [3:0]cmd_ras,
-    output [63:0]                       req_id_ras,
-    output [63:0]                       cmd_id_ras,
+    output [20:0]                       req_id_ras,
+    output [20:0]                       cmd_id_ras,
     output [P_BA_ADDR_WIDTH-1 : 0]      bank_address_ras,
     output [P_ROW_ADDR_WIDTH-1 : 0]     row_address_ras 
     
@@ -66,15 +66,15 @@ reg [3:0] r_cmd_ras;
 reg [P_BA_ADDR_WIDTH-1 : 0] r_bank_address_ras;
 reg [P_ROW_ADDR_WIDTH-1 : 0] r_row_address_ras;
 
-reg [63:0] r_req_id_ras;
-reg [63:0] r_cmd_id_ras;
+reg [20:0] r_req_id_ras;
+reg [20:0] r_cmd_id_ras;
 
 reg [ACTUAL_BG_CMD_RAS_SERVING_WIDTH-1 : 0] actual_bank_group_serving; 
 reg [ACTUAL_BG_SERVING_WIDTH-1 : 0] actual_bank_serving[0 : LP_BG_N - 1];
 
 wire [3:0]                          cmd_inter_selected;
-wire [63:0]                         req_id_selected_by_bg;
-wire [63:0]                         cmd_id_selected_by_bg;
+wire [20:0]                         req_id_selected_by_bg;
+wire [20:0]                         cmd_id_selected_by_bg;
 wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_address_selected_by_bg;
 wire [P_ROW_ADDR_WIDTH - 1 : 0]     row_address_selected_by_bg;
 

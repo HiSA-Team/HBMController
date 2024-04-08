@@ -39,8 +39,8 @@ module CAS_arbiter#
     input            rst_n,
     
     output [0 : P_BA_N_PS - 1]       cmd_cas_bank_picked,
-    input  [63:0]                    req_cas_id_bank        [0 : P_BA_N_PS - 1], 
-    input  [63:0]                    cmd_cas_id_bank        [0 : P_BA_N_PS - 1],        
+    input  [20:0]                    req_cas_id_bank        [0 : P_BA_N_PS - 1], 
+    input  [20:0]                    cmd_cas_id_bank        [0 : P_BA_N_PS - 1],        
     input  [3:0]                     cmd_cas_bank           [0 : P_BA_N_PS - 1],
     input  [P_BA_ADDR_WIDTH-1 : 0]   bank_address_bank      [0 : P_BA_N_PS - 1],
     input  [P_COL_ADDR_WIDTH-1 : 0]  column_address_bank    [0 : P_BA_N_PS - 1],
@@ -49,8 +49,8 @@ module CAS_arbiter#
     
     input  ready_to_cmd_cas,
     output [3:0]                        cmd_cas,
-    output [63:0]                       req_id_cas,
-    output [63:0]                       cmd_id_cas,
+    output [20:0]                       req_id_cas,
+    output [20:0]                       cmd_id_cas,
     output [P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_cas,
     output [P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas,
     output [P_DATA_WIDTH     - 1 : 0 ]  wrt_data_cas
@@ -65,8 +65,8 @@ reg    [ LP_ACTUAL_BANK_GROUP_SERVING_WIDTH - 1 : 0 ]  actual_bank_group_serving
 reg    [ LP_ACTUAL_BANK_SERVING_WIDTH-1         : 0 ]            actual_bank_serving           [0 : LP_BG_N - 1];
 
 reg [3:0] actual_cmd_serving_type;     /*  Bundling Type RD or WRT */
-reg [63:0] r_req_id_cas;
-reg [63:0] r_cmd_id_cas;
+reg [20:0] r_req_id_cas;
+reg [20:0] r_cmd_id_cas;
 reg [3:0] r_cmd_cas;
 reg [P_DATA_WIDTH - 1 : 0] r_wrt_data_cas;
 reg [P_BA_ADDR_WIDTH - 1 : 0] r_bank_address_cas;
@@ -76,8 +76,8 @@ reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
 
 
 wire [3:0]                          cmd_inter_selected;
-wire [63:0]                         req_id_selected_by_bg;
-wire [63:0]                         cmd_id_selected_by_bg;
+wire [20:0]                         req_id_selected_by_bg;
+wire [20:0]                         cmd_id_selected_by_bg;
 wire [P_DATA_WIDTH - 1 : 0]         wrt_data_selected_by_bg;
 wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_address_selected_by_bg;
 wire [P_COL_ADDR_WIDTH - 1 : 0]     column_address_selected_by_bg;

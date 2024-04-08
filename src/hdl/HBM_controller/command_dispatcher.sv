@@ -24,8 +24,8 @@ module command_dispatcher#
     parameter P_REQ_WIDTH       = 2,
     parameter P_ADDR_WIDTH      = 33,
     parameter P_DATA_WIDTH      = 256,
-    parameter P_ROW_ADDR_WIDTH  = 16,
-    parameter P_COL_ADDR_WIDTH  = 12,
+    parameter P_ROW_ADDR_WIDTH  = 14,
+    parameter P_COL_ADDR_WIDTH  = 6,
     parameter P_BA_ADDR_WIDTH   = 5,
     parameter P_QUEUE_LEN       = 32,
     
@@ -51,7 +51,7 @@ module command_dispatcher#
     input clk,
     input rst_n,
     
-    input [63:0]                  input_req_id,
+    input [20:0]                  input_req_id,
     input [P_REQ_WIDTH-1  : 0]    input_request,
     input [P_ADDR_WIDTH-1 : 0]    input_address,
     input [P_DATA_WIDTH-1 : 0]    input_data,
@@ -60,8 +60,8 @@ module command_dispatcher#
    
     input                              cmd_picked,
     output [3:0]                       cmd,
-    output [63:0]                      req_id,
-    output [63:0]                      cmd_id,
+    output [20:0]                      req_id,
+    output [20:0]                      cmd_id,
     output [P_BA_ADDR_WIDTH-1  : 0]    bank_addr,
     output [P_ROW_ADDR_WIDTH-1 : 0]    row_addr,
     output [P_COL_ADDR_WIDTH-1 : 0]    col_addr,
@@ -71,16 +71,16 @@ module command_dispatcher#
 
 /* Command Queue */
 /* CMD queue after the translation */
-reg [63:0]                    req_id_queue       [0 : P_QUEUE_LEN-1];
-reg [63:0]                    cmd_id_queue       [0 : P_QUEUE_LEN-1];
+reg [20:0]                    req_id_queue       [0 : P_QUEUE_LEN-1];
+reg [20:0]                    cmd_id_queue       [0 : P_QUEUE_LEN-1];
 reg [3:0]                     cmd_queue          [0 : P_QUEUE_LEN-1];
 reg [P_BA_ADDR_WIDTH-1  : 0]  bank_address_queue [0 : P_QUEUE_LEN-1];
 reg [P_ROW_ADDR_WIDTH-1 : 0]  row_address_queue  [0 : P_QUEUE_LEN-1];
 reg [P_COL_ADDR_WIDTH-1 : 0]  col_address_queue  [0 : P_QUEUE_LEN-1]; 
 reg [P_DATA_WIDTH-1     : 0]  data_queue         [0 : P_QUEUE_LEN-1];
 
-reg [63:0]                    r_bank_req_id;
-reg [63:0]                    r_bank_cmd_id;
+reg [20:0]                    r_bank_req_id;
+reg [20:0]                    r_bank_cmd_id;
 reg [3:0]                     r_cmd;
 reg [P_BA_ADDR_WIDTH-1  : 0]  r_bank_addr;
 reg [P_ROW_ADDR_WIDTH-1 : 0]  r_row_addr;
@@ -118,19 +118,19 @@ wire [P_COL_ADDR_WIDTH-1 : 0] column_address;
 wire [P_BA_ADDR_WIDTH-1  : 0] bank_address;
  
 /* 16R-10C-2BG-2B-PS-2C */
-assign row_address    =  input_address[32:17];
-assign column_address =  {input_address[16:7], input_address[1:0]};
-assign bank_address   =  {input_address[2], input_address[6:3]};
-
-/* 16R-10C-2B-2BG-PS-2C */
 // assign row_address    =  input_address[32:17];
 // assign column_address =  {input_address[16:7], input_address[1:0]};
-// assign bank_address   =  {input_address[2], input_address[4:3],input_address[6:5]};
+// assign bank_address   =  {input_address[2], input_address[6:3]};
+
+/* 16R-10C-2B-2BG-PS-2C */
+assign row_address    =  input_address[26:13];
+assign column_address =  {input_address[12:7]/*, input_address[1:0]*/};
+assign bank_address   =  {input_address[2], input_address[4:3],input_address[6:5]};
 
 /* PS-2BG-2B-16R-12C */
-// assign row_address    =  {input_address[27:12]};
-// assign column_address =  {input_address[11:0]};
-// assign bank_address   =  {input_address[32:28]};
+// assign row_address    =  {input_address[21:8]};
+// assign column_address =  {input_address[7:2]};
+// assign bank_address   =  {input_address[26:22]};
 
 /* 16R-PS-2BG-2B-12C */ 
 // assign row_address    =  {input_address[32:17]};
@@ -188,7 +188,6 @@ end
 always @ ( posedge clk or negedge rst_n ) begin
     if ( rst_n == 1'b0 ) begin
         actual_row_open <= { P_ROW_ADDR_WIDTH+1 { 1'b1 } };
-        
     end
     else begin
         if (request_valid && actual_row_open != row_address && queue_cnt < P_QUEUE_LEN-3) begin
@@ -214,10 +213,10 @@ always @ ( posedge clk or negedge rst_n ) begin
             bank_address_queue[i]      <= { P_BA_ADDR_WIDTH  { 1'b0 } };
             row_address_queue[i]       <= { P_ROW_ADDR_WIDTH { 1'b0 } };
             col_address_queue[i]       <= { P_COL_ADDR_WIDTH { 1'b0 } };
-            data_queue[i]              <= { { 1'b0 } };
+            data_queue[i]              <= { P_DATA_WIDTH { 1'b0 } };
+            req_id_queue[i]            <= { 21 { 1'b0 } };
+            cmd_id_queue[i]            <= { 21 { 1'b0 } };
         end
-
-
     end
     else begin
         if ( request_valid ) begin
@@ -303,7 +302,9 @@ always @ ( posedge clk or negedge rst_n ) begin
         r_bank_addr        <= { P_BA_ADDR_WIDTH  { 1'b0 } };
         r_row_addr         <= { P_ROW_ADDR_WIDTH { 1'b0 } };
         r_col_addr         <= { P_COL_ADDR_WIDTH { 1'b0 } };
-        r_wrt_data         <= { { 1'b0 } };
+        r_wrt_data         <= { P_DATA_WIDTH { 1'b0 } };
+        r_bank_req_id      <= { 21 { 1'b0 } };
+        r_bank_cmd_id      <= { 21 { 1'b0 } };
     end
     else begin
         if ( cmd_picked && queue_cnt > 0 ) begin
