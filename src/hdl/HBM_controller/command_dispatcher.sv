@@ -87,6 +87,7 @@ reg [P_ROW_ADDR_WIDTH-1 : 0]  r_row_addr;
 reg [P_COL_ADDR_WIDTH-1 : 0]  r_col_addr;
 reg [P_DATA_WIDTH-1     : 0]  r_wrt_data;
 
+
 assign req_id    = r_bank_req_id;
 assign cmd_id    = r_bank_cmd_id;
 assign cmd       = r_cmd;
@@ -190,8 +191,8 @@ always @ ( posedge clk or negedge rst_n ) begin
         actual_row_open <= { P_ROW_ADDR_WIDTH+1 { 1'b1 } };
     end
     else begin
-        if (request_valid && actual_row_open != row_address && queue_cnt < P_QUEUE_LEN-3) begin
-            actual_row_open <= row_address;
+        if (request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] != row_address && queue_cnt < P_QUEUE_LEN-3) begin
+            actual_row_open <= {1'b0, row_address};
         end
         else begin
             actual_row_open <= actual_row_open;
@@ -219,9 +220,9 @@ always @ ( posedge clk or negedge rst_n ) begin
         end
     end
     else begin
-        if ( request_valid ) begin
-            if ( actual_row_open == row_address ) begin
-                if ( queue_cnt < P_QUEUE_LEN ) begin
+        if ( request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] == row_address && queue_cnt < P_QUEUE_LEN) begin
+            // if ( actual_row_open[P_ROW_ADDR_WIDTH:0] == row_address ) begin
+                // if ( queue_cnt < P_QUEUE_LEN ) begin
                     if ( input_request == P_WRT_REQ ) begin
                         cmd_queue      [head]  <= P_COL_WRT;
                     end 
@@ -239,14 +240,14 @@ always @ ( posedge clk or negedge rst_n ) begin
     
                     head <= head + 1'b1;
                     r_request_picked <= 1'b1;
-                end
-                else begin
-                    head <= head;
-                    r_request_picked <= 1'b0;
-                end
+                // end
+                // else begin
+                //     head <= head;
+                //     r_request_picked <= 1'b0;
+                // end
             end
-            else begin
-                if ( queue_cnt < P_QUEUE_LEN-3 ) begin
+            else if (request_valid && queue_cnt < P_QUEUE_LEN-3) begin
+                // if ( queue_cnt < P_QUEUE_LEN-3 ) begin
                     cmd_queue          [head]        <= P_ROW_PRE;
                     bank_address_queue [head]        <= bank_address;
                     row_address_queue  [head]        <= row_address;
@@ -278,13 +279,13 @@ always @ ( posedge clk or negedge rst_n ) begin
                     
                     head <= head + 2'b11;
                     r_request_picked <= 1'b1;
-                end
-                else begin
-                    head <= head;
-                    r_request_picked <= 1'b0;
-                end
+                // end
+                // else begin
+                //     head <= head;
+                //     r_request_picked <= 1'b0;
+                // end
             end            
-        end
+        // end
         else begin
             head <= head;
             r_request_picked <= 1'b0;

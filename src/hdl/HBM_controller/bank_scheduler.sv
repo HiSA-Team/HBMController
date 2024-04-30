@@ -580,7 +580,7 @@ end
 /*******************/
 
 /* Last REFRESH counter for need_refresh driver */
-always @ ( negedge clk or negedge rst_n ) begin
+always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         last_ref_cnt_for_need_refresh <= { 16 { 1'b0 } };
     end
@@ -599,7 +599,7 @@ always @ ( negedge clk or negedge rst_n ) begin
 end
 
 /* Last REFRESH counter driver */
-always @ ( negedge clk or negedge rst_n ) begin
+always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         last_ref_cnt <= { 8 { 1'b0 } };
     end
@@ -643,7 +643,7 @@ end
 /* ACTIVATE COUNTER */
 /********************/
 /* Last ACTIVATE counter driver */
-always @ ( negedge clk or negedge rst_n ) begin
+always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         last_act_cnt <= { 8 { 1'b0 } };
     end
@@ -687,7 +687,7 @@ end
 /* PRECHARGE COUNTER */
 /*********************/
 /* Last PRECHARGE counter driver */
-always @ ( negedge clk or negedge rst_n ) begin
+always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         last_pre_cnt <= { 8 { 1'b0 } };
     end
@@ -731,7 +731,7 @@ end
 /* READ COUNTER */
 /****************/
 /* Last READ counter driver */
-always @ ( negedge clk or negedge rst_n ) begin
+always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         last_rd_cnt <= { 8 { 1'b0 } };
     end
@@ -775,7 +775,7 @@ end
 /* WRITE COUNTER */
 /*****************/
 /* Last WRITE counter driver */
-always @ ( negedge clk or negedge rst_n ) begin
+always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
         last_wrt_cnt <= { 8 { 1'b0 } };
     end

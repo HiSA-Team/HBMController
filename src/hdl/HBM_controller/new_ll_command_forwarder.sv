@@ -1007,19 +1007,16 @@ begin
 
     else begin
         if ( (can_serve_actual_cmd_ps0 && cmd_m_ps0 != LP_GENERAL_NOP) || (can_serve_actual_cmd_ps1 && cmd_m_ps1 != LP_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            
             if ( (cmd_m_ps0 == LP_ROW_PRE && can_serve_actual_cmd_ps0) && (cmd_m_ps1 == LP_GENERAL_NOP || ~can_serve_actual_cmd_ps1 )) begin
                 r_row_cmd_p0		<= { bank_address_m_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_m_ps0[2:0], LP_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
                 r_col_cmd_p0        <= 16'hffff;
                 r_col_cmd_p1        <= 16'hffff;
             end 
-            
-            
-            
-            else if ( (cmd_m_ps0 == LP_GENERAL_NOP || ~can_serve_actual_cmd_ps0)&& (cmd_m_ps1 == LP_ROW_PRE && can_serve_actual_cmd_ps1) ) begin
-                r_row_cmd_p0		<= { bank_address_m_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_m_ps1[2:0], LP_ROW_PRE};
-                r_row_cmd_p1		<= 12'hfff;
+                        
+            else if ( (cmd_m_ps0 == LP_GENERAL_NOP || ~can_serve_actual_cmd_ps0)&& (cmd_m_ps1 == LP_ROW_PRE && can_serve_actual_cmd_ps1) ) begin                
+                r_row_cmd_p0        <= 12'hfff;
+                r_row_cmd_p1		<= { bank_address_m_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_m_ps1[2:0], LP_ROW_PRE};
                 r_col_cmd_p0        <= 16'hffff;
                 r_col_cmd_p1        <= 16'hffff;
             end
@@ -1031,7 +1028,6 @@ begin
                 r_col_cmd_p1        <= 16'hffff;
             end
             
-         
             else if ( cmd_m_ps0 == LP_ROW_PRE && cmd_m_ps1 == LP_COL_WRT && can_serve_actual_cmd_ps0 && can_serve_actual_cmd_ps1) begin
                 r_row_cmd_p0		<= { bank_address_m_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_m_ps0[2:0], LP_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
@@ -1108,15 +1104,15 @@ begin
             else if ( (cmd_m_ps0 == LP_GENERAL_NOP || ~can_serve_actual_cmd_ps0) && ( cmd_m_ps1 == LP_COL_WRT && can_serve_actual_cmd_ps1 )) begin
                 r_row_cmd_p0     <= 12'hfff; 
                 r_row_cmd_p1     <= 12'hfff;               
-                r_col_cmd_p0	 <= { LP_BA4_1, column_address_m_ps1[5:2], LP_PAR, column_address_m_ps1[1], 1'b0, bank_address_m_ps1[3:0], LP_COL_WRT[3:0]};
-                r_col_cmd_p1	 <= 16'hffff;        
+                r_col_cmd_p0	 <= 16'hffff;
+                r_col_cmd_p1	 <= {LP_BA4_1, column_address_m_ps1[5:2], LP_PAR, column_address_m_ps1[1], 1'b0, bank_address_m_ps1[3:0], LP_COL_WRT[3:0]};       
             end
             
             else if ( (cmd_m_ps0 == LP_GENERAL_NOP || ~can_serve_actual_cmd_ps0) && (cmd_m_ps1 == LP_COL_RD && can_serve_actual_cmd_ps1))  begin 
                 r_row_cmd_p0     <= 12'hfff; 
                 r_row_cmd_p1     <= 12'hfff;               
-                r_col_cmd_p0	 <= { LP_BA4_1, column_address_m_ps1[5:2], LP_PAR, column_address_m_ps1[1], 1'b0, bank_address_m_ps1[3:0], LP_COL_RD};
-                r_col_cmd_p1	 <= 16'hffff; 
+                r_col_cmd_p0	 <= 16'hffff;
+                r_col_cmd_p1	 <= { LP_BA4_1, column_address_m_ps1[5:2], LP_PAR, column_address_m_ps1[1], 1'b0, bank_address_m_ps1[3:0], LP_COL_RD};
             end
             
             else if ( (cmd_m_ps0 == LP_ROW_ACT && can_serve_actual_cmd_ps0) && (cmd_m_ps1 == LP_GENERAL_NOP || ~can_serve_actual_cmd_ps1) ) begin

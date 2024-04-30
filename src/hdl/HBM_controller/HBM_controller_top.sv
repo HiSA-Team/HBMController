@@ -22,7 +22,8 @@
 
 module HBM_controller_top#
 (
-    parameter N_CHANNELS = 2 /* Number of enabled channels */
+    parameter N_CHANNELS = 2, /* Number of enabled channels */
+    parameter P_DATA_WIDTH = 256
 )
 
 (
@@ -30,8 +31,19 @@ module HBM_controller_top#
     input ARESET_N,
     input APB_PCLK,
     input APB_PRESET_N,
-    
-    output hbm_cattrip_output
+
+    // input [31:0]address,
+    // input [256-1:0]write_data,
+    // input [1:0]request,
+
+    output hbm_cattrip_output,
+
+    output done
+
+    // output [20:0]                       rd_data_req_id_ps0,
+//    output [P_DATA_WIDTH-1:0]           rd_data_ps0,
+    // output [20:0]                       rd_data_req_id_ps1
+//    output [P_DATA_WIDTH-1:0]           rd_data_ps1
 );
 
 localparam MMCM_CLKFBOUT_MULT_F  = 9;
@@ -81,6 +93,7 @@ wire           dfi_aw_ck_dis/*[0:N_CHANNELS-1]*/;
 wire           dfi_lp_pwr_e_req/*[0:N_CHANNELS-1]*/;
 wire           dfi_lp_sr_e_req/*[0:N_CHANNELS-1]*/;
 wire           dfi_lp_pwr_x_e_req/*[0:N_CHANNELS-1]*/;
+wire           dfi_lp_pwr_x_req;
 wire           dfi_aw_tx_indx_ld/*[0:N_CHANNELS-1]*/;
 wire           dfi_dw_tx_indx_ld/*[0:N_CHANNELS-1]*/;
 wire           dfi_dw_rx_indx_ld/*[0:N_CHANNELS-1]*/;
@@ -348,6 +361,54 @@ reg  [3:0]    cnt_rst/*[0:N_CHANNELS-1]*/;
             .PSINCDEC            (1'b0)
         );
 
+        wire reset_hbm_controller;
+        wire [32:0]address;
+        wire [1:0]request;
+        wire [P_DATA_WIDTH-1:0] wrt_data;
+        reg [32:0] r_address;
+        reg [1:0] r_request;
+        reg [P_DATA_WIDTH-1:0] r_wrt_data;
+        reg r_done; 
+
+
+        assign address = r_address;
+        assign request = r_request;
+        assign wrt_data = r_wrt_data;
+
+        assign done = r_done;
+
+        always @(posedge dfi_clk_buf or negedge dfi_rst_n) begin
+            if (dfi_rst_n == 1'b0) begin
+                r_done <= 1'b0;
+            end
+            else begin
+                if ( &dfi_dw_rddata_valid && dfi_dw_rddata_p0 == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0 == {P_DATA_WIDTH{1'b0}} ) begin
+                    r_done <= 1'b1;
+                end
+                else begin
+                    r_done <= 1'b0;
+                end
+            end
+        end
+
+        always @(posedge dfi_clk_buf or negedge dfi_rst_n) begin
+            if (dfi_rst_n == 1'b0) begin
+                r_address <= {33{1'b0}};
+                r_request <= 2'b00;
+                r_wrt_data <= {P_DATA_WIDTH { 1'b0 } };
+            end
+            else begin
+                r_address <= r_address + 1'b1;
+                r_wrt_data <= r_wrt_data + 1'b1;
+                if ( r_request == 2'b00 ) begin
+                    r_request <= 2'b01; 
+                end
+                else begin
+                    r_request <= 2'b00;
+                end
+            end
+        end
+
         HBM_controller#() 
         HBM_controller_i
         (
@@ -378,7 +439,8 @@ reg  [3:0]    cnt_rst/*[0:N_CHANNELS-1]*/;
             ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis/*[i]*/          )
             ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req/*[i]*/       )
             ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req/*[i]*/        )
-            ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_e_req/*[i]*/     )
+            ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req/*[i]*/     )
+            ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req/*[i]*/     )
             ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld/*[i]*/      )
             ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld/*[i]*/      )
             ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld/*[i]*/      )
@@ -396,6 +458,14 @@ reg  [3:0]    cnt_rst/*[0:N_CHANNELS-1]*/;
             ,.dfi_ctrlupd_req               (dfi_ctrlupd_req/*[i]*/)
             ,.dfi_phyupd_ack                (dfi_phyupd_ack/*[i]*/ )
             ,.dfi_init_complete             (dfi_init_complete/*[i]*/)
+            ,.reset_hbm_controller          (reset_hbm_controller)
+//            ,.address                       (address)
+            ,.write_data                    (write_data)
+//            ,.request                       (request)
+            ,.rd_data_req_id_ps0(rd_data_req_id_ps0)
+            ,.rd_data_ps0(rd_data_ps0)
+            ,.rd_data_req_id_ps1(rd_data_req_id_ps1)
+            ,.rd_data_ps1(rd_data_ps1)
         );
 // end
 // endgenerate
@@ -432,7 +502,7 @@ hbm_0 hbm_0_i
     ,.dfi_0_aw_ck_dis                 (dfi_aw_ck_dis/*[0]*/          )
     ,.dfi_0_lp_pwr_e_req              (dfi_lp_pwr_e_req/*[0]*/       )
     ,.dfi_0_lp_sr_e_req               (dfi_lp_sr_e_req/*[0]*/        )
-    ,.dfi_0_lp_pwr_x_req              (dfi_lp_pwr_x_e_req/*[0]*/     )
+    ,.dfi_0_lp_pwr_x_req              (dfi_lp_pwr_x_req/*[0]*/     )
     ,.dfi_0_aw_tx_indx_ld             (dfi_aw_tx_indx_ld/*[0]*/      )
     ,.dfi_0_dw_tx_indx_ld             (dfi_dw_tx_indx_ld/*[0]*/      )
     ,.dfi_0_dw_rx_indx_ld             (dfi_dw_rx_indx_ld/*[0]*/      )

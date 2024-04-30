@@ -38,10 +38,10 @@ module HBM_controller # (
     parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32,        /* Number of Banks per channel, again we consider half bank */
 
     /* FIFO QUEUE LEN */
-    parameter       P_QUEUE_LEN             = 32,
+    parameter       P_QUEUE_LEN             = 8,
 
     /* WRT BUFFER LEN */
-    parameter       P_WRT_DATA_BUFFER_LEN   = 32,
+    parameter       P_WRT_DATA_BUFFER_LEN   = 8,
     
     /* REQUESTS       */
     parameter       P_WRT_REQ         =  2'd0,
@@ -126,6 +126,7 @@ module HBM_controller # (
     output           dfi_dw_rx_indx_ld,
     output           dfi_ctrlupd_ack,
     output           dfi_phyupd_req,
+    output           dfi_lp_pwr_x_e_req,
 
 
     input            dfi_init_complete,
@@ -144,7 +145,16 @@ module HBM_controller # (
     input            dfi_ctrlupd_req,
     input            dfi_phyupd_ack,
 
-    output reset_hbm_controller
+//    input [31:0] address,
+    input [P_DATA_WIDTH-1:0] write_data,
+//    input [1:0] request,
+
+    output reset_hbm_controller,
+
+    output [20:0]                       rd_data_req_id_ps0,
+    output [P_DATA_WIDTH-1:0]           rd_data_ps0,
+    output [20:0]                       rd_data_req_id_ps1,
+    output [P_DATA_WIDTH-1:0]           rd_data_ps1
     
 );
 
@@ -201,8 +211,8 @@ assign input_req_id = r_input_req_id;
 /* SIMULATION */
 
 integer fd;
-// string  line;
-// string  request;
+string  line;
+string  request;
 reg [31:0] address;
 reg [P_DATA_WIDTH-1:0] data;
 reg [31:0]tmp_data;
@@ -210,103 +220,98 @@ reg [31:0]tmp_data;
 reg cnt_ps = 0;
 reg [20:0]counter_requests; 
 
-// initial begin
-//   counter_requests <= {64{1'b0}};
-//   for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) r_input_req_id[i] <= { 64 { 1'b0 }};
+ initial begin
+   counter_requests <= {64{1'b0}};
+   for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) r_input_req_id[i] <= { 64 { 1'b0 }};
 
-//   wait(reset_hbm_controller == 1'b1);
+   wait(reset_hbm_controller == 1'b1);
     
-//   fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/workload_1_fwd_softmax.txt", "r");
-//   while(!$feof(fd))begin
-//       $fgets(line, fd);
-//       request = line.substr(0,1);
-//       address = line.substr(3, 10).atohex();
-//       if (line.len() >= 64 + 2 + 8 ) begin
-//           data = line.substr(12, 19).atohex();
-//           data = data << 32;
-//           tmp_data = line.substr(20, 27).atohex();
-//           data = (data + tmp_data) << 32;
-//           tmp_data = line.substr(28, 35).atohex();
-//           data = (data + tmp_data) << 32;
-//           tmp_data = line.substr(36, 43).atohex();
-//           data = (data + tmp_data) << 32;
-//           tmp_data = line.substr(44, 51).atohex();
-//           data = (data + tmp_data) << 32;
-//           tmp_data = line.substr(52, 59).atohex();
-//           data = (data + tmp_data) << 32;
-//           tmp_data = line.substr(60, 67).atohex();
-//           data = (data + tmp_data) << 32;
-//           tmp_data = line.substr(68, 75).atohex();
-//           data = (data + tmp_data);
-//       end
-//       if (request == "RD") begin
-//           input_request[{address[2], address[4:3], address[6:5]}] <= 2'b01;
-//       end
-//       else begin
-//           input_request[{address[2], address[4:3], address[6:5]}] <= 2'b00;
-//       end
+   fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/workload_1_fwd_softmax.txt", "r");
+   while(!$feof(fd))begin
+       $fgets(line, fd);
+       request = line.substr(0,1);
+       address = line.substr(3, 10).atohex();
+       if (line.len() >= 64 + 2 + 8 ) begin
+           data = line.substr(12, 19).atohex();
+           data = data << 32;
+           tmp_data = line.substr(20, 27).atohex();
+           data = (data + tmp_data) << 32;
+           tmp_data = line.substr(28, 35).atohex();
+           data = (data + tmp_data) << 32;
+           tmp_data = line.substr(36, 43).atohex();
+           data = (data + tmp_data) << 32;
+           tmp_data = line.substr(44, 51).atohex();
+           data = (data + tmp_data) << 32;
+           tmp_data = line.substr(52, 59).atohex();
+           data = (data + tmp_data) << 32;
+           tmp_data = line.substr(60, 67).atohex();
+           data = (data + tmp_data) << 32;
+           tmp_data = line.substr(68, 75).atohex();
+           data = (data + tmp_data);
+       end
+       if (request == "RD") begin
+           input_request[{address[2], address[4:3], address[6:5]}] <= 2'b01;
+       end
+       else begin
+           input_request[{address[2], address[4:3], address[6:5]}] <= 2'b00;
+       end
         
-//       input_address[{address[2], address[4:3], address[6:5]}] <= {1'b0,  address};
+       input_address[{address[2], address[4:3], address[6:5]}] <= {1'b0,  address};
         
-//       if (line.len() >= 64 + 2 + 8 ) begin
-//           input_data[{address[2], address[4:3], address[6:5]}] <= data;  
-//       end
+       if (line.len() >= 64 + 2 + 8 ) begin
+           input_data[{address[2], address[4:3], address[6:5]}] <= data;  
+       end
          
-//       r_input_req_id[{address[2], address[4:3], address[6:5]}] <= counter_requests;
+       r_input_req_id[{address[2], address[4:3], address[6:5]}] <= counter_requests;
         
-//       request_valid[{address[2], address[4:3], address[6:5]}] <= 1'b1;
-//       wait(request_picked[{address[2], address[4:3], address[6:5]}] == 1'b1);
-//       request_valid[{address[2], address[4:3], address[6:5]}] <= 1'b0;   
+       request_valid[{address[2], address[4:3], address[6:5]}] <= 1'b1;
+       wait(request_picked[{address[2], address[4:3], address[6:5]}] == 1'b1);
+       request_valid[{address[2], address[4:3], address[6:5]}] <= 1'b0;   
         
-//       $display("[ CONTROLLER %d ]: REQ: %d - CMD: %d (%d) sent at %d", 1'b0, counter_requests, 1'b0, 1'b0, $time);
+       $display("[ CONTROLLER %d ]: REQ: %d - CMD: %d (%d) sent at %d", 1'b0, counter_requests, 1'b0, 1'b0, $time);
 
-//       wait(request_picked[{address[2], address[4:3], address[6:5]}] == 1'b0);
-//       cnt_ps = cnt_ps + 1'b1;
-//       counter_requests = counter_requests + 1'b1;
-//   end
+       wait(request_picked[{address[2], address[4:3], address[6:5]}] == 1'b0);
+       cnt_ps = cnt_ps + 1'b1;
+       counter_requests = counter_requests + 1'b1;
+   end
     
-//   $fclose(fd);
-//   $finish;
-// end
+   $fclose(fd);
+   $finish;
+ end
 
-always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin 
-    if ( reset_hbm_controller == 1'b0 ) begin
-        counter_requests <= { 20 { 1'b0 } };
-    end
-    else begin
-        if ( request_picked[1'b0] == 1'b1 ) begin
-            counter_requests <= counter_requests + 1'b1;
-        end
-    end
-end
+//always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin 
+//    if ( reset_hbm_controller == 1'b0 ) begin
+//        counter_requests <= { 20 { 1'b0 } };
+//    end
+//    else begin
+//        if ( request_picked[{address[4:0]}] == 1'b1 ) begin
+//            counter_requests <= counter_requests + 1'b1;
+//        end
+//    end
+//end
 
-always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin 
-    if ( reset_hbm_controller == 1'b0 ) begin
-        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) r_input_req_id[i] <= { 64 { 1'b0 }};
-        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) request_valid[i]  <=  1'b0;
-        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) input_address[i]  <= { 64 { 1'b0 }};
-        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) input_request[i]  <= 2'b00;
-        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) input_data[i]     <= { P_DATA_WIDTH {1'b0}};
-    end
-    else begin
-        if ( request_valid[1'b0] == 1'b0 ) begin
-            if (input_request[0] == 2'b01) begin
-                input_request[0] <= 2'b01;
-            end
-            else begin
-                input_request[0] <= 2'b00;
-            end
-            input_address[0] <= {33 {1'b0}};
-            r_input_req_id[0] <= counter_requests;
-            input_data[0] <= counter_requests;
-            request_valid[0] <= 1'b1;
-        end
-        else if ( request_valid[1'b0] == 1'b1 && request_picked[1'b0] == 1'b1)  begin 
-            request_valid[1'b0] <= 1'b0;
-        end
+//always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin 
+//    if ( reset_hbm_controller == 1'b0 ) begin
+//        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) r_input_req_id[i] <= { 64 { 1'b0 }};
+//        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) request_valid[i]  <=  1'b0;
+//        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) input_address[i]  <= { 64 { 1'b0 }};
+//        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) input_request[i]  <= 2'b00;
+//        for ( integer i = 0; i < P_TOTAL_PER_CHANNEL_BANK_N; i = i + 1 ) input_data[i]     <= { P_DATA_WIDTH {1'b0}};
+//    end
+//    else begin
+//        if ( request_valid[{address[4:0]}] == 1'b0 ) begin
+//            input_request[{address[4:0]}] <= request;
+//            input_address[{address[4:0]}] <= address;
+//            r_input_req_id[{address[4:0]}] <= counter_requests;
+//            input_data[{address[4:0]}] <= write_data;
+//            request_valid[{address[4:0]}] <= 1'b1;
+//        end
+//        else if ( request_valid[{address[4:0]}] == 1'b1 && request_picked[{address[4:0]}] == 1'b1)  begin 
+//            request_valid[{address[4:0]}] <= 1'b0;
+//        end
         
-    end
-end
+//    end
+//end
 
 
 /* END SIMULATION */
@@ -478,6 +483,7 @@ channel_0_scheduler
     .dfi_dw_rx_indx_ld                     (dfi_dw_rx_indx_ld      ),
     .dfi_ctrlupd_ack                       (dfi_ctrlupd_ack        ),
     .dfi_phyupd_req                        (dfi_phyupd_req         ),
+    .dfi_lp_pwr_x_e_req                    (dfi_lp_pwr_x_e_req),
 
     .dfi_init_complete                     (dfi_init_complete   ),
     .dfi_dw_rddata_valid                   (dfi_dw_rddata_valid ),
@@ -510,7 +516,11 @@ channel_0_scheduler
     .served_ras(served_ras),
     .served_cas(served_cas),
 
-    .reset_hbm_controller(reset_hbm_controller)
+    .reset_hbm_controller(reset_hbm_controller),
+    .rd_data_req_id_ps0(rd_data_req_id_ps0),
+    .rd_data_ps0(rd_data_ps0),
+    .rd_data_req_id_ps1(rd_data_req_id_ps1),
+    .rd_data_ps1(rd_data_ps1)
 );
 
 endmodule

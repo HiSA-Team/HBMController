@@ -105,6 +105,7 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     output           dfi_lp_pwr_e_req,
     output           dfi_lp_sr_e_req,
     output           dfi_lp_pwr_x_req,
+    output           dfi_lp_pwr_x_e_req,
     output           dfi_aw_tx_indx_ld,
     output           dfi_dw_tx_indx_ld,
     output           dfi_dw_rx_indx_ld,
@@ -176,6 +177,29 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     output reset_hbm_controller
     
 );
+
+assign dfi_dw_wrdata_mask_p0   = 32'h0000_0000;
+assign dfi_dw_wrdata_dbi_p0    = 32'h0000_0000;
+assign dfi_dw_wrdata_par_p0    = 8'h00;
+assign dfi_dw_wrdata_par_en_p0 = 8'h00;
+assign dfi_dw_wrdata_mask_p1   = 32'h0000_0000;
+assign dfi_dw_wrdata_dbi_p1    = 32'h0000_0000;
+assign dfi_dw_wrdata_par_p1    = 8'h00;
+assign dfi_dw_wrdata_par_en_p1 = 8'h00;
+assign dfi_lp_pwr_x_e_req      = 1'b0;
+
+assign dfi_dw_wrdata_dq_en_p0  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}}; 
+assign dfi_dw_wrdata_dq_en_p1  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}}; 
+
+assign dfi_aw_ck_dis           = 1'b0;
+assign dfi_lp_pwr_e_req        = 1'b0;
+assign dfi_lp_sr_e_req         = 1'b0;
+assign dfi_lp_pwr_x_req        = 1'b0;
+assign dfi_aw_tx_indx_ld       = 1'b0;
+assign dfi_dw_tx_indx_ld       = 1'b0;
+assign dfi_dw_rx_indx_ld       = 1'b0;
+assign dfi_ctrlupd_ack         = 1'b0;
+assign dfi_phyupd_req          = 1'b0;
 
 /* STATES */
 localparam LP_IDLE			    = 4'd0;
@@ -265,90 +289,90 @@ assign served_ras = r_served_ras;
 assign served_cas = r_served_cas;
 
 
-// assign ready_to_cmd_ras_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
-// assign ready_to_cmd_cas_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
-// assign ready_to_cmd_ras_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
-// assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+ assign ready_to_cmd_ras_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+ assign ready_to_cmd_cas_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+ assign ready_to_cmd_ras_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+ assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
 
 
-reg r_ready_to_cmd_ras_ps0;
-reg r_ready_to_cmd_ras_ps1;
-reg r_ready_to_cmd_cas_ps0;
-reg r_ready_to_cmd_cas_ps1;
+//reg r_ready_to_cmd_ras_ps0;
+//reg r_ready_to_cmd_ras_ps1;
+//reg r_ready_to_cmd_cas_ps0;
+//reg r_ready_to_cmd_cas_ps1;
 
-assign ready_to_cmd_ras_ps0 = r_ready_to_cmd_ras_ps0;
-assign ready_to_cmd_ras_ps1 = r_ready_to_cmd_ras_ps1;
-assign ready_to_cmd_cas_ps0 = r_ready_to_cmd_cas_ps0;
-assign ready_to_cmd_cas_ps1 = r_ready_to_cmd_cas_ps1;
+//assign ready_to_cmd_ras_ps0 = r_ready_to_cmd_ras_ps0;
+//assign ready_to_cmd_ras_ps1 = r_ready_to_cmd_ras_ps1;
+//assign ready_to_cmd_cas_ps0 = r_ready_to_cmd_cas_ps0;
+//assign ready_to_cmd_cas_ps1 = r_ready_to_cmd_cas_ps1;
 
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_ras_ps0 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_ras_ps0 <= 1'b1;
-        end
-        else if ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_ras_ps0 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_ras_ps0 <= 1'b0;
-        end
-    end
-end
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_ras_ps0 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_ras_ps0 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_ras_ps0 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_ras_ps0 <= 1'b0;
+//        end
+//    end
+//end
 
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_ras_ps1 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_ras_ps1 <= 1'b1;
-        end
-        else if ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_ras_ps1 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_ras_ps1 <= 1'b0;
-        end
-    end
-end
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_ras_ps1 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_ras_ps1 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_ras_ps1 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_ras_ps1 <= 1'b0;
+//        end
+//    end
+//end
 
 
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_cas_ps0 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_cas_ps0 <= 1'b1;
-        end
-        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_cas_ps0 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_cas_ps0 <= 1'b0;
-        end
-    end
-end
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_cas_ps0 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_cas_ps0 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_cas_ps0 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_cas_ps0 <= 1'b0;
+//        end
+//    end
+//end
 
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_cas_ps1 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_cas_ps1 <= 1'b1;
-        end
-        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_cas_ps1 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_cas_ps1 <= 1'b0;
-        end
-    end
-end
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_cas_ps1 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_cas_ps1 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_cas_ps1 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_cas_ps1 <= 1'b0;
+//        end
+//    end
+//end
 
 
 
@@ -1521,21 +1545,21 @@ wire [0 : LP_BG_N - 1] actual_ref_respect_cnstr_ps1;
 /***********************************************/
 /* ACT COUNTS PS0 iN A tFAW WINDOWS MANAGEMENT */
 /***********************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         act_cnt_ps0 <= { 8 { 1'b0 } };
     end
     else begin
-        if (( four_act_window_cnt_ps0 >= tFAW-1'b1) && ~(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0))) begin
+        if (( four_act_window_cnt_ps0 >= tFAW-1'b1) && ~(/*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0*/ can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_ACT)) begin
             act_cnt_ps0 <= 1'b0;
         end
-        else if ( ( four_act_window_cnt_ps0 >= tFAW-1'b1) && (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0))) begin
+        else if ( ( four_act_window_cnt_ps0 >= tFAW-1'b1) && (/*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0*/ can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_ACT)) begin
             act_cnt_ps0 <= 1'b1;
         end
         else if ( act_cnt_ps0 >= 4'd4 ) begin
             act_cnt_ps0 <= act_cnt_ps0;
         end
-        else if ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0) ) begin
+        else if ( /*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0*/ can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_ACT ) begin
             act_cnt_ps0 <= act_cnt_ps0 + 1'b1;
         end
     end
@@ -1544,21 +1568,21 @@ end
 /***********************************************/
 /* ACT COUNTS PS1 iN A tFAW WINDOWS MANAGEMENT */
 /***********************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         act_cnt_ps1 <= { 8 { 1'b0 } };
     end
     else begin
-        if (( four_act_window_cnt_ps1 >= tFAW-1'b1) && ~(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)) ) begin
+        if (( four_act_window_cnt_ps1 >= tFAW-1'b1) && ~(/*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_ACT) ) begin
             act_cnt_ps1 <= 1'b0;
         end
-        else if ( ( four_act_window_cnt_ps1 >= tFAW-1'b1) && ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)) ) begin
+        else if ( ( four_act_window_cnt_ps1 >= tFAW-1'b1) && ( /*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_ACT) ) begin
             act_cnt_ps1 <= 1'b1;
         end
         else if ( act_cnt_ps1 >= 4'd4 ) begin
             act_cnt_ps1 <= act_cnt_ps1;
         end
-        else if ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)) begin
+        else if ( /*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_ACT) begin
             act_cnt_ps1 <= act_cnt_ps1 + 1'b1;
         end
     end
@@ -1568,12 +1592,12 @@ end
 /*******************/
 /* PS0 tFAW UPDATE */
 /*******************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         four_act_window_cnt_ps0 <= { 8 { 1'b0 } };
     end
     else begin
-        if ( (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_0) && ( four_act_window_cnt_ps0 >= tFAW-1'b1) ) begin
+        if ( /*(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_0)*/can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_ACT && ( four_act_window_cnt_ps0 >= tFAW-1'b1) ) begin
             four_act_window_cnt_ps0 <= 1'b0;
         end
         else if ( four_act_window_cnt_ps0 == { 8 { 1'b1 } } ) begin
@@ -1588,12 +1612,12 @@ end
 /*******************/
 /* PS1 tFAW UPDATE */
 /*******************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         four_act_window_cnt_ps1 <= { 8 { 1'b0 } };
     end
     else begin
-        if ( (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_1) && ( four_act_window_cnt_ps1 >= tFAW-1'b1) ) begin
+        if ( /*(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_ACT && ( four_act_window_cnt_ps1 >= tFAW-1'b1) ) begin
             four_act_window_cnt_ps1 <= 1'b0;
         end
         else if ( four_act_window_cnt_ps1 == { 8 { 1'b1 } } ) begin
@@ -1608,13 +1632,14 @@ end
 /**************************************************/
 /* REF COUNTS PS0 iN A REFRESH WINDOWS MANAGEMENT */
 /**************************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         ref_cnt_ps0 <= { P_BA_N_PS { 1'b0 } };
     end
     else begin
         /* A ps0 REF is served */
-        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) )) begin
+//        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) )) begin
+          if ( can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_REFPB ) begin
             /* The last REF is the last of a refresh window, reset the counter */
             if ( ref_cnt_ps0 == P_BA_N_PS ) begin
                 ref_cnt_ps0 <= 1'b1;
@@ -1629,14 +1654,15 @@ end
 /**************************************************/
 /* REF COUNTS PS0 iN A REFRESH WINDOWS MANAGEMENT */
 /**************************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         ref_cnt_ps1 <= { P_BA_N_PS { 1'b0 } };
     end
     else begin
         /* A ps1 REF is served */
-        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) )) begin
+//        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) )) begin
             /* The last REF is the last of a refresh window, reset the counter */
+        if ( can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_REFPB ) begin
             if ( ref_cnt_ps1 == P_BA_N_PS ) begin
                 ref_cnt_ps1 <= 1'b1;
             end
@@ -1658,12 +1684,13 @@ generate
         /********************************************/
         /* RAS TIMING CHECK AND COUNTERS MANAGEMENT */
         /********************************************/
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps0_driver
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps0_driver
             if ( dfi_rst_n == 1'b0 ) begin
                 last_wrt_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_WRT) && ( (r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_WRT) && ( (r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if (can_serve_actual_cas_ps0 && cmd_cas_ps0 == P_COL_WRT && bank_address_cas_ps0[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_wrt_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_wrt_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
@@ -1675,12 +1702,13 @@ generate
             end
         end 
         
-        always @ (negedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps1_driver
+        always @ (posedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps1_driver
             if ( dfi_rst_n == 1'b0 ) begin
                 last_wrt_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_col_cmd_p1[3:0] == P_COL_WRT) && ( ( r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_col_cmd_p1[3:0] == P_COL_WRT) && ( ( r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if (can_serve_actual_cas_ps1 && cmd_cas_ps1 == P_COL_WRT && bank_address_cas_ps1[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_wrt_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_wrt_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
@@ -1692,12 +1720,13 @@ generate
             end
         end 
         
-        always @ (negedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps0_driver
+        always @ (posedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps0_driver
             if ( dfi_rst_n == 1'b0 ) begin
                 last_rd_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_RD) && ( ( r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && ( r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
+//                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_RD) && ( ( r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && ( r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if (can_serve_actual_cas_ps0 && cmd_cas_ps0 == P_COL_RD && bank_address_cas_ps0[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_rd_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_rd_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
@@ -1709,12 +1738,13 @@ generate
             end
         end
         
-        always @ (negedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps1_driver
+        always @ (posedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps1_driver
             if ( dfi_rst_n == 1'b0 ) begin
                 last_rd_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
             end
             else begin
-                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p1[3:0] == P_COL_RD) && ((r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
+//                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p1[3:0] == P_COL_RD) && ((r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if (can_serve_actual_cas_ps1 && cmd_cas_ps1 == P_COL_RD && bank_address_cas_ps1[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_rd_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_rd_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
@@ -1742,12 +1772,13 @@ generate
         /********************************************/
         /* RAS TIMING CHECK AND COUNTERS MANAGEMENT */
         /********************************************/
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin : last_act_bg_cnt_ps0_driver
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : last_act_bg_cnt_ps0_driver
             if ( dfi_rst_n == 1'b0 ) begin
                 last_act_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if (  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_0) && ( ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
+//                if (  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_0) && ( ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
+                if (can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_ACT && bank_address_ras_ps0[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_act_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_act_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
@@ -1759,12 +1790,13 @@ generate
             end
         end
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
                 last_act_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_1) && ( ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_1) && ( ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
+                if (can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_ACT && bank_address_ras_ps1[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_act_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_act_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
@@ -1776,12 +1808,13 @@ generate
             end
         end 
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
                 last_pre_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_0 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}  && r_row_cmd_p1[9] == LP_BA4_0 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_0 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}  && r_row_cmd_p1[9] == LP_BA4_0 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
+                if (can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_PRE && bank_address_ras_ps0[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_pre_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_pre_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
@@ -1793,12 +1826,13 @@ generate
             end
         end
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
                 last_pre_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if  ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_1 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]} && r_row_cmd_p1[9] == LP_BA4_1 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
+//                if  ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_1 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]} && r_row_cmd_p1[9] == LP_BA4_1 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
+                if (can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_PRE && bank_address_ras_ps1[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_pre_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_pre_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
@@ -1811,12 +1845,13 @@ generate
         end
         
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
                 last_ref_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
+                if (can_serve_actual_ras_ps0 && cmd_ras_ps0 == P_ROW_REFPB && bank_address_ras_ps0[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_ref_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_ref_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
@@ -1829,12 +1864,13 @@ generate
         end
         
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
                 last_ref_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
+                if (can_serve_actual_ras_ps1 && cmd_ras_ps1 == P_ROW_REFPB && bank_address_ras_ps1[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
                     last_ref_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
                 end
                 else if ( last_ref_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin

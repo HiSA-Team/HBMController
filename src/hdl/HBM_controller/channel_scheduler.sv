@@ -86,6 +86,7 @@ module channel_scheduler#
     output  [7:0]		dfi_dw_wrdata_par_p0,
     output  [7:0]		dfi_dw_wrdata_dq_en_p0,
     output  [7:0]		dfi_dw_wrdata_par_en_p0,
+    output              dfi_lp_pwr_x_e_req,
 
     output  [1:0]		dfi_aw_ck_p1,
     output  [1:0]		dfi_aw_cke_p1,
@@ -143,7 +144,12 @@ module channel_scheduler#
     output [(P_BA_N_PS*2)-1:0]          served_ras,
     output [(P_BA_N_PS*2)-1:0]          served_cas,
 
-    output reset_hbm_controller
+    output reset_hbm_controller,
+
+    output [20:0]                       rd_data_req_id_ps0,
+    output [P_DATA_WIDTH-1:0]           rd_data_ps0,
+    output [20:0]                       rd_data_req_id_ps1,
+    output [P_DATA_WIDTH-1:0]           rd_data_ps1
     
        
 );
@@ -384,6 +390,7 @@ ll_command_forwarder_RAS_CAS_PS0_PS1_queue #(
     .dfi_lp_pwr_e_req                      (dfi_lp_pwr_e_req       ),
     .dfi_lp_sr_e_req                       (dfi_lp_sr_e_req        ),
     .dfi_lp_pwr_x_req                      (dfi_lp_pwr_x_req     ),
+    .dfi_lp_pwr_x_e_req                    (dfi_lp_pwr_x_e_req),
     .dfi_aw_tx_indx_ld                     (dfi_aw_tx_indx_ld      ),
     .dfi_dw_tx_indx_ld                     (dfi_dw_tx_indx_ld      ),
     .dfi_dw_rx_indx_ld                     (dfi_dw_rx_indx_ld      ),
@@ -440,7 +447,12 @@ ll_command_forwarder_RAS_CAS_PS0_PS1_queue #(
     .served_ras(served_ras),
     .served_cas(served_cas),
 
-    .reset_hbm_controller(reset_hbm_controller)
+    .reset_hbm_controller(reset_hbm_controller),
+
+    .rd_data_req_id_ps0(rd_data_req_id_ps0),
+    .rd_data_ps0(rd_data_ps0),
+    .rd_data_req_id_ps1(rd_data_req_id_ps1),
+    .rd_data_ps1(rd_data_ps1)
 );
 
 
