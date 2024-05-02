@@ -11,7 +11,7 @@ For now, the synthesis and implementation go well on the Alveo U280 board.
 
 ## Getting started
 
-#### Create a build directory :
+#### Create the build directory :
 ~~~~
 mkdir build && cd build
 ~~~~
@@ -25,3 +25,5 @@ cmake ..
 ~~~~
 $ make HBMController
 ~~~~
+
+Now the project is built. To simulate it, Questa Advanced Simulator v2020.4 is needed. All the simulation settings are made, you need to download and compile the Questa library.

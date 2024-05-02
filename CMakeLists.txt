@@ -23,6 +23,7 @@ configure_file(${CMAKE_SOURCE_DIR}/scripts/base.tcl ${CMAKE_SOURCE_DIR}/build/ba
 configure_file(${CMAKE_SOURCE_DIR}/scripts/build_project.tcl ${CMAKE_SOURCE_DIR}/build/build_design.tcl)
 configure_file(${CMAKE_SOURCE_DIR}/scripts/build_hbm_phy.tcl ${CMAKE_SOURCE_DIR}/build/build_hbm_phy.tcl)
 configure_file(${CMAKE_SOURCE_DIR}/scripts/build_hbm_controller.tcl ${CMAKE_SOURCE_DIR}/build/build_hbm_controller.tcl)
+configure_file(${CMAKE_SOURCE_DIR}/scripts/configure_questa_simulator.tcl ${CMAKE_SOURCE_DIR}/build/configure_questa_simulator.tcl)
 
 # Generate targets
 add_custom_target(HBMController COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_SOURCE_DIR}/build/build_design.tcl -notrace -nolog -nojournal)
