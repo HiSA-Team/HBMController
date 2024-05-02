@@ -348,7 +348,7 @@ CAS_arbiter #(
 );
 
 
-lalst_level_command_forwarder #(
+last_level_command_forwarder #(
     .P_ROW_ADDR_WIDTH         (P_ROW_ADDR_WIDTH     ),
     .P_COL_ADDR_WIDTH         (P_COL_ADDR_WIDTH     ),
     .P_BA_ADDR_WIDTH          (P_BA_ADDR_WIDTH      ),

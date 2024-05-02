@@ -12,3 +12,10 @@ _deps
 
 benchmarks
 benchmarks/*
+
+build
+build/*
+
+vivado.*
+.Xil
+.Xil/*
