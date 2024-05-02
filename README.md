@@ -1,4 +1,4 @@
-# HighBandwidthMemoryPredictable Controller (HBM-PC)   
+# HBM Predictable Controller (HBM-PC)   
 HBM-PC is a predictable memory controller for HBM. An extensive mathematical analysis has been conducted to validate predictability.
 
 HBM-PC uses the AMD Xilinx HBM IP as PHY to talk to the memory through the DFI protocol. 
