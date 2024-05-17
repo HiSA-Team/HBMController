@@ -8,3 +8,7 @@ add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sour
     $src_dir/hdl/REQ_to_CMD_translator.sv \
     $src_dir/hdl/HBM_channel_controller.sv \
     $src_dir/hdl/HBM_controller_top.sv"
+
+# set_property generic {N_CHANNELS = ${N_CHANNELS} } [current_fileset]
+
+add_files -norecurse -fileset constrs_1 -copy_to $project_dir/$project.srcs/constrs_1 "$src_dir/xdc/constraints.xdc"
