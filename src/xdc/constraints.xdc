@@ -23,10 +23,10 @@ set_property IOSTANDARD LVCMOS18 [get_ports hbm_cattrip_output]
 
 
 create_pblock pblock_1
-add_cells_to_pblock [get_pblocks pblock_1] [get_cells  [list {genblk1[0].HBM_controller_i} {genblk1[1].HBM_controller_i} {genblk1[2].HBM_controller_i} {genblk1[3].HBM_controller_i} {genblk1[4].HBM_controller_i} {genblk1[5].HBM_controller_i} {genblk1[6].HBM_controller_i} {genblk1[7].HBM_controller_i} {u_mmcm_0}]]
+add_cells_to_pblock [get_pblocks pblock_1] [get_cells  [list {genblk2[0].HBM_channel_controller_i} {genblk2[1].HBM_channel_controller_i} {genblk2[2].HBM_channel_controller_i} {genblk2[3].HBM_channel_controller_i} {genblk2[4].HBM_channel_controller_i} {genblk2[5].HBM_channel_controller_i} {genblk2[6].HBM_channel_controller_i} {genblk2[7].HBM_channel_controller_i} {u_mmcm_0}]]
 resize_pblock [get_pblocks pblock_1] -add {CLOCKREGION_X0Y0:CLOCKREGION_X3Y4}
 create_pblock pblock_2
-add_cells_to_pblock [get_pblocks pblock_2] [get_cells  [list {genblk1[10].HBM_controller_i} {genblk1[11].HBM_controller_i} {genblk1[12].HBM_controller_i} {genblk1[13].HBM_controller_i} {genblk1[14].HBM_controller_i} {genblk1[15].HBM_controller_i} {genblk1[8].HBM_controller_i} {genblk1[9].HBM_controller_i} {u_mmcm_1} {u_mmcm_2}]] 
+add_cells_to_pblock [get_pblocks pblock_2] [get_cells  [list {genblk2[8].HBM_channel_controller_i} {genblk2[9].HBM_channel_controller_i} {genblk2[10].HBM_channel_controller_i} {genblk2[11].HBM_channel_controller_i} {genblk2[12].HBM_channel_controller_i} {genblk2[13].HBM_channel_controller_i} {genblk2[14].HBM_channel_controller_i} {genblk2[15].HBM_channel_controller_i} {u_mmcm_1} ]] 
 resize_pblock [get_pblocks pblock_2] -add {CLOCKREGION_X4Y0:CLOCKREGION_X7Y4}
 #set_property IS_SOFT TRUE [get_pblocks pblock_1]
 #set_property IS_SOFT TRUE [get_pblocks pblock_2]
@@ -50,4 +50,4 @@ set_false_path -from [get_pins rst_st0_n_1_reg/C] -to [get_pins {rst0_st0_r1_n_r
 set_false_path -from [get_pins rst_st0_n_1_reg/C] -to [get_pins {rst0_st0_r1_n_reg[12]/D}]
 set_false_path -from [get_pins rst_st0_n_1_reg/C] -to [get_pins {rst0_st0_r1_n_reg[13]/D}]
 set_false_path -from [get_pins rst_st0_n_2_reg/C] -to [get_pins {rst0_st0_r1_n_reg[14]/D}]
-set_false_path -from [get_pins rst_st0_n_2_reg/C] -to [get_pins {rst0_st0_r1_n_reg[15]/D}]
+# set_false_path -from [get_pins rst_st0_n_2_reg/C] -to [get_pins {rst0_st0_r1_n_reg[15]/D}]

@@ -38,7 +38,7 @@ module HBM_channel_controller # (
     parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32,        /* Number of Banks per channel, again we consider half bank */
 
     /* FIFO QUEUE LEN */
-    parameter       P_QUEUE_LEN             = 32,
+    parameter       P_QUEUE_LEN             = 8,
 
     /* WRT BUFFER LEN */
     parameter       P_WRT_DATA_BUFFER_LEN   = 4,

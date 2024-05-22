@@ -32,7 +32,7 @@ if {[get_property PROGRESS [get_runs synth_1]] != "100%"} {
 }
 
 
-launch_runs impl_1 -to_step write_bitstream -jobs 4
+launch_runs impl_1 -jobs 4
 # Wait on completion
 wait_on_run impl_1
 if {[get_property PROGRESS [get_runs impl_1]] != "100%"} {   

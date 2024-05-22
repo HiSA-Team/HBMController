@@ -618,7 +618,7 @@ reg  [3:0]    cnt_rst_2;
             .PSINCDEC            (1'b0)
         );
         
-        
+    if (N_CHANNELS >= 8) begin
         MMCME4_ADV
         #(.BANDWIDTH            ("OPTIMIZED"),
             .CLKOUT4_CASCADE      ("FALSE"),
@@ -645,18 +645,18 @@ reg  [3:0]    cnt_rst_2;
         (
             .CLKFBOUT            (),
             .CLKFBOUTB           (),
-            .CLKOUT0             (dfi_clk_in[7]),
+            .CLKOUT0             (dfi_clk_in[8]),
 
             .CLKOUT0B            (),
-            .CLKOUT1             (dfi_clk_in[8]),
+            .CLKOUT1             (dfi_clk_in[9]),
             .CLKOUT1B            (),
-            .CLKOUT2             (dfi_clk_in[9]),
+            .CLKOUT2             (dfi_clk_in[10]),
             .CLKOUT2B            (),
-            .CLKOUT3             (dfi_clk_in[10]),
+            .CLKOUT3             (dfi_clk_in[11]),
             .CLKOUT3B            (),
-            .CLKOUT4             (dfi_clk_in[11]),
-            .CLKOUT5             (dfi_clk_in[12]),
-            .CLKOUT6             (dfi_clk_in[13]),
+            .CLKOUT4             (dfi_clk_in[12]),
+            .CLKOUT5             (dfi_clk_in[13]),
+            .CLKOUT6             (dfi_clk_in[14]),
             // Input clock control
             .CLKFBIN             (), //mmcm_fb
             .CLKIN1              (HBM_REF_CLK_buf_1),
@@ -683,71 +683,72 @@ reg  [3:0]    cnt_rst_2;
             .PSEN                (1'b0),
             .PSINCDEC            (1'b0)
         );
+    end
         
-        MMCME4_ADV
-        #(.BANDWIDTH            ("OPTIMIZED"),
-            .CLKOUT4_CASCADE      ("FALSE"),
-            .COMPENSATION         ("INTERNAL"),
-            .STARTUP_WAIT         ("FALSE"),
-            .DIVCLK_DIVIDE        (MMCM_DIVCLK_DIVIDE),
-            .CLKFBOUT_MULT_F      (MMCM_CLKFBOUT_MULT_F),
-            .CLKFBOUT_PHASE       (0.000),
-            .CLKFBOUT_USE_FINE_PS ("FALSE"),
-            .CLKOUT0_DIVIDE_F     (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT0_PHASE        (0.000),
-            .CLKOUT0_DUTY_CYCLE   (0.500),
-            .CLKOUT0_USE_FINE_PS  ("FALSE"),
-            .CLKOUT1_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT2_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT3_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT4_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT5_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT6_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKIN1_PERIOD        (MMCM_CLKIN1_PERIOD),
-            .REF_JITTER1          (0.010))
-        u_mmcm_2
-            // Output clocks
-        (
-            .CLKFBOUT            (),
-            .CLKFBOUTB           (),
-            .CLKOUT0             (dfi_clk_in[14]),
+        // MMCME4_ADV
+        // #(.BANDWIDTH            ("OPTIMIZED"),
+        //     .CLKOUT4_CASCADE      ("FALSE"),
+        //     .COMPENSATION         ("INTERNAL"),
+        //     .STARTUP_WAIT         ("FALSE"),
+        //     .DIVCLK_DIVIDE        (MMCM_DIVCLK_DIVIDE),
+        //     .CLKFBOUT_MULT_F      (MMCM_CLKFBOUT_MULT_F),
+        //     .CLKFBOUT_PHASE       (0.000),
+        //     .CLKFBOUT_USE_FINE_PS ("FALSE"),
+        //     .CLKOUT0_DIVIDE_F     (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKOUT0_PHASE        (0.000),
+        //     .CLKOUT0_DUTY_CYCLE   (0.500),
+        //     .CLKOUT0_USE_FINE_PS  ("FALSE"),
+        //     .CLKOUT1_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKOUT2_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKOUT3_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKOUT4_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKOUT5_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKOUT6_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        //     .CLKIN1_PERIOD        (MMCM_CLKIN1_PERIOD),
+        //     .REF_JITTER1          (0.010))
+        // u_mmcm_2
+        //     // Output clocks
+        // (
+        //     .CLKFBOUT            (),
+        //     .CLKFBOUTB           (),
+        //     .CLKOUT0             (dfi_clk_in[14]),
 
-            .CLKOUT0B            (),
-            .CLKOUT1             (dfi_clk_in[15]),
-            .CLKOUT1B            (),
-            .CLKOUT2             (),
-            .CLKOUT2B            (),
-            .CLKOUT3             (),
-            .CLKOUT3B            (),
-            .CLKOUT4             (),
-            .CLKOUT5             (),
-            .CLKOUT6             (),
-            // Input clock control
-            .CLKFBIN             (), //mmcm_fb
-            .CLKIN1              (HBM_REF_CLK_buf_1),
-            .CLKIN2              (1'b0),
-            // Other control and status signals
-            .LOCKED              (MMCM_LOCK_2),
-            .PWRDWN              (1'b0),
-            .RST                 (~rst_mmcm_n_2),
+        //     .CLKOUT0B            (),
+        //     .CLKOUT1             (dfi_clk_in[15]),
+        //     .CLKOUT1B            (),
+        //     .CLKOUT2             (),
+        //     .CLKOUT2B            (),
+        //     .CLKOUT3             (),
+        //     .CLKOUT3B            (),
+        //     .CLKOUT4             (),
+        //     .CLKOUT5             (),
+        //     .CLKOUT6             (),
+        //     // Input clock control
+        //     .CLKFBIN             (), //mmcm_fb
+        //     .CLKIN1              (HBM_REF_CLK_buf_1),
+        //     .CLKIN2              (1'b0),
+        //     // Other control and status signals
+        //     .LOCKED              (MMCM_LOCK_2),
+        //     .PWRDWN              (1'b0),
+        //     .RST                 (~rst_mmcm_n_2),
         
-            .CDDCDONE            (),
-            .CLKFBSTOPPED        (),
-            .CLKINSTOPPED        (),
-            .DO                  (),
-            .DRDY                (),
-            .PSDONE              (),
-            .CDDCREQ             (1'b0),
-            .CLKINSEL            (1'b1),
-            .DADDR               (7'b0),
-            .DCLK                (1'b0),
-            .DEN                 (1'b0),
-            .DI                  (16'b0),
-            .DWE                 (1'b0),
-            .PSCLK               (1'b0),
-            .PSEN                (1'b0),
-            .PSINCDEC            (1'b0)
-        );
+        //     .CDDCDONE            (),
+        //     .CLKFBSTOPPED        (),
+        //     .CLKINSTOPPED        (),
+        //     .DO                  (),
+        //     .DRDY                (),
+        //     .PSDONE              (),
+        //     .CDDCREQ             (1'b0),
+        //     .CLKINSEL            (1'b1),
+        //     .DADDR               (7'b0),
+        //     .DCLK                (1'b0),
+        //     .DEN                 (1'b0),
+        //     .DI                  (16'b0),
+        //     .DWE                 (1'b0),
+        //     .PSCLK               (1'b0),
+        //     .PSEN                (1'b0),
+        //     .PSINCDEC            (1'b0)
+        // );
         
         
 
@@ -769,7 +770,7 @@ reg  [3:0]    cnt_rst_2;
         assign request = r_request;
         assign write_data = r_wrt_data;
 
-        assign done = &r_done;
+        assign done = &r_done[0:N_CHANNELS-1];
 
         
         always @ (posedge dfi_clk_buf[0] or negedge ARESET_N_0) begin
@@ -923,15 +924,15 @@ reg  [3:0]    cnt_rst_2;
             end
         end
 
-        always @ (posedge dfi_clk_buf[15] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[15] <= 1'b0;
-                rst0_st0_r2_n[15] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[15] <= rst_st0_n_2;
-                rst0_st0_r2_n[15] <= rst0_st0_r1_n[15];
-            end
-        end
+        // always @ (posedge dfi_clk_buf[15] or negedge ARESET_N_1) begin
+        //     if (~ARESET_N_1) begin
+        //         rst0_st0_r1_n[15] <= 1'b0;
+        //         rst0_st0_r2_n[15] <= 1'b0;
+        //     end else begin
+        //         rst0_st0_r1_n[15] <= rst_st0_n_2;
+        //         rst0_st0_r2_n[15] <= rst0_st0_r1_n[15];
+        //     end
+        // end
 
 
 
@@ -939,42 +940,18 @@ genvar i;
 generate
    for( i = 0; i < N_CHANNELS; i = i+1 ) begin
 
-        if (i > 7 ) begin
-            always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_1) begin
-                if (~ARESET_N_1) begin
-                    dfi_rst_n[i] <= 1'b0;
-                end else begin
-                    dfi_rst_n[i] <= rst0_st0_r2_n[i];
-                end
-            end
-        end
-        else begin
-            if ( i == 7 ) begin
-                always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
-                    if (~ARESET_N_0) begin
-                        dfi_rst_n[6] <= 1'b0;
-                    end else begin
-                        dfi_rst_n[6] <= rst0_st0_r2_n[6];
-                    end
-                end
-            end
-            else begin 
-                always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_0) begin
-                    if (~ARESET_N_0) begin
-                        dfi_rst_n[i] <= 1'b0;
-                    end else begin
-                        dfi_rst_n[i] <= rst0_st0_r2_n[i];
-                    end
-                end
-            end
-        end 
+        
         
         if (i == 7 ) begin
-//            BUFG u_dfi_clk_buf_0  (
-//            .I (dfi_clk_in[i]),
-//            .O (dfi_clk_buf[i])
-//            );
-    
+
+            always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
+                if (~ARESET_N_0) begin
+                    dfi_rst_n[6] <= 1'b0;
+                end else begin
+                    dfi_rst_n[6] <= rst0_st0_r2_n[6];
+                end
+            end
+
             always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
                 if (dfi_rst_n[6] == 1'b0) begin
                     r_done[i] <= 1'b0;
@@ -1007,7 +984,68 @@ generate
                 end
             end
         end
+        else if ( i == 15 ) begin
+
+            always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
+                if (~ARESET_N_1) begin
+                    dfi_rst_n[14] <= 1'b0;
+                end else begin
+                    dfi_rst_n[14] <= rst0_st0_r2_n[14];
+                end
+            end
+
+            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
+                if (dfi_rst_n[14] == 1'b0) begin
+                    r_done[i] <= 1'b0;
+                end
+                else begin
+                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                        r_done[i] <= 1'b1;
+                    end
+                    else begin
+                        r_done[i] <= 1'b0;
+                    end
+                end
+            end
+    
+            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
+                if (dfi_rst_n[14] == 1'b0) begin
+                    r_address[i] <= {33{1'b0}};
+                    r_request[i] <= 2'b00;
+                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                end
+                else begin
+                    r_address[i] <= r_address[i] + 1'b1;
+                    r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
+                    if ( r_request[i] == 2'b00 ) begin
+                        r_request[i] <= 2'b01; 
+                    end
+                    else begin
+                        r_request[i] <= 2'b00;
+                    end
+                end
+            end
+        end
         else begin
+
+            if (i > 7 ) begin
+                always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_1) begin
+                    if (~ARESET_N_1) begin
+                        dfi_rst_n[i] <= 1'b0;
+                    end else begin
+                        dfi_rst_n[i] <= rst0_st0_r2_n[i];
+                    end
+                end
+            end
+            else begin 
+                always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_0) begin
+                    if (~ARESET_N_0) begin
+                        dfi_rst_n[i] <= 1'b0;
+                    end else begin
+                        dfi_rst_n[i] <= rst0_st0_r2_n[i];
+                    end
+                end
+            end 
         
     
             BUFG u_dfi_clk_buf_0  (
@@ -1110,6 +1148,69 @@ generate
             );
         
         end
+
+        if ( i == 15 ) begin
+            HBM_channel_controller 
+            HBM_channel_controller_i
+            (
+                .dfi_clk_buf                    (dfi_clk_buf[14]   )
+                ,.dfi_rst_n                     (dfi_rst_n[14]     )
+                ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
+                ,.dfi_init_start                (dfi_init_start[i]         )
+                ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
+                ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
+                ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
+                ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
+                ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
+                ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
+                ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
+                ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
+                ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
+                ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
+                ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
+                ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
+                ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
+                ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
+                ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
+                ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
+                ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
+                ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
+                ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
+                ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
+                ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
+                ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
+                ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
+                ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
+                ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
+                ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
+                ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
+                ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
+                ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
+                ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
+                ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
+                ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
+                ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
+                ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
+                ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
+                ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
+                ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
+                ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
+                ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
+                ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
+                ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
+                ,.dfi_init_complete             (dfi_init_complete[i])
+                ,.reset_hbm_controller          (reset_hbm_controller[i])
+               ,.address                       (address[i])
+               ,.write_data                    (write_data[i])
+               ,.request                       (request[i])
+                ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
+                ,.rd_data_ps0(rd_data_ps0[i])
+                ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
+                ,.rd_data_ps1(rd_data_ps1[i])
+            );
+        
+        end
+
         else begin 
         
             HBM_channel_controller 
@@ -1982,8 +2083,8 @@ hbm_0 hbm_0_i
 
 
 
-   ,.dfi_15_clk                       (dfi_clk_buf[15]            )
-   ,.dfi_15_rst_n                     (dfi_rst_n[15]              )
+   ,.dfi_15_clk                       (dfi_clk_buf[14]            )
+   ,.dfi_15_rst_n                     (dfi_rst_n[14]              )
    ,.dfi_15_init_start                (dfi_init_start[15]         )
    ,.dfi_15_aw_ck_p0                  (dfi_aw_ck_p0[15]           )
    ,.dfi_15_aw_cke_p0                 (dfi_aw_cke_p0[15]          )
