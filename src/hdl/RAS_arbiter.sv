@@ -116,7 +116,9 @@ always @ (posedge clk or negedge rst_n) begin
             r_cmd_id_ras         <=  cmd_id_selected_by_bg; 
             r_bank_address_ras   <=  bank_address_selected_by_bg;
             r_row_address_ras    <=  row_address_selected_by_bg;
-            $display("[ RAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
+            `ifdef DEBUG
+                $display("[ RAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
+            `endif
         end
         else if (ready_to_cmd_ras) begin
             r_cmd_ras            <= P_GENERAL_NOP;

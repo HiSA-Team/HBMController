@@ -43,12 +43,19 @@ module HBM_controller_top#
 
     output hbm_cattrip_output,
 
-    output done
+    `ifndef DEBUG
+        output done
+    `endif
 
-    // output [20:0]                       rd_data_req_id_ps0,
-//    output [P_DATA_WIDTH-1:0]           rd_data_ps0,
-    // output [20:0]                       rd_data_req_id_ps1
-//    output [P_DATA_WIDTH-1:0]           rd_data_ps1
+    `ifdef DEBUG
+        input  [31:0]               address        [0:16-1],
+        input  [1:0]                request        [0:16-1],
+        input  [P_DATA_WIDTH-1:0]   write_data     [0:16-1],
+        input                       request_valid  [0:16-1],
+        output                      request_picked [0:16-1],
+        output reset_hbm_controller                [0:16-1]
+    `endif
+
 );
 
 localparam MMCM_CLKFBOUT_MULT_F  = 9;
@@ -205,419 +212,419 @@ reg           rst_mmcm_2;
 reg  [3:0]    cnt_rst_2;
         
 
-        always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                cnt_rst_0        <= 8'h00;
-                rst_mmcm_n     <= 1'b0;
-            end else begin
-                if (~rst_r1_n) begin
-                    if( cnt_rst_0 >= 8'd100 ) begin
-                        cnt_rst_0 <= cnt_rst_0;
-                        rst_mmcm_n <= 1'b0;
-                    end
-                    else begin
-                        cnt_rst_0 <= cnt_rst_0 + 1;
-                        rst_mmcm_n <= rst_mmcm_n;
-                    end
-                end else begin
-                    cnt_rst_0 <= 'd0;
-                    rst_mmcm_n <= 1'b1;
+    always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            cnt_rst_0        <= 8'h00;
+            rst_mmcm_n     <= 1'b0;
+        end else begin
+            if (~rst_r1_n) begin
+                if( cnt_rst_0 >= 8'd100 ) begin
+                    cnt_rst_0 <= cnt_rst_0;
+                    rst_mmcm_n <= 1'b0;
                 end
-            end
-        end
-
-
-        always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst_mmcm  <= 1'b0;
-            end else begin
-                if (cnt_rst != 4'h0) begin
-                    rst_mmcm <= 1'b0;
-                end else begin
-                    rst_mmcm <= 1'b1;
+                else begin
+                    cnt_rst_0 <= cnt_rst_0 + 1;
+                    rst_mmcm_n <= rst_mmcm_n;
                 end
-            end
-        end
-
-
-        always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                w_rst_sys_rst_r1 <= 1'b0;
-                w_rst_sys_rst_r2 <= 1'b0;
             end else begin
-                w_rst_sys_rst_r1 <= w_rst_sys_rst;
-                w_rst_sys_rst_r2 <= w_rst_sys_rst_r1;
+                cnt_rst_0 <= 'd0;
+                rst_mmcm_n <= 1'b1;
             end
         end
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst_st0_n <= 1'b0;
+
+    always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst_mmcm  <= 1'b0;
+        end else begin
+            if (cnt_rst != 4'h0) begin
+                rst_mmcm <= 1'b0;
             end else begin
-                rst_st0_n <= rst_mmcm & MMCM_LOCK_0 & (~w_rst_sys_rst_r2);
+                rst_mmcm <= 1'b1;
             end
         end
-        
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
+
+    always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            w_rst_sys_rst_r1 <= 1'b0;
+            w_rst_sys_rst_r2 <= 1'b0;
+        end else begin
+            w_rst_sys_rst_r1 <= w_rst_sys_rst;
+            w_rst_sys_rst_r2 <= w_rst_sys_rst_r1;
+        end
+    end
+
+    always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst_st0_n <= 1'b0;
+        end else begin
+            rst_st0_n <= rst_mmcm & MMCM_LOCK_0 & (~w_rst_sys_rst_r2);
+        end
+    end
+    
+
+    always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            cnt_rst <= 4'hA;
+        end else begin
+            if (~rst_r1_n) begin
                 cnt_rst <= 4'hA;
+            end else if (cnt_rst != 4'h0) begin
+                cnt_rst <= cnt_rst - 1'b1;
             end else begin
-                if (~rst_r1_n) begin
-                    cnt_rst <= 4'hA;
-                end else if (cnt_rst != 4'h0) begin
-                    cnt_rst <= cnt_rst - 1'b1;
-                end else begin
-                    cnt_rst <= cnt_rst;
-                end
+                cnt_rst <= cnt_rst;
             end
         end
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst_r1_n <= 1'b0;
-            end else begin
-                rst_r1_n <= 1'b1;
-            end
+    always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst_r1_n <= 1'b0;
+        end else begin
+            rst_r1_n <= 1'b1;
         end
+    end
 
-        assign w_rst_sys_rst = 4'h0;
-        assign	w_apb_reset_n_inv_st0 = APB_PRESET_N_0 && ~w_rst_sys_rst;
-        always @ ( posedge APB_PCLK_BUF_0 or negedge  w_apb_reset_n_inv_st0 )
-        begin
-            if( w_apb_reset_n_inv_st0 == 1'b0 )
+    assign w_rst_sys_rst = 4'h0;
+    assign	w_apb_reset_n_inv_st0 = APB_PRESET_N_0 && ~w_rst_sys_rst;
+    always @ ( posedge APB_PCLK_BUF_0 or negedge  w_apb_reset_n_inv_st0 )
+    begin
+        if( w_apb_reset_n_inv_st0 == 1'b0 )
+            begin
+                cnt_apb_rst_p2l_st0 <= 8'd0;
+                r_apb_preset_n_p2l_st0 <= 1'd0;
+            end
+        else
+            begin
+                if( cnt_apb_rst_p2l_st0 >= 8'd200 )
                 begin
-                    cnt_apb_rst_p2l_st0 <= 8'd0;
-                    r_apb_preset_n_p2l_st0 <= 1'd0;
+                    r_apb_preset_n_p2l_st0	<= 1'd1;
+                    cnt_apb_rst_p2l_st0		<= cnt_apb_rst_p2l_st0;
                 end
-            else
+                else
                 begin
-                    if( cnt_apb_rst_p2l_st0 >= 8'd200 )
-                    begin
-                        r_apb_preset_n_p2l_st0	<= 1'd1;
-                        cnt_apb_rst_p2l_st0		<= cnt_apb_rst_p2l_st0;
-                    end
-                    else
-                    begin
-                        cnt_apb_rst_p2l_st0		<= cnt_apb_rst_p2l_st0 + 8'd1;
-                        r_apb_preset_n_p2l_st0 <= 1'b0;
-                    end
-                end
-        end
-
-        assign APB_PRESET_N_sync_0 = r_apb_preset_n_p2l_st0;
-
-
-
-
-
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                cnt_rst_0_1        <= 8'h00;
-                rst_mmcm_n_1     <= 1'b0;
-            end else begin
-                if (~rst_r1_n_1) begin
-                    if( cnt_rst_0_1 >= 8'd100 ) begin
-                        cnt_rst_0_1 <= cnt_rst_0_1;
-                        rst_mmcm_n_1 <= 1'b0;
-                    end
-                    else begin
-                        cnt_rst_0_1 <= cnt_rst_0_1 + 1;
-                        rst_mmcm_n_1 <= rst_mmcm_n_1;
-                    end
-                end else begin
-                    cnt_rst_0_1 <= 'd0;
-                    rst_mmcm_n_1 <= 1'b1;
+                    cnt_apb_rst_p2l_st0		<= cnt_apb_rst_p2l_st0 + 8'd1;
+                    r_apb_preset_n_p2l_st0 <= 1'b0;
                 end
             end
-        end
+    end
+
+    assign APB_PRESET_N_sync_0 = r_apb_preset_n_p2l_st0;
 
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst_mmcm_1  <= 1'b0;
-            end else begin
-                if (cnt_rst_1 != 4'h0) begin
-                    rst_mmcm_1 <= 1'b0;
-                end else begin
-                    rst_mmcm_1 <= 1'b1;
+
+
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            cnt_rst_0_1        <= 8'h00;
+            rst_mmcm_n_1     <= 1'b0;
+        end else begin
+            if (~rst_r1_n_1) begin
+                if( cnt_rst_0_1 >= 8'd100 ) begin
+                    cnt_rst_0_1 <= cnt_rst_0_1;
+                    rst_mmcm_n_1 <= 1'b0;
                 end
-            end
-        end
-
-
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                w_rst_sys_rst_r1_1 <= 1'b0;
-                w_rst_sys_rst_r2_1 <= 1'b0;
+                else begin
+                    cnt_rst_0_1 <= cnt_rst_0_1 + 1;
+                    rst_mmcm_n_1 <= rst_mmcm_n_1;
+                end
             end else begin
-                w_rst_sys_rst_r1_1 <= w_rst_sys_rst_1;
-                w_rst_sys_rst_r2_1 <= w_rst_sys_rst_r1_1;
+                cnt_rst_0_1 <= 'd0;
+                rst_mmcm_n_1 <= 1'b1;
             end
         end
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst_st0_n_1 <= 1'b0;
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst_mmcm_1  <= 1'b0;
+        end else begin
+            if (cnt_rst_1 != 4'h0) begin
+                rst_mmcm_1 <= 1'b0;
             end else begin
-                rst_st0_n_1 <= rst_mmcm & MMCM_LOCK_1 & (~w_rst_sys_rst_r2_1);
+                rst_mmcm_1 <= 1'b1;
             end
         end
-        
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            w_rst_sys_rst_r1_1 <= 1'b0;
+            w_rst_sys_rst_r2_1 <= 1'b0;
+        end else begin
+            w_rst_sys_rst_r1_1 <= w_rst_sys_rst_1;
+            w_rst_sys_rst_r2_1 <= w_rst_sys_rst_r1_1;
+        end
+    end
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst_st0_n_1 <= 1'b0;
+        end else begin
+            rst_st0_n_1 <= rst_mmcm & MMCM_LOCK_1 & (~w_rst_sys_rst_r2_1);
+        end
+    end
+    
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            cnt_rst_1 <= 4'hA;
+        end else begin
+            if (~rst_r1_n_1) begin
                 cnt_rst_1 <= 4'hA;
+            end else if (cnt_rst_1 != 4'h0) begin
+                cnt_rst_1 <= cnt_rst_1 - 1'b1;
             end else begin
-                if (~rst_r1_n_1) begin
-                    cnt_rst_1 <= 4'hA;
-                end else if (cnt_rst_1 != 4'h0) begin
-                    cnt_rst_1 <= cnt_rst_1 - 1'b1;
-                end else begin
-                    cnt_rst_1 <= cnt_rst_1;
-                end
+                cnt_rst_1 <= cnt_rst_1;
             end
         end
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst_r1_n_1 <= 1'b0;
-            end else begin
-                rst_r1_n_1 <= 1'b1;
-            end
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst_r1_n_1 <= 1'b0;
+        end else begin
+            rst_r1_n_1 <= 1'b1;
         end
+    end
 
-        assign w_rst_sys_rst_1 = 4'h0;
-        assign	w_apb_reset_n_inv_st0_1 = APB_PRESET_N_1 && ~w_rst_sys_rst_1;
-        always @ ( posedge APB_PCLK_BUF_1 or negedge  w_apb_reset_n_inv_st0_1 )
-        begin
-            if( w_apb_reset_n_inv_st0_1 == 1'b0 )
+    assign w_rst_sys_rst_1 = 4'h0;
+    assign	w_apb_reset_n_inv_st0_1 = APB_PRESET_N_1 && ~w_rst_sys_rst_1;
+    always @ ( posedge APB_PCLK_BUF_1 or negedge  w_apb_reset_n_inv_st0_1 )
+    begin
+        if( w_apb_reset_n_inv_st0_1 == 1'b0 )
+            begin
+                cnt_apb_rst_p2l_st0_1 <= 8'd0;
+                r_apb_preset_n_p2l_st0_1 <= 1'd0;
+            end
+        else
+            begin
+                if( cnt_apb_rst_p2l_st0_1 >= 8'd200 )
                 begin
-                    cnt_apb_rst_p2l_st0_1 <= 8'd0;
-                    r_apb_preset_n_p2l_st0_1 <= 1'd0;
+                    r_apb_preset_n_p2l_st0_1	<= 1'd1;
+                    cnt_apb_rst_p2l_st0_1		<= cnt_apb_rst_p2l_st0_1;
                 end
-            else
+                else
                 begin
-                    if( cnt_apb_rst_p2l_st0_1 >= 8'd200 )
-                    begin
-                        r_apb_preset_n_p2l_st0_1	<= 1'd1;
-                        cnt_apb_rst_p2l_st0_1		<= cnt_apb_rst_p2l_st0_1;
-                    end
-                    else
-                    begin
-                        cnt_apb_rst_p2l_st0_1		<= cnt_apb_rst_p2l_st0_1 + 8'd1;
-                        r_apb_preset_n_p2l_st0_1 <= 1'b0;
-                    end
-                end
-        end
-
-        assign APB_PRESET_N_sync_1 = r_apb_preset_n_p2l_st0_1 ;
-        
-        
-        
-        
-        
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                cnt_rst_0_2        <= 8'h00;
-                rst_mmcm_n_2     <= 1'b0;
-            end else begin
-                if (~rst_r1_n_2) begin
-                    if( cnt_rst_0_2 >= 8'd100 ) begin
-                        cnt_rst_0_2 <= cnt_rst_0_2;
-                        rst_mmcm_n_2 <= 1'b0;
-                    end
-                    else begin
-                        cnt_rst_0_2 <= cnt_rst_0_2 + 1;
-                        rst_mmcm_n_2 <= rst_mmcm_n_2;
-                    end
-                end else begin
-                    cnt_rst_0_2 <= 'd0;
-                    rst_mmcm_n_2 <= 1'b1;
+                    cnt_apb_rst_p2l_st0_1		<= cnt_apb_rst_p2l_st0_1 + 8'd1;
+                    r_apb_preset_n_p2l_st0_1 <= 1'b0;
                 end
             end
-        end
+    end
 
-
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst_mmcm_2  <= 1'b0;
-            end else begin
-                if (cnt_rst_2 != 4'h0) begin
-                    rst_mmcm_2 <= 1'b0;
-                end else begin
-                    rst_mmcm_2 <= 1'b1;
+    assign APB_PRESET_N_sync_1 = r_apb_preset_n_p2l_st0_1 ;
+    
+    
+    
+    
+    
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            cnt_rst_0_2        <= 8'h00;
+            rst_mmcm_n_2     <= 1'b0;
+        end else begin
+            if (~rst_r1_n_2) begin
+                if( cnt_rst_0_2 >= 8'd100 ) begin
+                    cnt_rst_0_2 <= cnt_rst_0_2;
+                    rst_mmcm_n_2 <= 1'b0;
                 end
-            end
-        end
-
-
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                w_rst_sys_rst_r1_2 <= 1'b0;
-                w_rst_sys_rst_r2_2 <= 1'b0;
+                else begin
+                    cnt_rst_0_2 <= cnt_rst_0_2 + 1;
+                    rst_mmcm_n_2 <= rst_mmcm_n_2;
+                end
             end else begin
-                w_rst_sys_rst_r1_2 <= w_rst_sys_rst_2;
-                w_rst_sys_rst_r2_2 <= w_rst_sys_rst_r1_2;
+                cnt_rst_0_2 <= 'd0;
+                rst_mmcm_n_2 <= 1'b1;
             end
         end
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst_st0_n_2 <= 1'b0;
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst_mmcm_2  <= 1'b0;
+        end else begin
+            if (cnt_rst_2 != 4'h0) begin
+                rst_mmcm_2 <= 1'b0;
             end else begin
-                rst_st0_n_2 <= rst_mmcm & MMCM_LOCK_2 & (~w_rst_sys_rst_r2_2);
+                rst_mmcm_2 <= 1'b1;
             end
         end
-        
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            w_rst_sys_rst_r1_2 <= 1'b0;
+            w_rst_sys_rst_r2_2 <= 1'b0;
+        end else begin
+            w_rst_sys_rst_r1_2 <= w_rst_sys_rst_2;
+            w_rst_sys_rst_r2_2 <= w_rst_sys_rst_r1_2;
+        end
+    end
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst_st0_n_2 <= 1'b0;
+        end else begin
+            rst_st0_n_2 <= rst_mmcm & MMCM_LOCK_2 & (~w_rst_sys_rst_r2_2);
+        end
+    end
+    
+
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            cnt_rst_2 <= 4'hA;
+        end else begin
+            if (~rst_r1_n_2) begin
                 cnt_rst_2 <= 4'hA;
+            end else if (cnt_rst_2 != 4'h0) begin
+                cnt_rst_2 <= cnt_rst_2 - 1'b1;
             end else begin
-                if (~rst_r1_n_2) begin
-                    cnt_rst_2 <= 4'hA;
-                end else if (cnt_rst_2 != 4'h0) begin
-                    cnt_rst_2 <= cnt_rst_2 - 1'b1;
-                end else begin
-                    cnt_rst_2 <= cnt_rst_2;
-                end
+                cnt_rst_2 <= cnt_rst_2;
             end
         end
+    end
 
-        always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst_r1_n_2 <= 1'b0;
-            end else begin
-                rst_r1_n_2 <= 1'b1;
+    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst_r1_n_2 <= 1'b0;
+        end else begin
+            rst_r1_n_2 <= 1'b1;
+        end
+    end
+
+    assign w_rst_sys_rst_2 = 4'h0;
+    assign	w_apb_reset_n_inv_st0_2 = APB_PRESET_N_1 && ~w_rst_sys_rst_2;
+    always @ ( posedge APB_PCLK_BUF_1 or negedge  w_apb_reset_n_inv_st0_2 )
+    begin
+        if( w_apb_reset_n_inv_st0_2 == 1'b0 )
+            begin
+                cnt_apb_rst_p2l_st0_2 <= 8'd0;
+                r_apb_preset_n_p2l_st0_2 <= 1'd0;
             end
-        end
-
-        assign w_rst_sys_rst_2 = 4'h0;
-        assign	w_apb_reset_n_inv_st0_2 = APB_PRESET_N_1 && ~w_rst_sys_rst_2;
-        always @ ( posedge APB_PCLK_BUF_1 or negedge  w_apb_reset_n_inv_st0_2 )
-        begin
-            if( w_apb_reset_n_inv_st0_2 == 1'b0 )
+        else
+            begin
+                if( cnt_apb_rst_p2l_st0_2 >= 8'd200 )
                 begin
-                    cnt_apb_rst_p2l_st0_2 <= 8'd0;
-                    r_apb_preset_n_p2l_st0_2 <= 1'd0;
+                    r_apb_preset_n_p2l_st0_2	<= 1'd1;
+                    cnt_apb_rst_p2l_st0_2		<= cnt_apb_rst_p2l_st0_2;
                 end
-            else
+                else
                 begin
-                    if( cnt_apb_rst_p2l_st0_2 >= 8'd200 )
-                    begin
-                        r_apb_preset_n_p2l_st0_2	<= 1'd1;
-                        cnt_apb_rst_p2l_st0_2		<= cnt_apb_rst_p2l_st0_2;
-                    end
-                    else
-                    begin
-                        cnt_apb_rst_p2l_st0_2		<= cnt_apb_rst_p2l_st0_2 + 8'd1;
-                        r_apb_preset_n_p2l_st0_2 <= 1'b0;
-                    end
+                    cnt_apb_rst_p2l_st0_2		<= cnt_apb_rst_p2l_st0_2 + 8'd1;
+                    r_apb_preset_n_p2l_st0_2 <= 1'b0;
                 end
-        end
+            end
+    end
 
-        assign APB_PRESET_N_sync_2 = r_apb_preset_n_p2l_st0_2 ;
-
-
-
-        IBUF u_APB_PCLK_IBUF_0  (
-        .I (APB_PCLK_0),
-        .O (APB_PCLK_IBUF_0)
-        );
-
-        BUFG u_APB_PCLK_BUFG_0  (
-        .I (APB_PCLK_IBUF_0),
-        .O (APB_PCLK_BUF_0)
-        );
-
-        BUFG u_HBM_REF_CLK_0  (
-        .I (HBM_REF_CLK_0),
-        .O (HBM_REF_CLK_buf_0)
-        );
-        
-        IBUF u_APB_PCLK_IBUF_1  (
-        .I (APB_PCLK_1),
-        .O (APB_PCLK_IBUF_1)
-        );
-
-        BUFG u_APB_PCLK_BUFG_1  (
-        .I (APB_PCLK_IBUF_1),
-        .O (APB_PCLK_BUF_1)
-        );
-
-        BUFG u_HBM_REF_CLK_1  (
-        .I (HBM_REF_CLK_0),
-        .O (HBM_REF_CLK_buf_1)
-        );
+    assign APB_PRESET_N_sync_2 = r_apb_preset_n_p2l_st0_2 ;
 
 
 
-        MMCME4_ADV
-        #(.BANDWIDTH            ("OPTIMIZED"),
-            .CLKOUT4_CASCADE      ("FALSE"),
-            .COMPENSATION         ("INTERNAL"),
-            .STARTUP_WAIT         ("FALSE"),
-            .DIVCLK_DIVIDE        (MMCM_DIVCLK_DIVIDE),
-            .CLKFBOUT_MULT_F      (MMCM_CLKFBOUT_MULT_F),
-            .CLKFBOUT_PHASE       (0.000),
-            .CLKFBOUT_USE_FINE_PS ("FALSE"),
-            .CLKOUT0_DIVIDE_F     (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT0_PHASE        (0.000),
-            .CLKOUT0_DUTY_CYCLE   (0.500),
-            .CLKOUT0_USE_FINE_PS  ("FALSE"),
-            .CLKOUT1_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT2_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT3_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT4_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT5_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKOUT6_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-            .CLKIN1_PERIOD        (MMCM_CLKIN1_PERIOD),
-            .REF_JITTER1          (0.010))
-        u_mmcm_0
-            // Output clocks
-        (
-            .CLKFBOUT            (),
-            .CLKFBOUTB           (),
-            .CLKOUT0             (dfi_clk_in[0]),
+    IBUF u_APB_PCLK_IBUF_0  (
+    .I (APB_PCLK_0),
+    .O (APB_PCLK_IBUF_0)
+    );
 
-            .CLKOUT0B            (),
-            .CLKOUT1             (dfi_clk_in[1]),
-            .CLKOUT1B            (),
-            .CLKOUT2             (dfi_clk_in[2]),
-            .CLKOUT2B            (),
-            .CLKOUT3             (dfi_clk_in[3]),
-            .CLKOUT3B            (),
-            .CLKOUT4             (dfi_clk_in[4]),
-            .CLKOUT5             (dfi_clk_in[5]),
-            .CLKOUT6             (dfi_clk_in[6]),
-            // Input clock control
-            .CLKFBIN             (), //mmcm_fb
-            .CLKIN1              (HBM_REF_CLK_buf_0),
-            .CLKIN2              (1'b0),
-            // Other control and status signals
-            .LOCKED              (MMCM_LOCK_0),
-            .PWRDWN              (1'b0),
-            .RST                 (~rst_mmcm_n),
-        
-            .CDDCDONE            (),
-            .CLKFBSTOPPED        (),
-            .CLKINSTOPPED        (),
-            .DO                  (),
-            .DRDY                (),
-            .PSDONE              (),
-            .CDDCREQ             (1'b0),
-            .CLKINSEL            (1'b1),
-            .DADDR               (7'b0),
-            .DCLK                (1'b0),
-            .DEN                 (1'b0),
-            .DI                  (16'b0),
-            .DWE                 (1'b0),
-            .PSCLK               (1'b0),
-            .PSEN                (1'b0),
-            .PSINCDEC            (1'b0)
-        );
-        
+    BUFG u_APB_PCLK_BUFG_0  (
+    .I (APB_PCLK_IBUF_0),
+    .O (APB_PCLK_BUF_0)
+    );
+
+    BUFG u_HBM_REF_CLK_0  (
+    .I (HBM_REF_CLK_0),
+    .O (HBM_REF_CLK_buf_0)
+    );
+    
+    IBUF u_APB_PCLK_IBUF_1  (
+    .I (APB_PCLK_1),
+    .O (APB_PCLK_IBUF_1)
+    );
+
+    BUFG u_APB_PCLK_BUFG_1  (
+    .I (APB_PCLK_IBUF_1),
+    .O (APB_PCLK_BUF_1)
+    );
+
+    BUFG u_HBM_REF_CLK_1  (
+    .I (HBM_REF_CLK_0),
+    .O (HBM_REF_CLK_buf_1)
+    );
+
+
+
+    MMCME4_ADV
+    #(.BANDWIDTH            ("OPTIMIZED"),
+        .CLKOUT4_CASCADE      ("FALSE"),
+        .COMPENSATION         ("INTERNAL"),
+        .STARTUP_WAIT         ("FALSE"),
+        .DIVCLK_DIVIDE        (MMCM_DIVCLK_DIVIDE),
+        .CLKFBOUT_MULT_F      (MMCM_CLKFBOUT_MULT_F),
+        .CLKFBOUT_PHASE       (0.000),
+        .CLKFBOUT_USE_FINE_PS ("FALSE"),
+        .CLKOUT0_DIVIDE_F     (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKOUT0_PHASE        (0.000),
+        .CLKOUT0_DUTY_CYCLE   (0.500),
+        .CLKOUT0_USE_FINE_PS  ("FALSE"),
+        .CLKOUT1_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKOUT2_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKOUT3_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKOUT4_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKOUT5_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKOUT6_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
+        .CLKIN1_PERIOD        (MMCM_CLKIN1_PERIOD),
+        .REF_JITTER1          (0.010))
+    u_mmcm_0
+        // Output clocks
+    (
+        .CLKFBOUT            (),
+        .CLKFBOUTB           (),
+        .CLKOUT0             (dfi_clk_in[0]),
+
+        .CLKOUT0B            (),
+        .CLKOUT1             (dfi_clk_in[1]),
+        .CLKOUT1B            (),
+        .CLKOUT2             (dfi_clk_in[2]),
+        .CLKOUT2B            (),
+        .CLKOUT3             (dfi_clk_in[3]),
+        .CLKOUT3B            (),
+        .CLKOUT4             (dfi_clk_in[4]),
+        .CLKOUT5             (dfi_clk_in[5]),
+        .CLKOUT6             (dfi_clk_in[6]),
+        // Input clock control
+        .CLKFBIN             (), //mmcm_fb
+        .CLKIN1              (HBM_REF_CLK_buf_0),
+        .CLKIN2              (1'b0),
+        // Other control and status signals
+        .LOCKED              (MMCM_LOCK_0),
+        .PWRDWN              (1'b0),
+        .RST                 (~rst_mmcm_n),
+    
+        .CDDCDONE            (),
+        .CLKFBSTOPPED        (),
+        .CLKINSTOPPED        (),
+        .DO                  (),
+        .DRDY                (),
+        .PSDONE              (),
+        .CDDCREQ             (1'b0),
+        .CLKINSEL            (1'b1),
+        .DADDR               (7'b0),
+        .DCLK                (1'b0),
+        .DEN                 (1'b0),
+        .DI                  (16'b0),
+        .DWE                 (1'b0),
+        .PSCLK               (1'b0),
+        .PSEN                (1'b0),
+        .PSINCDEC            (1'b0)
+    );
+    
     if (N_CHANNELS >= 8) begin
         MMCME4_ADV
         #(.BANDWIDTH            ("OPTIMIZED"),
@@ -685,86 +692,22 @@ reg  [3:0]    cnt_rst_2;
         );
     end
         
-        // MMCME4_ADV
-        // #(.BANDWIDTH            ("OPTIMIZED"),
-        //     .CLKOUT4_CASCADE      ("FALSE"),
-        //     .COMPENSATION         ("INTERNAL"),
-        //     .STARTUP_WAIT         ("FALSE"),
-        //     .DIVCLK_DIVIDE        (MMCM_DIVCLK_DIVIDE),
-        //     .CLKFBOUT_MULT_F      (MMCM_CLKFBOUT_MULT_F),
-        //     .CLKFBOUT_PHASE       (0.000),
-        //     .CLKFBOUT_USE_FINE_PS ("FALSE"),
-        //     .CLKOUT0_DIVIDE_F     (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKOUT0_PHASE        (0.000),
-        //     .CLKOUT0_DUTY_CYCLE   (0.500),
-        //     .CLKOUT0_USE_FINE_PS  ("FALSE"),
-        //     .CLKOUT1_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKOUT2_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKOUT3_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKOUT4_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKOUT5_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKOUT6_DIVIDE       (MMCM_CLKOUT0_DIVIDE_F),
-        //     .CLKIN1_PERIOD        (MMCM_CLKIN1_PERIOD),
-        //     .REF_JITTER1          (0.010))
-        // u_mmcm_2
-        //     // Output clocks
-        // (
-        //     .CLKFBOUT            (),
-        //     .CLKFBOUTB           (),
-        //     .CLKOUT0             (dfi_clk_in[14]),
+    
+    wire [31:0]                        rd_data_req_id_ps0   [0:16-1];
+    wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
+    wire [31:0]                        rd_data_req_id_ps1   [0:16-1];
+    wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
 
-        //     .CLKOUT0B            (),
-        //     .CLKOUT1             (dfi_clk_in[15]),
-        //     .CLKOUT1B            (),
-        //     .CLKOUT2             (),
-        //     .CLKOUT2B            (),
-        //     .CLKOUT3             (),
-        //     .CLKOUT3B            (),
-        //     .CLKOUT4             (),
-        //     .CLKOUT5             (),
-        //     .CLKOUT6             (),
-        //     // Input clock control
-        //     .CLKFBIN             (), //mmcm_fb
-        //     .CLKIN1              (HBM_REF_CLK_buf_1),
-        //     .CLKIN2              (1'b0),
-        //     // Other control and status signals
-        //     .LOCKED              (MMCM_LOCK_2),
-        //     .PWRDWN              (1'b0),
-        //     .RST                 (~rst_mmcm_n_2),
-        
-        //     .CDDCDONE            (),
-        //     .CLKFBSTOPPED        (),
-        //     .CLKINSTOPPED        (),
-        //     .DO                  (),
-        //     .DRDY                (),
-        //     .PSDONE              (),
-        //     .CDDCREQ             (1'b0),
-        //     .CLKINSEL            (1'b1),
-        //     .DADDR               (7'b0),
-        //     .DCLK                (1'b0),
-        //     .DEN                 (1'b0),
-        //     .DI                  (16'b0),
-        //     .DWE                 (1'b0),
-        //     .PSCLK               (1'b0),
-        //     .PSEN                (1'b0),
-        //     .PSINCDEC            (1'b0)
-        // );
-        
-        
-
+    `ifndef DEBUG
         wire reset_hbm_controller[0:16-1];
-        wire [32:0]address[0:16-1];
+        wire [31:0]address[0:16-1];
         wire [1:0]request[0:16-1];
         wire [P_DATA_WIDTH-1:0] write_data[0:16-1];
-        reg [32:0] r_address[0:16-1];
+
+        reg [31:0] r_address[0:16-1];
         reg [1:0] r_request[0:16-1];
         reg [P_DATA_WIDTH-1:0] r_wrt_data[0:16-1];
-        reg [0:16-1]r_done; 
-        wire [31:0]                        rd_data_req_id_ps0   [0:16-1];
-        wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
-        wire [31:0]                        rd_data_req_id_ps1   [0:16-1];
-        wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
-        
+        reg [0:16-1]r_done;
 
         assign address = r_address;
         assign request = r_request;
@@ -772,76 +715,80 @@ reg  [3:0]    cnt_rst_2;
 
         assign done = &r_done[0:N_CHANNELS-1];
 
-        
-        always @ (posedge dfi_clk_buf[0] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[0] <= 1'b0;
-                rst0_st0_r2_n[0] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[0] <= rst_st0_n;
-                rst0_st0_r2_n[0] <= rst0_st0_r1_n[0];
-            end
-        end
-        
-        always @ (posedge dfi_clk_buf[1] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[1] <= 1'b0;
-                rst0_st0_r2_n[1] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[1] <= rst_st0_n;
-                rst0_st0_r2_n[1] <= rst0_st0_r1_n[1];
-            end
-        end
-        
-        always @ (posedge dfi_clk_buf[2] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[2] <= 1'b0;
-                rst0_st0_r2_n[2] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[2] <= rst_st0_n;
-                rst0_st0_r2_n[2] <= rst0_st0_r1_n[2];
-            end
-        end
-        
-        always @ (posedge dfi_clk_buf[3] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[3] <= 1'b0;
-                rst0_st0_r2_n[3] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[3] <= rst_st0_n;
-                rst0_st0_r2_n[3] <= rst0_st0_r1_n[3];
-            end
-        end
-        
-        always @ (posedge dfi_clk_buf[4] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[4] <= 1'b0;
-                rst0_st0_r2_n[4] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[4] <= rst_st0_n;
-                rst0_st0_r2_n[4] <= rst0_st0_r1_n[4];
-            end
-        end
-        
-        always @ (posedge dfi_clk_buf[5] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[5] <= 1'b0;
-                rst0_st0_r2_n[5] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[5] <= rst_st0_n;
-                rst0_st0_r2_n[5] <= rst0_st0_r1_n[5];
-            end
-        end
+        (* keep = "TRUE" *) reg   request_valid  [0:N_CHANNELS-1];
+        (* keep = "TRUE" *) wire  request_picked [0:N_CHANNELS-1];
+    `endif
 
-        always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
-            if (~ARESET_N_0) begin
-                rst0_st0_r1_n[6] <= 1'b0;
-                rst0_st0_r2_n[6] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[6] <= rst_st0_n;
-                rst0_st0_r2_n[6] <= rst0_st0_r1_n[6];
-            end
+    
+    always @ (posedge dfi_clk_buf[0] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[0] <= 1'b0;
+            rst0_st0_r2_n[0] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[0] <= rst_st0_n;
+            rst0_st0_r2_n[0] <= rst0_st0_r1_n[0];
         end
+    end
+    
+    always @ (posedge dfi_clk_buf[1] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[1] <= 1'b0;
+            rst0_st0_r2_n[1] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[1] <= rst_st0_n;
+            rst0_st0_r2_n[1] <= rst0_st0_r1_n[1];
+        end
+    end
+    
+    always @ (posedge dfi_clk_buf[2] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[2] <= 1'b0;
+            rst0_st0_r2_n[2] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[2] <= rst_st0_n;
+            rst0_st0_r2_n[2] <= rst0_st0_r1_n[2];
+        end
+    end
+    
+    always @ (posedge dfi_clk_buf[3] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[3] <= 1'b0;
+            rst0_st0_r2_n[3] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[3] <= rst_st0_n;
+            rst0_st0_r2_n[3] <= rst0_st0_r1_n[3];
+        end
+    end
+    
+    always @ (posedge dfi_clk_buf[4] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[4] <= 1'b0;
+            rst0_st0_r2_n[4] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[4] <= rst_st0_n;
+            rst0_st0_r2_n[4] <= rst0_st0_r1_n[4];
+        end
+    end
+    
+    always @ (posedge dfi_clk_buf[5] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[5] <= 1'b0;
+            rst0_st0_r2_n[5] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[5] <= rst_st0_n;
+            rst0_st0_r2_n[5] <= rst0_st0_r1_n[5];
+        end
+    end
+
+    always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
+        if (~ARESET_N_0) begin
+            rst0_st0_r1_n[6] <= 1'b0;
+            rst0_st0_r2_n[6] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[6] <= rst_st0_n;
+            rst0_st0_r2_n[6] <= rst0_st0_r1_n[6];
+        end
+    end
 
 //        always @ (posedge dfi_clk_buf[7] or negedge ARESET_N_0) begin
 //            if (~ARESET_N_0) begin
@@ -853,105 +800,103 @@ reg  [3:0]    cnt_rst_2;
 //            end
 //        end
 
-        always @ (posedge dfi_clk_buf[8] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[8] <= 1'b0;
-                rst0_st0_r2_n[8] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[8] <= rst_st0_n_1;
-                rst0_st0_r2_n[8] <= rst0_st0_r1_n[8];
-            end
+    always @ (posedge dfi_clk_buf[8] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[8] <= 1'b0;
+            rst0_st0_r2_n[8] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[8] <= rst_st0_n_1;
+            rst0_st0_r2_n[8] <= rst0_st0_r1_n[8];
         end
+    end
 
-        always @ (posedge dfi_clk_buf[9] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[9] <= 1'b0;
-                rst0_st0_r2_n[9] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[9] <= rst_st0_n_1;
-                rst0_st0_r2_n[9] <= rst0_st0_r1_n[9];
-            end
+    always @ (posedge dfi_clk_buf[9] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[9] <= 1'b0;
+            rst0_st0_r2_n[9] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[9] <= rst_st0_n_1;
+            rst0_st0_r2_n[9] <= rst0_st0_r1_n[9];
         end
+    end
 
 
-        always @ (posedge dfi_clk_buf[10] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[10] <= 1'b0;
-                rst0_st0_r2_n[10] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[10] <= rst_st0_n_1;
-                rst0_st0_r2_n[10] <= rst0_st0_r1_n[10];
-            end
+    always @ (posedge dfi_clk_buf[10] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[10] <= 1'b0;
+            rst0_st0_r2_n[10] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[10] <= rst_st0_n_1;
+            rst0_st0_r2_n[10] <= rst0_st0_r1_n[10];
         end
+    end
 
-        always @ (posedge dfi_clk_buf[11] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[11] <= 1'b0;
-                rst0_st0_r2_n[11] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[11] <= rst_st0_n_1;
-                rst0_st0_r2_n[11] <= rst0_st0_r1_n[11];
-            end
+    always @ (posedge dfi_clk_buf[11] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[11] <= 1'b0;
+            rst0_st0_r2_n[11] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[11] <= rst_st0_n_1;
+            rst0_st0_r2_n[11] <= rst0_st0_r1_n[11];
         end
+    end
 
-        always @ (posedge dfi_clk_buf[12] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[12] <= 1'b0;
-                rst0_st0_r2_n[12] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[12] <= rst_st0_n_1;
-                rst0_st0_r2_n[12] <= rst0_st0_r1_n[12];
-            end
+    always @ (posedge dfi_clk_buf[12] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[12] <= 1'b0;
+            rst0_st0_r2_n[12] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[12] <= rst_st0_n_1;
+            rst0_st0_r2_n[12] <= rst0_st0_r1_n[12];
         end
+    end
 
-        always @ (posedge dfi_clk_buf[13] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[13] <= 1'b0;
-                rst0_st0_r2_n[13] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[13] <= rst_st0_n_1;
-                rst0_st0_r2_n[13] <= rst0_st0_r1_n[13];
-            end
+    always @ (posedge dfi_clk_buf[13] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[13] <= 1'b0;
+            rst0_st0_r2_n[13] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[13] <= rst_st0_n_1;
+            rst0_st0_r2_n[13] <= rst0_st0_r1_n[13];
         end
+    end
 
-        always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
-            if (~ARESET_N_1) begin
-                rst0_st0_r1_n[14] <= 1'b0;
-                rst0_st0_r2_n[14] <= 1'b0;
-            end else begin
-                rst0_st0_r1_n[14] <= rst_st0_n_2;
-                rst0_st0_r2_n[14] <= rst0_st0_r1_n[14];
-            end
+    always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
+        if (~ARESET_N_1) begin
+            rst0_st0_r1_n[14] <= 1'b0;
+            rst0_st0_r2_n[14] <= 1'b0;
+        end else begin
+            rst0_st0_r1_n[14] <= rst_st0_n_2;
+            rst0_st0_r2_n[14] <= rst0_st0_r1_n[14];
         end
+    end
 
-        // always @ (posedge dfi_clk_buf[15] or negedge ARESET_N_1) begin
-        //     if (~ARESET_N_1) begin
-        //         rst0_st0_r1_n[15] <= 1'b0;
-        //         rst0_st0_r2_n[15] <= 1'b0;
-        //     end else begin
-        //         rst0_st0_r1_n[15] <= rst_st0_n_2;
-        //         rst0_st0_r2_n[15] <= rst0_st0_r1_n[15];
-        //     end
-        // end
+    // always @ (posedge dfi_clk_buf[15] or negedge ARESET_N_1) begin
+    //     if (~ARESET_N_1) begin
+    //         rst0_st0_r1_n[15] <= 1'b0;
+    //         rst0_st0_r2_n[15] <= 1'b0;
+    //     end else begin
+    //         rst0_st0_r1_n[15] <= rst_st0_n_2;
+    //         rst0_st0_r2_n[15] <= rst0_st0_r1_n[15];
+    //     end
+    // end
 
 
 
 genvar i;
 generate
-   for( i = 0; i < N_CHANNELS; i = i+1 ) begin
+for( i = 0; i < N_CHANNELS; i = i+1 ) begin
+    if (i == 7 ) begin
 
-        
-        
-        if (i == 7 ) begin
-
-            always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
-                if (~ARESET_N_0) begin
-                    dfi_rst_n[6] <= 1'b0;
-                end else begin
-                    dfi_rst_n[6] <= rst0_st0_r2_n[6];
-                end
+        always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
+            if (~ARESET_N_0) begin
+                dfi_rst_n[6] <= 1'b0;
+            end else begin
+                dfi_rst_n[6] <= rst0_st0_r2_n[6];
             end
+        end
 
+        `ifndef DEBUG
             always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
                 if (dfi_rst_n[6] == 1'b0) begin
                     r_done[i] <= 1'b0;
@@ -965,313 +910,352 @@ generate
                     end
                 end
             end
-    
+
             always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
                 if (dfi_rst_n[6] == 1'b0) begin
                     r_address[i] <= {33{1'b0}};
                     r_request[i] <= 2'b00;
                     r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                    request_valid[i] <= 1'b0;
                 end
                 else begin
-                    r_address[i] <= r_address[i] + 1'b1;
-                    r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
-                    if ( r_request[i] == 2'b00 ) begin
-                        r_request[i] <= 2'b01; 
+                    if (request_valid[i] == 1'b0) begin
+                        request_valid[i] <= 1'b1;
+                        r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
+                        if ( r_request[i] == 2'b00 ) begin
+                            r_request[i] <= 2'b01; 
+                        end
+                        else begin
+                            r_request[i] <= 2'b00;
+                        end
                     end
-                    else begin
-                        r_request[i] <= 2'b00;
+                    else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                        request_valid[i] <= 1'b0;
                     end
                 end
             end
-        end
-        else if ( i == 15 ) begin
+        `endif
 
-            always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
+    end
+    else if ( i == 15 ) begin
+
+        always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
+            if (~ARESET_N_1) begin
+                dfi_rst_n[14] <= 1'b0;
+            end else begin
+                dfi_rst_n[14] <= rst0_st0_r2_n[14];
+            end
+        end
+
+        `ifndef DEBUG
+            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
+                if (dfi_rst_n[14] == 1'b0) begin
+                    r_done[i] <= 1'b0;
+                end
+                else begin
+                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                        r_done[i] <= 1'b1;
+                    end
+                    else begin
+                        r_done[i] <= 1'b0;
+                    end
+                end
+            end
+
+            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
+                if (dfi_rst_n[14] == 1'b0) begin
+                    r_address[i] <= {33{1'b0}};
+                    r_request[i] <= 2'b00;
+                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                    request_valid[i] <= 1'b0;
+                end
+                else begin
+                    if (request_valid[i] == 1'b0) begin
+                        request_valid[i] <= 1'b1;
+                        r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
+                        if ( r_request[i] == 2'b00 ) begin
+                            r_request[i] <= 2'b01; 
+                        end
+                        else begin
+                            r_request[i] <= 2'b00;
+                        end
+                    end
+                    else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                        request_valid[i] <= 1'b0;
+                    end
+                end
+            end
+        `endif
+
+    end
+    else begin
+
+        if (i > 7 ) begin
+            always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_1) begin
                 if (~ARESET_N_1) begin
-                    dfi_rst_n[14] <= 1'b0;
+                    dfi_rst_n[i] <= 1'b0;
                 end else begin
-                    dfi_rst_n[14] <= rst0_st0_r2_n[14];
-                end
-            end
-
-            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
-                if (dfi_rst_n[14] == 1'b0) begin
-                    r_done[i] <= 1'b0;
-                end
-                else begin
-                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
-                        r_done[i] <= 1'b1;
-                    end
-                    else begin
-                        r_done[i] <= 1'b0;
-                    end
-                end
-            end
-    
-            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
-                if (dfi_rst_n[14] == 1'b0) begin
-                    r_address[i] <= {33{1'b0}};
-                    r_request[i] <= 2'b00;
-                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-                end
-                else begin
-                    r_address[i] <= r_address[i] + 1'b1;
-                    r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
-                    if ( r_request[i] == 2'b00 ) begin
-                        r_request[i] <= 2'b01; 
-                    end
-                    else begin
-                        r_request[i] <= 2'b00;
-                    end
+                    dfi_rst_n[i] <= rst0_st0_r2_n[i];
                 end
             end
         end
-        else begin
-
-            if (i > 7 ) begin
-                always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_1) begin
-                    if (~ARESET_N_1) begin
-                        dfi_rst_n[i] <= 1'b0;
-                    end else begin
-                        dfi_rst_n[i] <= rst0_st0_r2_n[i];
-                    end
-                end
-            end
-            else begin 
-                always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_0) begin
-                    if (~ARESET_N_0) begin
-                        dfi_rst_n[i] <= 1'b0;
-                    end else begin
-                        dfi_rst_n[i] <= rst0_st0_r2_n[i];
-                    end
-                end
-            end 
-        
-    
-            BUFG u_dfi_clk_buf_0  (
-            .I (dfi_clk_in[i]),
-            .O (dfi_clk_buf[i])
-            );
-    
-            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
-                if (dfi_rst_n[i] == 1'b0) begin
-                    r_done[i] <= 1'b0;
-                end
-                else begin
-                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
-                        r_done[i] <= 1'b1;
-                    end
-                    else begin
-                        r_done[i] <= 1'b0;
-                    end
-                end
-            end
-    
-            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
-                if (dfi_rst_n[i] == 1'b0) begin
-                    r_address[i] <= {33{1'b0}};
-                    r_request[i] <= 2'b00;
-                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-                end
-                else begin
-                    r_address[i] <= r_address[i] + 1'b1;
-                    r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
-                    if ( r_request[i] == 2'b00 ) begin
-                        r_request[i] <= 2'b01; 
-                    end
-                    else begin
-                        r_request[i] <= 2'b00;
-                    end
-                end
-            end
-        
-        end
-        
-        if ( i == 7 ) begin
-            HBM_channel_controller 
-            HBM_channel_controller_i
-            (
-                .dfi_clk_buf                    (dfi_clk_buf[6]   )
-                ,.dfi_rst_n                     (dfi_rst_n[6]     )
-                ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
-                ,.dfi_init_start                (dfi_init_start[i]         )
-                ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
-                ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
-                ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
-                ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
-                ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
-                ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
-                ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
-                ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
-                ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
-                ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
-                ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
-                ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
-                ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
-                ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
-                ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
-                ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
-                ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
-                ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
-                ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
-                ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
-                ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
-                ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
-                ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
-                ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
-                ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
-                ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
-                ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
-                ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
-                ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
-                ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
-                ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
-                ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
-                ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
-                ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
-                ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
-                ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
-                ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
-                ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
-                ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
-                ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
-                ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
-                ,.dfi_init_complete             (dfi_init_complete[i])
-                ,.reset_hbm_controller          (reset_hbm_controller[i])
-               ,.address                       (address[i])
-               ,.write_data                    (write_data[i])
-               ,.request                       (request[i])
-                ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
-                ,.rd_data_ps0(rd_data_ps0[i])
-                ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
-                ,.rd_data_ps1(rd_data_ps1[i])
-            );
-        
-        end
-
-        if ( i == 15 ) begin
-            HBM_channel_controller 
-            HBM_channel_controller_i
-            (
-                .dfi_clk_buf                    (dfi_clk_buf[14]   )
-                ,.dfi_rst_n                     (dfi_rst_n[14]     )
-                ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
-                ,.dfi_init_start                (dfi_init_start[i]         )
-                ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
-                ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
-                ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
-                ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
-                ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
-                ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
-                ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
-                ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
-                ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
-                ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
-                ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
-                ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
-                ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
-                ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
-                ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
-                ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
-                ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
-                ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
-                ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
-                ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
-                ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
-                ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
-                ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
-                ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
-                ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
-                ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
-                ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
-                ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
-                ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
-                ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
-                ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
-                ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
-                ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
-                ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
-                ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
-                ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
-                ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
-                ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
-                ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
-                ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
-                ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
-                ,.dfi_init_complete             (dfi_init_complete[i])
-                ,.reset_hbm_controller          (reset_hbm_controller[i])
-               ,.address                       (address[i])
-               ,.write_data                    (write_data[i])
-               ,.request                       (request[i])
-                ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
-                ,.rd_data_ps0(rd_data_ps0[i])
-                ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
-                ,.rd_data_ps1(rd_data_ps1[i])
-            );
-        
-        end
-
         else begin 
-        
-            HBM_channel_controller 
-            HBM_channel_controller_i
-            (
-                .dfi_clk_buf                    (dfi_clk_buf[i]   )
-                ,.dfi_rst_n                     (dfi_rst_n[i]     )
-                ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
-                ,.dfi_init_start                (dfi_init_start[i]         )
-                ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
-                ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
-                ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
-                ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
-                ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
-                ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
-                ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
-                ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
-                ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
-                ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
-                ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
-                ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
-                ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
-                ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
-                ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
-                ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
-                ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
-                ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
-                ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
-                ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
-                ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
-                ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
-                ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
-                ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
-                ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
-                ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
-                ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
-                ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
-                ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
-                ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
-                ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
-                ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
-                ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
-                ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
-                ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
-                ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
-                ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
-                ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
-                ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
-                ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
-                ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
-                ,.dfi_init_complete             (dfi_init_complete[i])
-                ,.reset_hbm_controller          (reset_hbm_controller[i])
-               ,.address                       (address[i])
-               ,.write_data                    (write_data[i])
-               ,.request                       (request[i])
-                ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
-                ,.rd_data_ps0(rd_data_ps0[i])
-                ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
-                ,.rd_data_ps1(rd_data_ps1[i])
-            );
-       end
+            always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_0) begin
+                if (~ARESET_N_0) begin
+                    dfi_rst_n[i] <= 1'b0;
+                end else begin
+                    dfi_rst_n[i] <= rst0_st0_r2_n[i];
+                end
+            end
+        end 
+    
+
+        BUFG u_dfi_clk_buf_0  (
+        .I (dfi_clk_in[i]),
+        .O (dfi_clk_buf[i])
+        );
+
+        `ifndef DEBUG
+            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
+                if (dfi_rst_n[i] == 1'b0) begin
+                    r_done[i] <= 1'b0;
+                end
+                else begin
+                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                        r_done[i] <= 1'b1;
+                    end
+                    else begin
+                        r_done[i] <= 1'b0;
+                    end
+                end
+            end
+
+            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
+                if (dfi_rst_n[i] == 1'b0) begin
+                    r_address[i] <= {33{1'b0}};
+                    r_request[i] <= 2'b00;
+                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                    request_valid[i] <= 1'b0;
+                end
+                else begin
+                    if (request_valid[i] == 1'b0) begin
+                        request_valid[i] <= 1'b1;
+                        r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
+                        if ( r_request[i] == 2'b00 ) begin
+                            r_request[i] <= 2'b01; 
+                        end
+                        else begin
+                            r_request[i] <= 2'b00;
+                        end
+                    end
+                    else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                        request_valid[i] <= 1'b0;
+                    end
+                end
+            end
+        `endif
+    
+    end
+    
+    if ( i == 7 ) begin
+        HBM_channel_controller 
+        HBM_channel_controller_i
+        (
+            .dfi_clk_buf                    (dfi_clk_buf[6]   )
+            ,.dfi_rst_n                     (dfi_rst_n[6]     )
+            ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
+            ,.dfi_init_start                (dfi_init_start[i]         )
+            ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
+            ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
+            ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
+            ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
+            ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
+            ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
+            ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
+            ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
+            ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
+            ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
+            ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
+            ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
+            ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
+            ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
+            ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
+            ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
+            ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
+            ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
+            ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
+            ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
+            ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
+            ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
+            ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
+            ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
+            ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
+            ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
+            ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
+            ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
+            ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
+            ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
+            ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
+            ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
+            ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
+            ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
+            ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
+            ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
+            ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
+            ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
+            ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
+            ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
+            ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
+            ,.dfi_init_complete             (dfi_init_complete[i])
+            
+            ,.reset_hbm_controller          (reset_hbm_controller[i])
+            ,.input_write_data              (write_data[i])
+            ,.input_request                 (request[i])
+            ,.input_address                 (address[i])
+            ,.input_request_valid           (request_valid[i])
+            ,.output_request_picked         (request_picked[i])
+
+            ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
+            ,.rd_data_ps0(rd_data_ps0[i])
+            ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
+            ,.rd_data_ps1(rd_data_ps1[i])
+        );
+    end
+
+    else if ( i == 15 ) begin
+        HBM_channel_controller 
+        HBM_channel_controller_i
+        (
+            .dfi_clk_buf                    (dfi_clk_buf[14]   )
+            ,.dfi_rst_n                     (dfi_rst_n[14]     )
+            ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
+            ,.dfi_init_start                (dfi_init_start[i]         )
+            ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
+            ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
+            ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
+            ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
+            ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
+            ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
+            ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
+            ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
+            ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
+            ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
+            ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
+            ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
+            ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
+            ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
+            ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
+            ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
+            ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
+            ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
+            ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
+            ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
+            ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
+            ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
+            ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
+            ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
+            ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
+            ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
+            ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
+            ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
+            ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
+            ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
+            ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
+            ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
+            ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
+            ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
+            ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
+            ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
+            ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
+            ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
+            ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
+            ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
+            ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
+            ,.dfi_init_complete             (dfi_init_complete[i])
+            
+            ,.reset_hbm_controller          (reset_hbm_controller[i])
+            ,.input_write_data              (write_data[i])
+            ,.input_request                 (request[i])
+            ,.input_address                 (address[i])
+            ,.input_request_valid                 (request_valid[i])
+            ,.output_request_picked                (request_picked[i])
+
+            ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
+            ,.rd_data_ps0(rd_data_ps0[i])
+            ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
+            ,.rd_data_ps1(rd_data_ps1[i])
+        );
+    
+    end
+
+    else begin 
+    
+        HBM_channel_controller 
+        HBM_channel_controller_i
+        (
+            .dfi_clk_buf                    (dfi_clk_buf[i]   )
+            ,.dfi_rst_n                     (dfi_rst_n[i]     )
+            ,.dfi_rst_buf_n                 (dfi_out_rst_n[i] )
+            ,.dfi_init_start                (dfi_init_start[i]         )
+            ,.dfi_aw_ck_p0                  (dfi_aw_ck_p0[i]           )
+            ,.dfi_aw_cke_p0                 (dfi_aw_cke_p0[i]          )
+            ,.dfi_aw_row_p0                 (dfi_aw_row_p0[i]          )
+            ,.dfi_aw_col_p0                 (dfi_aw_col_p0[i]          )
+            ,.dfi_dw_wrdata_p0              (dfi_dw_wrdata_p0[i]       )
+            ,.dfi_dw_wrdata_mask_p0         (dfi_dw_wrdata_mask_p0[i]  )
+            ,.dfi_dw_wrdata_dbi_p0          (dfi_dw_wrdata_dbi_p0[i]   )
+            ,.dfi_dw_wrdata_par_p0          (dfi_dw_wrdata_par_p0[i]   )
+            ,.dfi_dw_wrdata_dq_en_p0        (dfi_dw_wrdata_dq_en_p0[i] )
+            ,.dfi_dw_wrdata_par_en_p0       (dfi_dw_wrdata_par_en_p0[i])
+            ,.dfi_aw_ck_p1                  (dfi_aw_ck_p1[i]           )
+            ,.dfi_aw_cke_p1                 (dfi_aw_cke_p1[i]          )
+            ,.dfi_aw_row_p1                 (dfi_aw_row_p1[i]          )
+            ,.dfi_aw_col_p1                 (dfi_aw_col_p1[i]          )
+            ,.dfi_dw_wrdata_p1              (dfi_dw_wrdata_p1[i]       )
+            ,.dfi_dw_wrdata_mask_p1         (dfi_dw_wrdata_mask_p1[i]  )
+            ,.dfi_dw_wrdata_dbi_p1          (dfi_dw_wrdata_dbi_p1[i]   )
+            ,.dfi_dw_wrdata_par_p1          (dfi_dw_wrdata_par_p1[i]   )
+            ,.dfi_dw_wrdata_dq_en_p1        (dfi_dw_wrdata_dq_en_p1[i] )
+            ,.dfi_dw_wrdata_par_en_p1       (dfi_dw_wrdata_par_en_p1[i])
+            ,.dfi_aw_ck_dis                 (dfi_aw_ck_dis[i]          )
+            ,.dfi_lp_pwr_e_req              (dfi_lp_pwr_e_req[i]       )
+            ,.dfi_lp_sr_e_req               (dfi_lp_sr_e_req[i]        )
+            ,.dfi_lp_pwr_x_req              (dfi_lp_pwr_x_req[i]     )
+            ,.dfi_lp_pwr_x_e_req            (dfi_lp_pwr_x_e_req[i]     )
+            ,.dfi_aw_tx_indx_ld             (dfi_aw_tx_indx_ld[i]      )
+            ,.dfi_dw_tx_indx_ld             (dfi_dw_tx_indx_ld[i]      )
+            ,.dfi_dw_rx_indx_ld             (dfi_dw_rx_indx_ld[i]      )
+            ,.dfi_ctrlupd_ack               (dfi_ctrlupd_ack[i]        )
+            ,.dfi_phyupd_req                (dfi_phyupd_req[i]         )
+            ,.dfi_dw_rddata_p0              (dfi_dw_rddata_p0[i]    )
+            ,.dfi_dw_rddata_dm_p0           (dfi_dw_rddata_dm_p0[i] )
+            ,.dfi_dw_rddata_dbi_p0          (dfi_dw_rddata_dbi_p0[i])
+            ,.dfi_dw_rddata_par_p0          (dfi_dw_rddata_par_p0[i])
+            ,.dfi_dw_rddata_p1              (dfi_dw_rddata_p1[i]    )
+            ,.dfi_dw_rddata_dm_p1           (dfi_dw_rddata_dm_p1[i] )
+            ,.dfi_dw_rddata_dbi_p1          (dfi_dw_rddata_dbi_p1[i])
+            ,.dfi_dw_rddata_par_p1          (dfi_dw_rddata_par_p1[i])
+            ,.dfi_dw_rddata_valid           (dfi_dw_rddata_valid[i])
+            ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
+            ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
+            ,.dfi_init_complete             (dfi_init_complete[i])
+
+            ,.reset_hbm_controller          (reset_hbm_controller[i])
+            ,.input_write_data              (write_data[i])
+            ,.input_request                 (request[i])
+            ,.input_address                 (address[i])
+            ,.input_request_valid                 (request_valid[i])
+            ,.output_request_picked                (request_picked[i])
+
+            ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
+            ,.rd_data_ps0(rd_data_ps0[i])
+            ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
+            ,.rd_data_ps1(rd_data_ps1[i])
+        );
+    end
 end
 endgenerate
 

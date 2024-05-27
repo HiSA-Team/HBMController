@@ -20,9 +20,36 @@ source "$build_dir/configure_questa_simulator.tcl" -notrace
 
 update_compile_order -fileset sources_1
 
-puts "${N_CHANNELS}"
+puts "N_CHANNELS = ${N_CHANNELS}"
+puts "ADDRESS_MAPPING = ${ADDRESS_MAPPING}"
+puts "DEBUG = ${DEBUG}"
 
-set_property generic {N_CHANNELS=${N_CHANNELS}} [current_fileset]
+set_property generic {N_CHANNELS=${N_CHANNELS}} [get_filesets sources_1]
+set_property generic {N_CHANNELS=${N_CHANNELS}} [get_filesets sim_1]
+
+set verilog_define_list {}
+
+
+if {${ADDRESS_MAPPING}==1} {
+    append verilog_define_list " " ADDRESS_MAPPING_1=1
+} elseif {${ADDRESS_MAPPING}==2} {
+    append verilog_define_list " " ADDRESS_MAPPING_2=1
+} elseif {${ADDRESS_MAPPING}==3} {
+    append verilog_define_list " " ADDRESS_MAPPING_3=1
+} elseif {${ADDRESS_MAPPING}==4} {
+    append verilog_define_list " " ADDRESS_MAPPING_4=1
+} elseif {${ADDRESS_MAPPING}==5} {
+    append verilog_define_list " " ADDRESS_MAPPING_5=1
+} else {
+    append verilog_define_list " " ADDRESS_MAPPING_1=1
+}
+
+if {${DEBUG}==1} {
+    append verilog_define_list " " DEBUG=1
+} 
+
+set_property verilog_define $verilog_define_list [get_filesets sources_1]
+set_property verilog_define $verilog_define_list [get_filesets sim_1]
 
 source "$build_dir/configure_synth_option.tcl" -notrace
 

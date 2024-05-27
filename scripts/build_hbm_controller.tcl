@@ -10,3 +10,5 @@ add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sour
     $src_dir/hdl/HBM_controller_top.sv"
 
 add_files -norecurse -fileset constrs_1 -copy_to $project_dir/$project.srcs/constrs_1 "$src_dir/xdc/constraints.xdc"
+
+add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 "$src_dir/sim/HBM_controller_top_tb.sv"

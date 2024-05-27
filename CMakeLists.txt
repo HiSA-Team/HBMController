@@ -20,6 +20,13 @@ if ( NOT N_CHANNELS )
  set( N_CHANNELS 1 CACHE STRING "Number of HBM channels" ) 
 endif()
 
+if ( NOT ADDRESS_MAPPING )   
+ set( ADDRESS_MAPPING 1 CACHE STRING "Address mapping policy" ) 
+endif()
+
+if ( NOT DEBUG )   
+ set( DEBUG 0 CACHE STRING "Debug" ) 
+endif()
 
 # Configure files
 # file(MAKE_DIRECTORY "./build")

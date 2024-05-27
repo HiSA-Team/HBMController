@@ -392,6 +392,7 @@ assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actua
 
 
 assign wrt_data_req_id_ps0 = req_cas_id_ps0;
+assign wrt_data_req_id_ps1 = req_cas_id_ps1;
 
 
 
@@ -1201,24 +1202,27 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= {sync_row_addr_ras_ps1[4:2], LP_PAR, sync_row_addr_ras_ps1[1:0], sync_row_addr_ras_ps1[10:5]};
                 r_served_ras <= 1'b1 << {LP_BA4_1, sync_bank_addr_ras_ps1[3:0]};
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
+                `endif
             end 
             else if ( sync_cmd_ras_ps1 == P_ROW_PRE ) begin
                 r_row_cmd_p0		<= { sync_bank_addr_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, sync_bank_addr_ras_ps1[2:0], P_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
                 r_served_ras <= 1'b1 << {LP_BA4_1, sync_bank_addr_ras_ps1[3:0]};
-                
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
-                
+
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
+                `endif
             end
             else if ( sync_cmd_ras_ps1 == P_ROW_REFPB ) begin
                 r_row_cmd_p0	 <= {sync_bank_addr_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, sync_bank_addr_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= 12'hfff;
                 r_served_ras <= 1'b1 << {LP_BA4_1, sync_bank_addr_ras_ps1[3:0]};
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
+                `endif
             end
             else begin
                 r_served_ras    <= { (P_BA_N_PS*2) {1'b0} };
@@ -1235,24 +1239,28 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                     r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
                     r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
 
-                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                
+                    `ifdef DEBUG
+                        $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    `endif 
                 end 
                 else if ( cmd_ras_ps0 == P_ROW_PRE ) begin
                     r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], P_ROW_PRE};
                     r_row_cmd_p1		<= 12'hfff;
                     r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
-                    
-                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
 
+                    `ifdef DEBUG
+                        $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    `endif
                 end
                 else if ( cmd_ras_ps0 == P_ROW_REFPB ) begin
                     r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], P_ROW_REFPB[2:0]};
                     r_row_cmd_p1	 <= 12'hfff;
                     r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
-                     
-                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                
+                    
+                    `ifdef DEBUG
+                        $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    `endif
+
                 end
                 else begin
                     r_served_ras    <= { (P_BA_N_PS*2) {1'b0} };
@@ -1264,17 +1272,19 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
                 r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                `endif
             end 
                         
             else if ( can_serve_actual_pre_ps0 && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 )  ) begin
                 r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], P_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
                 r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
-            
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
 
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                `endif
             end
             
             else if ( can_serve_actual_pre_ps0 && (can_serve_actual_pre_ps1 )  ) begin
@@ -1282,9 +1292,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1		<= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], P_ROW_PRE};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-                
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_act_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 )) begin
@@ -1292,8 +1303,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= {row_address_ras_ps1[4:2], LP_PAR, row_address_ras_ps1[1:0], row_address_ras_ps1[10:5]};
                 r_served_ras <= (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif 
             end 
                         
             else if ( (can_serve_actual_pre_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 )  ) begin
@@ -1301,8 +1313,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1		<= 12'hfff;
                 r_served_ras <= (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-                             
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif             
             end
             
             else if ( (can_serve_actual_ref_ps0) && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 ) ) begin
@@ -1310,8 +1323,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= 12'hfff;
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]});
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_ref_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 ) ) begin
@@ -1319,8 +1333,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= 12'hfff;
                 r_served_ras <= (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_ref_ps0) && (can_serve_actual_pre_ps1 ) ) begin
@@ -1328,9 +1343,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], P_ROW_PRE};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_ref_ps1) && (cmd_ras_ps0 == P_ROW_PRE && can_serve_actual_ras_ps0 ) ) begin
@@ -1338,19 +1354,21 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_ref_ps0) && (can_serve_actual_ref_ps1 ) ) begin
                 r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
-
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
             else begin
@@ -1441,8 +1459,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= 16'hffff;
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]});
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                `endif
             end 
                         
             else if ((can_serve_actual_wrt_ps0 ) && ( can_serve_actual_wrt_ps1 ) ) begin
@@ -1450,9 +1469,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_WRT[3:0]}; 
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
             else if ((can_serve_actual_wrt_ps0 ) && ( can_serve_actual_rd_ps1 ) ) begin
@@ -1460,9 +1480,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_RD};
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_rd_ps0 ) && ( cmd_cas_ps1 == P_GENERAL_NOP || ~can_serve_actual_cas_ps1 )  ) begin
@@ -1470,8 +1491,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= 16'hffff;                
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}); 
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                `endif
             end 
                         
             else if ((can_serve_actual_rd_ps0 ) && ( can_serve_actual_wrt_ps1 ) ) begin
@@ -1479,9 +1501,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_WRT[3:0]}; 
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG            
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
             else if ((can_serve_actual_rd_ps0 ) && ( can_serve_actual_rd_ps1 ) ) begin
@@ -1489,9 +1512,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_RD};
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
             else if ( (can_serve_actual_wrt_ps1 ) && ( cmd_cas_ps0 == P_GENERAL_NOP || ~can_serve_actual_cas_ps0 )  ) begin
@@ -1499,8 +1523,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_WRT[3:0]}; 
                 r_served_cas <= (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]});
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end 
             
             else if ( (can_serve_actual_rd_ps1 ) && ( cmd_cas_ps0 == P_GENERAL_NOP || ~can_serve_actual_cas_ps0 )  ) begin
@@ -1508,8 +1533,9 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_RD};
                 r_served_cas <= (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]});
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end 
             
             else begin

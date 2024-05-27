@@ -139,11 +139,6 @@ module channel_scheduler#
     input  [P_COL_ADDR_WIDTH-1 : 0]              column_address_bank         [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     // input  [P_DATA_WIDTH-1 : 0]                  wrt_data_bank               [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     
-    output ready_to_cmd_ras_ps0,
-    output ready_to_cmd_cas_ps0,
-    output ready_to_cmd_ras_ps1,
-    output ready_to_cmd_cas_ps1,
-    
     output [(P_BA_N_PS*2)-1:0]          served_ras,
     output [(P_BA_N_PS*2)-1:0]          served_cas,
 
@@ -167,6 +162,10 @@ module channel_scheduler#
 /* To ll_command_forwarder */
 wire [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1] cmd_picked_ras;
 wire [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1] cmd_picked_cas;
+wire ready_to_cmd_ras_ps0;
+wire ready_to_cmd_cas_ps0;
+wire ready_to_cmd_ras_ps1;
+wire ready_to_cmd_cas_ps1;
 
 genvar i;
 generate 

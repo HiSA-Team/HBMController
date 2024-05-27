@@ -47,8 +47,6 @@ module CAS_arbiter#
     input  [3:0]                     cmd_cas_bank           [0 : P_BA_N_PS - 1],
     input  [P_BA_ADDR_WIDTH-1 : 0]   bank_address_bank      [0 : P_BA_N_PS - 1],
     input  [P_COL_ADDR_WIDTH-1 : 0]  column_address_bank    [0 : P_BA_N_PS - 1],
-//    input  [P_DATA_WIDTH-1 : 0]      wrt_data_bank          [0 : P_BA_N_PS - 1],
-//    output [P_DATA_WIDTH-1 : 0]    rd_data_bank [0 : P_BA_N_PS - 1],
     
     input  ready_to_cmd_cas,
     output [3:0]                        cmd_cas,
@@ -56,7 +54,6 @@ module CAS_arbiter#
     output [P_CMD_ID_WIDTH-1:0]         cmd_id_cas,
     output [P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_cas,
     output [P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas
-    // output [P_DATA_WIDTH     - 1 : 0 ]  wrt_data_cas
 
 );
 
@@ -67,13 +64,11 @@ localparam LP_ACTUAL_BANK_SERVING_WIDTH       = $clog2(P_BA_N_G);
 
 reg    [ LP_ACTUAL_BANK_GROUP_SERVING_WIDTH - 1 : 0 ]  actual_bank_group_serving ;
 reg    [ LP_ACTUAL_BANK_SERVING_WIDTH-1         : 0 ]  actual_bank_serving           [0 : LP_BG_N - 1];
-//reg    [ BANK_INDEX_WIDTH-1 : 0 ] actual_bank_serving;
 
 reg [3:0] actual_cmd_serving_type;     /*  Bundling Type RD or WRT */
 reg [P_REQ_ID_WIDTH-1:0] r_req_id_cas;
 reg [P_CMD_ID_WIDTH-1:0] r_cmd_id_cas;
 reg [3:0] r_cmd_cas;
-// reg [P_DATA_WIDTH - 1 : 0] r_wrt_data_cas;
 reg [P_BA_ADDR_WIDTH - 1 : 0] r_bank_address_cas;
 reg [P_COL_ADDR_WIDTH - 1 : 0] r_column_address_cas;
 reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
@@ -83,7 +78,6 @@ reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
 /*(* keep = "True" *)*/ wire [3:0]                          cmd_inter_selected;
 /*(* keep = "True" *)*/ wire [P_REQ_ID_WIDTH-1:0]           req_id_selected_by_bg;
 /*(* keep = "True" *)*/ wire [P_CMD_ID_WIDTH-1:0]           cmd_id_selected_by_bg;
-//wire [P_DATA_WIDTH - 1 : 0]         wrt_data_selected_by_bg;
 /*(* keep = "True" *)*/ wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_address_selected_by_bg;
 /*(* keep = "True" *)*/ wire [P_COL_ADDR_WIDTH - 1 : 0]     column_address_selected_by_bg;
 
@@ -94,7 +88,6 @@ reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
 assign req_id_cas = r_req_id_cas;
 assign cmd_id_cas = r_cmd_id_cas;
 assign cmd_cas = r_cmd_cas;
-// assign wrt_data_cas = r_wrt_data_cas;
 assign bank_address_cas = r_bank_address_cas;
 assign column_address_cas = r_column_address_cas;
 assign cmd_cas_bank_picked = r_cmd_cas_bank_picked;
@@ -111,16 +104,12 @@ assign cmd_id_selected_by_bg         =   cmd_cas_id_bank[(actual_bank_group_serv
 assign bank_address_selected_by_bg   =   bank_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
 assign column_address_selected_by_bg =   column_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
 
-// assign wrt_data_selected_by_bg       =   wrt_data_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-
-
 /*********************************/
 /* SEND CAS CMD SELECTED TO LLCF */
 /*********************************/
 always @ ( posedge clk or negedge rst_n ) begin : cmd_driver
     if ( rst_n == 1'b0 ) begin
         r_cmd_cas                 <=  P_GENERAL_NOP;
-//        r_wrt_data_cas            <=  { P_DATA_WIDTH     { 1'b0 } };
         r_bank_address_cas        <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
         r_column_address_cas      <=  { P_COL_ADDR_WIDTH { 1'b0 } };   
         r_req_id_cas              <=  { P_REQ_ID_WIDTH { 1'b1 } };
@@ -133,9 +122,9 @@ always @ ( posedge clk or negedge rst_n ) begin : cmd_driver
             r_cmd_id_cas         <=  cmd_id_selected_by_bg; 
             r_bank_address_cas   <=  bank_address_selected_by_bg;
             r_column_address_cas <=  column_address_selected_by_bg;
-            // r_wrt_data_cas       <=  wrt_data_selected_by_bg;
-            $display("[ CAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
-
+            `ifdef DEBUG
+                $display("[ CAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
+            `endif
         end 
         else if (ready_to_cmd_cas && cmd_inter_selected != actual_cmd_serving_type ) begin
             r_cmd_cas           <= P_GENERAL_NOP;

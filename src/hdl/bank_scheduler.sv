@@ -276,12 +276,12 @@ always @(posedge clk or negedge rst_n) begin
             r_bank_address_bank <= bank_address_inter; 
             r_row_address_bank <= row_address_inter;
             r_column_address_bank <= column_address_inter;
-//            r_wrt_data_bank <= wrt_data_inter;
             r_req_id_bank <= req_id_inter;
             r_cmd_id_bank <= cmd_id_inter;
 
-            // $display("[ BS %d ]: REQ: %d - CMD: %d (%d) sent at %d", bank_address_inter, req_id_inter, cmd_id_inter, cmd_inter, $time);
-
+            `ifdef DEBUG
+                $display("[ BS %d ]: REQ: %d - CMD: %d (%d) sent at %d", bank_address_inter, req_id_inter, cmd_id_inter, cmd_inter, $time);
+            `endif
         end
         /* The case when channel scheduler get the cmd and we have another cmd_inter ready */
         else if ( can_serve_actual_cmd && r_cmd_bank != P_GENERAL_NOP && cmd_picked_bank && busy == 1'b1) begin
@@ -289,12 +289,12 @@ always @(posedge clk or negedge rst_n) begin
             r_bank_address_bank <= bank_address_inter;
             r_row_address_bank <= row_address_inter;
             r_column_address_bank <= column_address_inter;
-//            r_wrt_data_bank <= wrt_data_inter;
             r_req_id_bank <= req_id_inter;
             r_cmd_id_bank <= cmd_id_inter;
 
-            // $display("[ BS %d ]: REQ: %d - CMD: %d (%d) sent at %d", bank_address_inter, req_id_inter, cmd_id_inter, cmd_inter, $time);
-
+            `ifdef DEBUG
+                $display("[ BS %d ]: REQ: %d - CMD: %d (%d) sent at %d", bank_address_inter, req_id_inter, cmd_id_inter, cmd_inter, $time);
+            `endif
         end
         /* The case when channel scheduler get the cmd but we don't have another cmd_inter ready so just empty the r_cmd_bank */
         else if ( ~can_serve_actual_cmd && cmd_picked_bank && r_cmd_bank != P_GENERAL_NOP ) begin
@@ -585,14 +585,14 @@ end
 /* Last REFRESH counter for need_refresh driver */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_ref_cnt_for_need_refresh <= { 16 { 1'b0 } };
+        last_ref_cnt_for_need_refresh <= { 12 { 1'b0 } };
     end
     else begin
         /* Reset when need_refresh is set */
         if ( last_ref_cnt_for_need_refresh >= tREFP && need_refresh == 1'b1 ) begin
-            last_ref_cnt_for_need_refresh <= { 16 { 1'b0 } };
+            last_ref_cnt_for_need_refresh <= { 12 { 1'b0 } };
         end
-        else if (last_ref_cnt_for_need_refresh == {16{1'b1}}) begin
+        else if (last_ref_cnt_for_need_refresh == {12{1'b1}}) begin
             last_ref_cnt_for_need_refresh <= last_ref_cnt_for_need_refresh;
         end
         else begin
@@ -604,13 +604,13 @@ end
 /* Last REFRESH counter driver */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_ref_cnt <= { 8 { 1'b0 } };
+        last_ref_cnt <= { 7 { 1'b0 } };
     end
     else begin
         if ( waiting_for_ref_serve == 2'b10 && served_ras ) begin
-            last_ref_cnt <= { 8 { 1'b0 } };
+            last_ref_cnt <= { 7 { 1'b0 } };
         end
-        else if (last_ref_cnt == { 8 { 1'b1 } }) begin
+        else if (last_ref_cnt == { 7 { 1'b1 } }) begin
             last_ref_cnt <= last_ref_cnt;
         end
         else begin
@@ -648,13 +648,13 @@ end
 /* Last ACTIVATE counter driver */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_act_cnt <= { 8 { 1'b0 } };
+        last_act_cnt <= { 6 { 1'b0 } };
     end
     else begin
         if ( waiting_for_act_serve == 2'b10 && served_ras ) begin
-            last_act_cnt <= { 8 { 1'b0 } };
+            last_act_cnt <= { 6 { 1'b0 } };
         end
-        else if (last_act_cnt == {8{1'b1}}) begin
+        else if (last_act_cnt == {6{1'b1}}) begin
             last_act_cnt <= last_act_cnt;
         end
         else begin
@@ -692,13 +692,13 @@ end
 /* Last PRECHARGE counter driver */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_pre_cnt <= { 8 { 1'b0 } };
+        last_pre_cnt <= { 6 { 1'b0 } };
     end
     else begin
         if ( waiting_for_pre_serve == 2'b10 && served_ras ) begin
-            last_pre_cnt <= { 8 { 1'b0 } };
+            last_pre_cnt <= { 6 { 1'b0 } };
         end
-        else if (last_pre_cnt == {8{1'b1}}) begin
+        else if (last_pre_cnt == {6{1'b1}}) begin
             last_pre_cnt <= last_pre_cnt;
         end
         else begin
@@ -736,13 +736,13 @@ end
 /* Last READ counter driver */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_rd_cnt <= { 8 { 1'b0 } };
+        last_rd_cnt <= { 6 { 1'b0 } };
     end
     else begin
         if ( waiting_for_rd_serve == 2'b10 && served_cas ) begin
-            last_rd_cnt <= { 8 { 1'b0 } };
+            last_rd_cnt <= { 6 { 1'b0 } };
         end
-        else if (last_rd_cnt == {8{1'b1}}) begin
+        else if (last_rd_cnt == {6{1'b1}}) begin
             last_rd_cnt <= last_rd_cnt;
         end
         else begin
@@ -780,13 +780,13 @@ end
 /* Last WRITE counter driver */
 always @ ( posedge clk or negedge rst_n ) begin
     if (rst_n == 1'b0) begin
-        last_wrt_cnt <= { 8 { 1'b0 } };
+        last_wrt_cnt <= { 6 { 1'b0 } };
     end
     else begin
         if ( waiting_for_wrt_serve == 2'b10 && served_cas ) begin
-            last_wrt_cnt <= { 8 { 1'b0 } };
+            last_wrt_cnt <= { 6 { 1'b0 } };
         end
-        else if (last_wrt_cnt == {8{1'b1}}) begin
+        else if (last_wrt_cnt == {6{1'b1}}) begin
             last_wrt_cnt <= last_wrt_cnt;
         end
         else begin
