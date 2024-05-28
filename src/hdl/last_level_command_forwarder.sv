@@ -36,6 +36,7 @@ module last_level_command_forwarder # (
     parameter       P_BA_N_PS                = 16,       
     parameter       P_BA_N_G                 = 4, 
     parameter       P_WRT_DATA_BUFFER_LEN    = 4,
+    parameter       P_RD_ID_BUFFER_LEN       = 16,
 
     /* COMMANDS     */
     /* COL COMMANDS */
@@ -809,22 +810,22 @@ end
 /******************************/
 /* READ DATA REQ ID QUEUE PS0 */
 /******************************/
-
-reg [P_REQ_ID_WIDTH-1:0]                       rd_req_id_buffer_ps0         [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];                               
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps0;
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps0; 
-reg [INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps0; 
+localparam RD_INDEX_QUEUE_WIDTH = $clog2(P_RD_ID_BUFFER_LEN);
+reg [P_REQ_ID_WIDTH-1:0]         rd_req_id_buffer_ps0         [ 0 : P_RD_ID_BUFFER_LEN-1 ];                               
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps0;
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps0; 
+reg [RD_INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps0; 
 
 wire                              incr_rd_req_id_buffer_cnt_ps0;
 wire                              deincr_rd_req_id_buffer_cnt_ps0;
 
-assign incr_rd_req_id_buffer_cnt_ps0    = rd_req_id_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN && can_serve_actual_rd_ps0;
+assign incr_rd_req_id_buffer_cnt_ps0    = rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0;
 assign deincr_rd_req_id_buffer_cnt_ps0  = rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_cnt_ps0  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+        rd_req_id_buffer_cnt_ps0  <= {RD_INDEX_QUEUE_WIDTH+1{1'b0}};
     end 
     else begin
         if ( incr_rd_req_id_buffer_cnt_ps0 && ~deincr_rd_req_id_buffer_cnt_ps0 ) begin
@@ -843,12 +844,12 @@ end
 /* Fill req ID queue */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_head_ps0 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
-        for ( integer i = 0; i < P_WRT_DATA_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps0[i] <= { 64 { 1'b1 } }; 
+        rd_req_id_buffer_head_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        for ( integer i = 0; i < P_RD_ID_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps0[i] <= { 64 { 1'b1 } }; 
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
-        if ( rd_req_id_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN && can_serve_actual_rd_ps0 ) begin
+        if ( rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0 ) begin
             rd_req_id_buffer_ps0[rd_req_id_buffer_head_ps0] <= req_cas_id_ps0;
             rd_req_id_buffer_head_ps0 <= rd_req_id_buffer_head_ps0 + 1'b1;
         end
@@ -860,7 +861,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         r_rd_data_ps0             <= { P_DATA_WIDTH { 1'b1 } };
         r_rd_data_req_id_ps0      <= { P_REQ_ID_WIDTH { 1'b1 } };
-        rd_req_id_buffer_tail_ps0 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_req_id_buffer_tail_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
     end
     else begin
         if ( rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11 ) begin
@@ -976,21 +977,21 @@ end
 /* READ DATA REQ ID QUEUE PS1 */
 /******************************/
 
-reg [P_REQ_ID_WIDTH-1:0]                       rd_req_id_buffer_ps1         [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];                               
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps1;
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps1; 
-reg [INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps1; 
+reg [P_REQ_ID_WIDTH-1:0]                       rd_req_id_buffer_ps1         [ 0 : P_RD_ID_BUFFER_LEN-1 ];                               
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps1;
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps1; 
+reg [RD_INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps1; 
 
 wire                              incr_rd_req_id_buffer_cnt_ps1;
 wire                              deincr_rd_req_id_buffer_cnt_ps1;
 
-assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN && can_serve_actual_rd_ps1;
+assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1;
 assign deincr_rd_req_id_buffer_cnt_ps1  = rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_cnt_ps1  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+        rd_req_id_buffer_cnt_ps1  <= {RD_INDEX_QUEUE_WIDTH+1{1'b0}};
     end 
     else begin
         if ( incr_rd_req_id_buffer_cnt_ps1 && ~deincr_rd_req_id_buffer_cnt_ps1 ) begin
@@ -1009,12 +1010,12 @@ end
 /* Fill req ID queue */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_head_ps1 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
-        for ( integer i = 0; i < P_WRT_DATA_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps1[i] <= { 64 { 1'b1 } }; 
+        rd_req_id_buffer_head_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        for ( integer i = 0; i < P_RD_ID_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps1[i] <= { 64 { 1'b1 } }; 
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
-        if ( rd_req_id_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN && can_serve_actual_rd_ps1 ) begin
+        if ( rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1 ) begin
             rd_req_id_buffer_ps1[rd_req_id_buffer_head_ps1] <= req_cas_id_ps1;
             rd_req_id_buffer_head_ps1 <= rd_req_id_buffer_head_ps1 + 1'b1;
         end
@@ -1026,7 +1027,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         r_rd_data_ps1             <= { P_DATA_WIDTH { 1'b1 } };
         r_rd_data_req_id_ps1      <= { P_REQ_ID_WIDTH { 1'b1 } };
-        rd_req_id_buffer_tail_ps1 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_req_id_buffer_tail_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
     end
     else begin
         if ( rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[3:2] == 2'b11 ) begin
@@ -1037,7 +1038,6 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
         end
     end
 end
-
 
 
 /********************/
