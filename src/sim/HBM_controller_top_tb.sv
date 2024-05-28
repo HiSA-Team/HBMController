@@ -82,7 +82,7 @@ initial begin
 
     wait(reset_hbm_controller[0] == 1'b1);
         
-    fd = $fopen("/home/manuel/VivadoProjects/HBMController_0/HBMController_0.srcs/sources_1/new/bench_stuff/workload_2_square_200000.txt", "r");
+    fd = $fopen("./example_0.txt", "r");
     while(!$feof(fd))begin
         $fgets(line, fd);
         request = line.substr(0,1);
@@ -129,6 +129,11 @@ initial begin
     $finish;
 end
 
+wire [7:0]     rd_data_req_id_ps0   [0:16-1];
+wire [255:0]   rd_data_ps0          [0:16-1];
+wire [7:0]     rd_data_req_id_ps1   [0:16-1];
+wire [255:0]   rd_data_ps1          [0:16-1];
+
 
 HBM_controller_top #()
 HBM_controller_top_i (
@@ -141,6 +146,10 @@ HBM_controller_top_i (
     .write_data(input_data),
     .request_valid(request_valid),
     .request_picked(request_picked),
-    .reset_hbm_controller(reset_hbm_controller)
+    .reset_hbm_controller(reset_hbm_controller),
+    .rd_data_req_id_ps0(rd_data_req_id_ps0),
+    .rd_data_ps0(rd_data_ps0),
+    .rd_data_req_id_ps1(rd_data_req_id_ps1),
+    .rd_data_ps1(rd_data_ps1)
 );
 endmodule

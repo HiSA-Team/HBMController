@@ -175,8 +175,8 @@ module last_level_command_forwarder # (
     output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1,
     output [P_DATA_WIDTH-1:0]           rd_data_ps1,
 
-    output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps0,
-    output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps1,
+    // output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps0,
+    // output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps1,
 
     output reset_hbm_controller
     
@@ -391,8 +391,8 @@ assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actua
 //end
 
 
-assign wrt_data_req_id_ps0 = req_cas_id_ps0;
-assign wrt_data_req_id_ps1 = req_cas_id_ps1;
+// assign wrt_data_req_id_ps0 = req_cas_id_ps0;
+// assign wrt_data_req_id_ps1 = req_cas_id_ps1;
 
 
 
@@ -714,41 +714,41 @@ reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_head_ps0;
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_ps0; 
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_for_reset_ps0;
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_for_reset_ps1; 
-//reg [INDEX_QUEUE_WIDTH   : 0 ]   wrt_data_buffer_cnt_ps0; 
+reg [INDEX_QUEUE_WIDTH   : 0 ]   wrt_data_buffer_cnt_ps0; 
 
 reg [2:0] wrt_to_data_cnt_ps0 [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];
 
 
-//wire                              incr_wrt_data_buffer_cnt_ps0;
-//wire                              deincr_wrt_data_buffer_cnt_ps0;
+wire                              incr_wrt_data_buffer_cnt_ps0;
+wire                              deincr_wrt_data_buffer_cnt_ps0;
 
 wire                              rst_wrt_to_data_cnt_ps0;
 
 
-//assign     incr_wrt_data_buffer_cnt_ps0 = can_serve_actual_wrt_ps0;
-//assign     deincr_wrt_data_buffer_cnt_ps0 = /*(wrt_data_buffer_cnt_ps0 > 0) &&*/ (wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2);
+assign     incr_wrt_data_buffer_cnt_ps0 = can_serve_actual_wrt_ps0;
+assign     deincr_wrt_data_buffer_cnt_ps0 = (wrt_data_buffer_cnt_ps0 > 0) && (wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2);
 
 
 /****************************************/
 /* WRITE DATA BUFFER COUNTER MANAGEMENT */
 /****************************************/
-//always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
-//    if ( dfi_rst_n == 1'b0 ) begin
-//        wrt_data_buffer_cnt_ps0  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
-//    end 
-//    else begin
-//        if ( incr_wrt_data_buffer_cnt_ps0 && ~deincr_wrt_data_buffer_cnt_ps0 ) begin
-//            wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0 + 1'b1;
-        
-//        end 
-//        else if ( ~incr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps0 ) begin
-//            wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0 - 1'b1;
-//        end
-//        else if ( incr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps0 ) begin
-//            wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0;
-//        end
-//    end 
-//end
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        wrt_data_buffer_cnt_ps0  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+    end 
+    else begin
+        if ( incr_wrt_data_buffer_cnt_ps0 && ~deincr_wrt_data_buffer_cnt_ps0 ) begin
+            wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0 + 1'b1;
+            
+        end 
+        else if ( ~incr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps0 ) begin
+            wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0 - 1'b1;
+        end
+        else if ( incr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps0 ) begin
+            wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0;
+        end
+    end 
+end
 
 assign rst_wrt_to_data_cnt_ps0 = can_serve_actual_wrt_ps0 /*&& wrt_data_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN*/;
 
@@ -798,10 +798,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end
     else begin
         if ( can_serve_actual_wrt_ps0 ) begin      
-//            if ( wrt_data_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN ) begin
+            if ( wrt_data_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN ) begin
                 wrt_data_buffer_ps0[wrt_data_buffer_head_ps0] <= wrt_data_cas_ps0;   
                 wrt_data_buffer_head_ps0 <= wrt_data_buffer_head_ps0 + 1'b1;
-//            end
+            end
         end
     end
 end
@@ -879,41 +879,41 @@ end
 reg [P_DATA_WIDTH - 1    : 0 ]   wrt_data_buffer_ps1         [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];                               
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_head_ps1;
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_ps1; 
-//reg [INDEX_QUEUE_WIDTH   : 0 ]   wrt_data_buffer_cnt_ps1; 
+reg [INDEX_QUEUE_WIDTH   : 0 ]   wrt_data_buffer_cnt_ps1; 
 
 reg [2:0] wrt_to_data_cnt_ps1 [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];
 
 
-//wire                              incr_wrt_data_buffer_cnt_ps1;
-//wire                              deincr_wrt_data_buffer_cnt_ps1;
+wire                              incr_wrt_data_buffer_cnt_ps1;
+wire                              deincr_wrt_data_buffer_cnt_ps1;
 
 wire                              rst_wrt_to_data_cnt_ps1;
 
 
-//assign     incr_wrt_data_buffer_cnt_ps1 = can_serve_actual_wrt_ps1;
-//assign     deincr_wrt_data_buffer_cnt_ps1 = /*(wrt_data_buffer_cnt_ps1 > 0) &&*/ (wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1);
+assign     incr_wrt_data_buffer_cnt_ps1 = can_serve_actual_wrt_ps1;
+assign     deincr_wrt_data_buffer_cnt_ps1 = (wrt_data_buffer_cnt_ps1 > 0) && (wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1);
 
 
 /****************************************/
 /* WRITE DATA BUFFER COUNTER MANAGEMENT */
 /****************************************/
-//always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
-//    if ( dfi_rst_n == 1'b0 ) begin
-//        wrt_data_buffer_cnt_ps1  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
-//    end 
-//    else begin
-//        if ( incr_wrt_data_buffer_cnt_ps1 && ~deincr_wrt_data_buffer_cnt_ps1 ) begin
-//            wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1 + 1'b1;
-        
-//        end 
-//        else if ( ~incr_wrt_data_buffer_cnt_ps1 && deincr_wrt_data_buffer_cnt_ps1 ) begin
-//            wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1 - 1'b1;
-//        end
-//        else if ( incr_wrt_data_buffer_cnt_ps1 && deincr_wrt_data_buffer_cnt_ps1 ) begin
-//            wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1;
-//        end
-//    end 
-//end
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        wrt_data_buffer_cnt_ps1  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+    end 
+    else begin
+        if ( incr_wrt_data_buffer_cnt_ps1 && ~deincr_wrt_data_buffer_cnt_ps1 ) begin
+            wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1 + 1'b1;
+            
+        end 
+        else if ( ~incr_wrt_data_buffer_cnt_ps1 && deincr_wrt_data_buffer_cnt_ps1 ) begin
+            wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1 - 1'b1;
+        end
+        else if ( incr_wrt_data_buffer_cnt_ps1 && deincr_wrt_data_buffer_cnt_ps1 ) begin
+            wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1;
+        end
+    end 
+end
 
 assign rst_wrt_to_data_cnt_ps1 = can_serve_actual_wrt_ps1 /*&&  (wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN)*/;
 
@@ -964,10 +964,10 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     
     else begin
         if ( can_serve_actual_wrt_ps1 ) begin      
-//           if ( wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN ) begin
+            if ( wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN ) begin
                 wrt_data_buffer_ps1[wrt_data_buffer_head_ps1] <= wrt_data_cas_ps1;   
                 wrt_data_buffer_head_ps1 <= wrt_data_buffer_head_ps1 + 1'b1;    
-//            end 
+            end 
         end
     end
 end
@@ -1057,7 +1057,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     else begin
         // if ( wrt_data_buffer_cnt_ps1 > 0 ) begin
             /* Only PS0 has to be served (data) */
-            if ( /*wrt_data_buffer_cnt_ps0 > 0 &&*/ wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] != tWL-2'h1  ) begin
+            if ( wrt_data_buffer_cnt_ps0 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] != tWL-2'h1  ) begin
 
                 wrt_data_p0[63:0]     <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][63:0];
                 wrt_data_p0[191:128]  <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][127:64];
@@ -1069,7 +1069,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
                 wrt_sync_ps0 <= 1'b1;
             end
             /* PS0 and PS1 have to be served (data) */
-            else if ( /*wrt_data_buffer_cnt_ps0 > 0 &&*//* wrt_data_buffer_cnt_ps1 > 0 &&*/ wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 ) begin
+            else if ( wrt_data_buffer_cnt_ps0 > 0 && wrt_data_buffer_cnt_ps1 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 ) begin
                 wrt_data_p0[63:0]     <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][63:0];
                 wrt_data_p0[191:128]  <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][127:64];
 
@@ -1089,7 +1089,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             
             end
             /* Only PS1 has to be served, but we have residual data that have to be served for PS0 */
-            else if ( /*wrt_data_buffer_cnt_ps1 > 0 &&*/ wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] != tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 && wrt_sync_ps0 ) begin
+            else if ( wrt_data_buffer_cnt_ps1 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] != tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 && wrt_sync_ps0 ) begin
                 wrt_data_p0[63:0]     <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][63:0];
                 wrt_data_p0[191:128]  <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][127:64];
                 wrt_sync_ps0 <= 1'b0;
@@ -1103,7 +1103,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
                 wrt_data_buffer_tail_ps1 <= wrt_data_buffer_tail_ps1 + 1'b1;
             end
             /* Only PS1 has to be served */
-            else if ( /*wrt_data_buffer_cnt_ps1 > 0 &&*/ wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] != tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 && ~wrt_sync_ps0 ) begin                
+            else if ( wrt_data_buffer_cnt_ps1 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] != tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 && ~wrt_sync_ps0 ) begin                
                 wrt_data_p0[127:64]   <= wrt_data_buffer_ps1[wrt_data_buffer_tail_ps1][63:0];
                 wrt_data_p0[255:192]  <= wrt_data_buffer_ps1[wrt_data_buffer_tail_ps1][127:64];
 

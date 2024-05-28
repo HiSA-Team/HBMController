@@ -53,7 +53,9 @@ module CAS_arbiter#
     output [P_REQ_ID_WIDTH-1:0]         req_id_cas,
     output [P_CMD_ID_WIDTH-1:0]         cmd_id_cas,
     output [P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_cas,
-    output [P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas
+    output [P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas,
+
+    output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id
 
 );
 
@@ -80,6 +82,9 @@ reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
 /*(* keep = "True" *)*/ wire [P_CMD_ID_WIDTH-1:0]           cmd_id_selected_by_bg;
 /*(* keep = "True" *)*/ wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_address_selected_by_bg;
 /*(* keep = "True" *)*/ wire [P_COL_ADDR_WIDTH - 1 : 0]     column_address_selected_by_bg;
+
+
+assign wrt_data_req_id = req_id_selected_by_bg;
 
 
 (* keep = "True" *)wire change_round;

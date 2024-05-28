@@ -87,9 +87,9 @@ module HBM_channel_controller # (
     parameter    tFAW     =  32'd30,
     parameter    tWTRs    =  32'd6,
     parameter    tRREFD   =  32'd4,
-    
-    parameter    P_REQ_ID_WIDTH = 32'd32,
-    parameter    P_CMD_ID_WIDTH = 32'd3    
+
+    parameter    P_REQ_ID_WIDTH = $clog2(P_BA_N_PS*P_QUEUE_LEN*2),
+    parameter    P_CMD_ID_WIDTH = 32'd3
 
 )( 
     //DFI INTERFACE SIGNALS
@@ -148,6 +148,7 @@ module HBM_channel_controller # (
     input            dfi_ctrlupd_req,
     input            dfi_phyupd_ack,
 
+    /* Extern interface to the top switch */
     input [31:0] input_address,
     input [1:0] input_request,
     input [P_DATA_WIDTH-1:0] input_write_data,
@@ -280,6 +281,8 @@ always_comb begin
 end
 
 /* COMPONENTS INSTANTIATION */
+
+/* WRITE BUFFERS */
 block_ram #
 (
     .ADDR_WIDTH(P_REQ_ID_WIDTH),

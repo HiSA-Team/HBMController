@@ -300,15 +300,15 @@ CAS_arbiter #(
     .cmd_cas_bank               (cmd_bank             [0:P_BA_N_PS-1]),
     .bank_address_bank          (bank_address_bank    [0:P_BA_N_PS-1]),
     .column_address_bank        (column_address_bank  [0:P_BA_N_PS-1]),
-//    .wrt_data_bank              (wrt_data_bank        [0:P_BA_N_PS-1]),
-
     .ready_to_cmd_cas           (ready_to_cmd_cas_ps0   ),
     .cmd_cas                    (cmd_cas_ps0            ),
     .req_id_cas                 (req_cas_id_ps0         ),
     .cmd_id_cas                 (cmd_cas_id_ps0         ), 
     .bank_address_cas           (bank_address_cas_ps0   ),
-    .column_address_cas         (column_address_cas_ps0 )
-    // .wrt_data_cas               (wrt_data_cas_ps0       )
+    .column_address_cas         (column_address_cas_ps0 ),
+
+    .wrt_data_req_id            (wrt_data_req_id_ps0    )
+
 );
 
 CAS_arbiter #(
@@ -335,15 +335,16 @@ CAS_arbiter #(
     .cmd_cas_bank               (cmd_bank             [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     .bank_address_bank          (bank_address_bank    [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     .column_address_bank        (column_address_bank  [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
-//    .wrt_data_bank              (wrt_data_bank        [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
 
     .ready_to_cmd_cas           (ready_to_cmd_cas_ps1   ),
     .cmd_cas                    (cmd_cas_ps1            ),
     .req_id_cas                 (req_cas_id_ps1         ),
     .cmd_id_cas                 (cmd_cas_id_ps1         ), 
     .bank_address_cas           (bank_address_cas_ps1   ),
-    .column_address_cas         (column_address_cas_ps1 )
-    // .wrt_data_cas               (wrt_data_cas_ps1       )
+    .column_address_cas         (column_address_cas_ps1 ),
+
+    .wrt_data_req_id            (wrt_data_req_id_ps1    )
+
 );
 
 
@@ -471,8 +472,8 @@ last_level_command_forwarder #(
 
     .reset_hbm_controller(reset_hbm_controller),
 
-    .wrt_data_req_id_ps0(wrt_data_req_id_ps0),
-    .wrt_data_req_id_ps1(wrt_data_req_id_ps1),
+    // .wrt_data_req_id_ps0(wrt_data_req_id_ps0),
+    // .wrt_data_req_id_ps1(wrt_data_req_id_ps1),
 
     .rd_data_req_id_ps0(rd_data_req_id_ps0),
     .rd_data_ps0(rd_data_ps0),

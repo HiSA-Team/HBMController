@@ -22,8 +22,17 @@
 
 module HBM_controller_top#
 (
-    parameter N_CHANNELS = 16, /* Number of enabled channels */
-    parameter P_DATA_WIDTH = 256
+    parameter N_CHANNELS   = 16, /* Number of enabled channels */
+    parameter P_DATA_WIDTH = 256,
+    parameter P_BA_N_PS    = 16,         /* Number of Banks per group */
+
+    /* FIFO QUEUE LEN */
+    parameter P_QUEUE_LEN  = 8,
+    
+    /* REQ and CMD IDs */
+    parameter P_REQ_ID_WIDTH = $clog2(P_BA_N_PS*P_QUEUE_LEN*2),
+    parameter P_CMD_ID_WIDTH = 32'd3
+
 )
 
 (
@@ -48,12 +57,17 @@ module HBM_controller_top#
     `endif
 
     `ifdef DEBUG
-        input  [31:0]               address        [0:16-1],
-        input  [1:0]                request        [0:16-1],
-        input  [P_DATA_WIDTH-1:0]   write_data     [0:16-1],
-        input                       request_valid  [0:16-1],
-        output                      request_picked [0:16-1],
-        output reset_hbm_controller                [0:16-1]
+        input  [31:0]               address              [0:16-1],
+        input  [1:0]                request              [0:16-1],
+        input  [P_DATA_WIDTH-1:0]   write_data           [0:16-1],
+        input                       request_valid        [0:16-1],
+        output                      request_picked       [0:16-1],
+        output                      reset_hbm_controller [0:16-1],
+
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:16-1],
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:16-1]
     `endif
 
 );
@@ -69,7 +83,6 @@ localparam MMCM_CLKIN1_PERIOD    = 10.000;
 (* keep = "TRUE" *) wire dfi_clk_in[0:15] /*[0:N_CHANNELS-1]*/;
 (* keep = "TRUE" *) wire MMCM_LOCK_0;
 (* keep = "TRUE" *) wire MMCM_LOCK_1;
-(* keep = "TRUE" *) wire MMCM_LOCK_2;
 
 (* keep = "TRUE" *) wire      APB_PCLK_IBUF_0;
 (* keep = "TRUE" *) wire      APB_PCLK_BUF_0;
@@ -94,16 +107,6 @@ reg  rst_mmcm_n_1;
 reg	[7:0]	cnt_apb_rst_p2l_st0_1;
 wire		w_apb_reset_n_inv_st0_1;
 reg			r_apb_preset_n_p2l_st0_1;
-
-
-wire	[3:0]		w_rst_sys_rst_2;
-reg  [7:0] cnt_rst_0_2;
-reg  rst_mmcm_n_2;
-
-reg	[7:0]	cnt_apb_rst_p2l_st0_2;
-wire		w_apb_reset_n_inv_st0_2;
-reg			r_apb_preset_n_p2l_st0_2;
-
 
 wire           dfi_init_start[0:16-1];
 wire   [1:0]   dfi_aw_ck_p0[0:16-1];
@@ -198,20 +201,7 @@ reg           rst_mmcm_1;
 reg  [3:0]    cnt_rst_1;
 
 
-
-
-reg          rst_st0_n_2;
-reg          rst_st1_n_2;
-
-reg           w_rst_sys_rst_r1_2;
-reg           w_rst_sys_rst_r2_2;
-reg           w_rst_sys_rst_1_r1_2;
-reg           w_rst_sys_rst_1_r2_2;
-
-reg           rst_mmcm_2;
-reg  [3:0]    cnt_rst_2;
-        
-
+    
     always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             cnt_rst_0        <= 8'h00;
@@ -420,113 +410,6 @@ reg  [3:0]    cnt_rst_2;
 
     assign APB_PRESET_N_sync_1 = r_apb_preset_n_p2l_st0_1 ;
     
-    
-    
-    
-    
-    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-        if (~ARESET_N_1) begin
-            cnt_rst_0_2        <= 8'h00;
-            rst_mmcm_n_2     <= 1'b0;
-        end else begin
-            if (~rst_r1_n_2) begin
-                if( cnt_rst_0_2 >= 8'd100 ) begin
-                    cnt_rst_0_2 <= cnt_rst_0_2;
-                    rst_mmcm_n_2 <= 1'b0;
-                end
-                else begin
-                    cnt_rst_0_2 <= cnt_rst_0_2 + 1;
-                    rst_mmcm_n_2 <= rst_mmcm_n_2;
-                end
-            end else begin
-                cnt_rst_0_2 <= 'd0;
-                rst_mmcm_n_2 <= 1'b1;
-            end
-        end
-    end
-
-
-    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-        if (~ARESET_N_1) begin
-            rst_mmcm_2  <= 1'b0;
-        end else begin
-            if (cnt_rst_2 != 4'h0) begin
-                rst_mmcm_2 <= 1'b0;
-            end else begin
-                rst_mmcm_2 <= 1'b1;
-            end
-        end
-    end
-
-
-    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-        if (~ARESET_N_1) begin
-            w_rst_sys_rst_r1_2 <= 1'b0;
-            w_rst_sys_rst_r2_2 <= 1'b0;
-        end else begin
-            w_rst_sys_rst_r1_2 <= w_rst_sys_rst_2;
-            w_rst_sys_rst_r2_2 <= w_rst_sys_rst_r1_2;
-        end
-    end
-
-    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-        if (~ARESET_N_1) begin
-            rst_st0_n_2 <= 1'b0;
-        end else begin
-            rst_st0_n_2 <= rst_mmcm & MMCM_LOCK_2 & (~w_rst_sys_rst_r2_2);
-        end
-    end
-    
-
-    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-        if (~ARESET_N_1) begin
-            cnt_rst_2 <= 4'hA;
-        end else begin
-            if (~rst_r1_n_2) begin
-                cnt_rst_2 <= 4'hA;
-            end else if (cnt_rst_2 != 4'h0) begin
-                cnt_rst_2 <= cnt_rst_2 - 1'b1;
-            end else begin
-                cnt_rst_2 <= cnt_rst_2;
-            end
-        end
-    end
-
-    always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
-        if (~ARESET_N_1) begin
-            rst_r1_n_2 <= 1'b0;
-        end else begin
-            rst_r1_n_2 <= 1'b1;
-        end
-    end
-
-    assign w_rst_sys_rst_2 = 4'h0;
-    assign	w_apb_reset_n_inv_st0_2 = APB_PRESET_N_1 && ~w_rst_sys_rst_2;
-    always @ ( posedge APB_PCLK_BUF_1 or negedge  w_apb_reset_n_inv_st0_2 )
-    begin
-        if( w_apb_reset_n_inv_st0_2 == 1'b0 )
-            begin
-                cnt_apb_rst_p2l_st0_2 <= 8'd0;
-                r_apb_preset_n_p2l_st0_2 <= 1'd0;
-            end
-        else
-            begin
-                if( cnt_apb_rst_p2l_st0_2 >= 8'd200 )
-                begin
-                    r_apb_preset_n_p2l_st0_2	<= 1'd1;
-                    cnt_apb_rst_p2l_st0_2		<= cnt_apb_rst_p2l_st0_2;
-                end
-                else
-                begin
-                    cnt_apb_rst_p2l_st0_2		<= cnt_apb_rst_p2l_st0_2 + 8'd1;
-                    r_apb_preset_n_p2l_st0_2 <= 1'b0;
-                end
-            end
-    end
-
-    assign APB_PRESET_N_sync_2 = r_apb_preset_n_p2l_st0_2 ;
-
-
 
     IBUF u_APB_PCLK_IBUF_0  (
     .I (APB_PCLK_0),
@@ -693,12 +576,14 @@ reg  [3:0]    cnt_rst_2;
     end
         
     
-    wire [31:0]                        rd_data_req_id_ps0   [0:16-1];
-    wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
-    wire [31:0]                        rd_data_req_id_ps1   [0:16-1];
-    wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
+    
 
     `ifndef DEBUG
+        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
+        wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
+        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1   [0:16-1];
+        wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
+
         wire reset_hbm_controller[0:16-1];
         wire [31:0]address[0:16-1];
         wire [1:0]request[0:16-1];
@@ -790,16 +675,6 @@ reg  [3:0]    cnt_rst_2;
         end
     end
 
-//        always @ (posedge dfi_clk_buf[7] or negedge ARESET_N_0) begin
-//            if (~ARESET_N_0) begin
-//                rst0_st0_r1_n[7] <= 1'b0;
-//                rst0_st0_r2_n[7] <= 1'b0;
-//            end else begin
-//                rst0_st0_r1_n[7] <= rst_st0_n_1;
-//                rst0_st0_r2_n[7] <= rst0_st0_r1_n[7];
-//            end
-//        end
-
     always @ (posedge dfi_clk_buf[8] or negedge ARESET_N_1) begin
         if (~ARESET_N_1) begin
             rst0_st0_r1_n[8] <= 1'b0;
@@ -866,22 +741,10 @@ reg  [3:0]    cnt_rst_2;
             rst0_st0_r1_n[14] <= 1'b0;
             rst0_st0_r2_n[14] <= 1'b0;
         end else begin
-            rst0_st0_r1_n[14] <= rst_st0_n_2;
+            rst0_st0_r1_n[14] <= rst_st0_n_1;
             rst0_st0_r2_n[14] <= rst0_st0_r1_n[14];
         end
     end
-
-    // always @ (posedge dfi_clk_buf[15] or negedge ARESET_N_1) begin
-    //     if (~ARESET_N_1) begin
-    //         rst0_st0_r1_n[15] <= 1'b0;
-    //         rst0_st0_r2_n[15] <= 1'b0;
-    //     end else begin
-    //         rst0_st0_r1_n[15] <= rst_st0_n_2;
-    //         rst0_st0_r2_n[15] <= rst0_st0_r1_n[15];
-    //     end
-    // end
-
-
 
 genvar i;
 generate
@@ -1061,7 +924,9 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
     end
     
     if ( i == 7 ) begin
-        HBM_channel_controller 
+        HBM_channel_controller #(
+            .P_QUEUE_LEN(P_QUEUE_LEN)
+        )
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[6]   )
@@ -1126,7 +991,9 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
     end
 
     else if ( i == 15 ) begin
-        HBM_channel_controller 
+        HBM_channel_controller #(
+            .P_QUEUE_LEN(P_QUEUE_LEN)
+        )
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[14]   )
@@ -1191,9 +1058,10 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
     
     end
 
-    else begin 
-    
-        HBM_channel_controller 
+    else begin
+        HBM_channel_controller #(
+            .P_QUEUE_LEN(P_QUEUE_LEN)
+        ) 
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[i]   )
