@@ -311,92 +311,6 @@ assign ready_to_cmd_cas_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actua
 assign ready_to_cmd_ras_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
 assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
 
-
-//reg r_ready_to_cmd_ras_ps0;
-//reg r_ready_to_cmd_ras_ps1;
-//reg r_ready_to_cmd_cas_ps0;
-//reg r_ready_to_cmd_cas_ps1;
-
-//assign ready_to_cmd_ras_ps0 = r_ready_to_cmd_ras_ps0;
-//assign ready_to_cmd_ras_ps1 = r_ready_to_cmd_ras_ps1;
-//assign ready_to_cmd_cas_ps0 = r_ready_to_cmd_cas_ps0;
-//assign ready_to_cmd_cas_ps1 = r_ready_to_cmd_cas_ps1;
-
-//always @(posedge dfi_clk or negedge dfi_rst_n) begin
-//    if (dfi_rst_n == 1'b0) begin
-//        r_ready_to_cmd_ras_ps0 <= 1'b0;
-//    end 
-//    else begin
-//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-//            r_ready_to_cmd_ras_ps0 <= 1'b1;
-//        end
-//        else if ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-//            r_ready_to_cmd_ras_ps0 <= 1'b1;
-//        end
-//        else begin
-//            r_ready_to_cmd_ras_ps0 <= 1'b0;
-//        end
-//    end
-//end
-
-//always @(posedge dfi_clk or negedge dfi_rst_n) begin
-//    if (dfi_rst_n == 1'b0) begin
-//        r_ready_to_cmd_ras_ps1 <= 1'b0;
-//    end 
-//    else begin
-//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-//            r_ready_to_cmd_ras_ps1 <= 1'b1;
-//        end
-//        else if ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-//            r_ready_to_cmd_ras_ps1 <= 1'b1;
-//        end
-//        else begin
-//            r_ready_to_cmd_ras_ps1 <= 1'b0;
-//        end
-//    end
-//end
-
-
-//always @(posedge dfi_clk or negedge dfi_rst_n) begin
-//    if (dfi_rst_n == 1'b0) begin
-//        r_ready_to_cmd_cas_ps0 <= 1'b0;
-//    end 
-//    else begin
-//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-//            r_ready_to_cmd_cas_ps0 <= 1'b1;
-//        end
-//        else if ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-//            r_ready_to_cmd_cas_ps0 <= 1'b1;
-//        end
-//        else begin
-//            r_ready_to_cmd_cas_ps0 <= 1'b0;
-//        end
-//    end
-//end
-
-//always @(posedge dfi_clk or negedge dfi_rst_n) begin
-//    if (dfi_rst_n == 1'b0) begin
-//        r_ready_to_cmd_cas_ps1 <= 1'b0;
-//    end 
-//    else begin
-//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-//            r_ready_to_cmd_cas_ps1 <= 1'b1;
-//        end
-//        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-//            r_ready_to_cmd_cas_ps1 <= 1'b1;
-//        end
-//        else begin
-//            r_ready_to_cmd_cas_ps1 <= 1'b0;
-//        end
-//    end
-//end
-
-
-// assign wrt_data_req_id_ps0 = req_cas_id_ps0;
-// assign wrt_data_req_id_ps1 = req_cas_id_ps1;
-
-
-
 reg [P_DATA_WIDTH-1 : 0] wrt_data_p0;
 reg [P_DATA_WIDTH-1 : 0] wrt_data_p1;
 
@@ -811,7 +725,6 @@ end
 /* READ DATA REQ ID QUEUE PS0 */
 /******************************/
 localparam RD_INDEX_QUEUE_WIDTH = $clog2(P_RD_ID_BUFFER_LEN);
-reg [P_REQ_ID_WIDTH-1:0]         rd_req_id_buffer_ps0         [ 0 : P_RD_ID_BUFFER_LEN-1 ];                               
 reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps0;
 reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps0; 
 reg [RD_INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps0; 
@@ -821,6 +734,22 @@ wire                              deincr_rd_req_id_buffer_cnt_ps0;
 
 assign incr_rd_req_id_buffer_cnt_ps0    = rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0;
 assign deincr_rd_req_id_buffer_cnt_ps0  = rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
+
+reg rd_req_id_buffer_en_ps0;
+wire [P_REQ_ID_WIDTH-1:0]rd_req_id_data_out_ps0;
+
+block_ram #(
+    .DATA_WIDTH(P_REQ_ID_WIDTH),
+    .ADDR_WIDTH(RD_INDEX_QUEUE_WIDTH)
+)
+rd_req_id_buffer_ps0(
+    .data_in(req_cas_id_ps0),
+    .read_addr(rd_req_id_buffer_tail_ps0), 
+    .write_addr(rd_req_id_buffer_head_ps0),
+    .wr_en(rd_req_id_buffer_en_ps0), 
+    .clk(dfi_clk),
+    .data_out(rd_req_id_data_out_ps0)
+); 
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
@@ -845,13 +774,16 @@ end
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         rd_req_id_buffer_head_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
-        for ( integer i = 0; i < P_RD_ID_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps0[i] <= { 64 { 1'b1 } }; 
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
         if ( rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0 ) begin
-            rd_req_id_buffer_ps0[rd_req_id_buffer_head_ps0] <= req_cas_id_ps0;
+            rd_req_id_buffer_en_ps0 <= 1'b1;
             rd_req_id_buffer_head_ps0 <= rd_req_id_buffer_head_ps0 + 1'b1;
+        end
+        else begin
+            rd_req_id_buffer_en_ps0 <= 1'b0;
+            rd_req_id_buffer_head_ps0 <= rd_req_id_buffer_head_ps0;
         end
     end
 end
@@ -867,7 +799,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
         if ( rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11 ) begin
             r_rd_data_ps0[255:128]    <=  { dfi_dw_rddata_p0[191:128],   dfi_dw_rddata_p0[63:0]};
             r_rd_data_ps0[127:0]      <=  { dfi_dw_rddata_p1[191:128],   dfi_dw_rddata_p1[63:0]};
-            r_rd_data_req_id_ps0      <=  rd_req_id_buffer_ps0[rd_req_id_buffer_tail_ps0];
+            r_rd_data_req_id_ps0      <=  rd_req_id_data_out_ps0;
             rd_req_id_buffer_tail_ps0 <= rd_req_id_buffer_tail_ps0 + 1'b1;
         end
     end
@@ -977,7 +909,6 @@ end
 /* READ DATA REQ ID QUEUE PS1 */
 /******************************/
 
-reg [P_REQ_ID_WIDTH-1:0]                       rd_req_id_buffer_ps1         [ 0 : P_RD_ID_BUFFER_LEN-1 ];                               
 reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps1;
 reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps1; 
 reg [RD_INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps1; 
@@ -987,6 +918,22 @@ wire                              deincr_rd_req_id_buffer_cnt_ps1;
 
 assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1;
 assign deincr_rd_req_id_buffer_cnt_ps1  = rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
+
+reg rd_req_id_buffer_en_ps1;
+wire [P_REQ_ID_WIDTH-1:0]rd_req_id_data_out_ps1;
+
+block_ram #(
+    .DATA_WIDTH(P_REQ_ID_WIDTH),
+    .ADDR_WIDTH(RD_INDEX_QUEUE_WIDTH)
+)
+rd_req_id_buffer_ps1(
+    .data_in(req_cas_id_ps1),
+    .read_addr(rd_req_id_buffer_tail_ps1), 
+    .write_addr(rd_req_id_buffer_head_ps1),
+    .wr_en(rd_req_id_buffer_en_ps1), 
+    .clk(dfi_clk),
+    .data_out(rd_req_id_data_out_ps1)
+); 
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
@@ -1011,13 +958,16 @@ end
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         rd_req_id_buffer_head_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
-        for ( integer i = 0; i < P_RD_ID_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps1[i] <= { 64 { 1'b1 } }; 
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
         if ( rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1 ) begin
-            rd_req_id_buffer_ps1[rd_req_id_buffer_head_ps1] <= req_cas_id_ps1;
+            rd_req_id_buffer_en_ps1 <= 1'b1;
             rd_req_id_buffer_head_ps1 <= rd_req_id_buffer_head_ps1 + 1'b1;
+        end
+        else begin
+            rd_req_id_buffer_en_ps1 <= 1'b0;
+            rd_req_id_buffer_head_ps1 <= rd_req_id_buffer_head_ps1;
         end
     end
 end
@@ -1033,7 +983,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
         if ( rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[3:2] == 2'b11 ) begin
             r_rd_data_ps1[255:128]    <=  { dfi_dw_rddata_p1[255:192],   dfi_dw_rddata_p1[127:64]};
             r_rd_data_ps1[127:0]      <=  { dfi_dw_rddata_p0[255:192],   dfi_dw_rddata_p0[127:64]};
-            r_rd_data_req_id_ps1      <=  rd_req_id_buffer_ps1[rd_req_id_buffer_tail_ps1];
+            r_rd_data_req_id_ps1      <=  rd_req_id_data_out_ps1;
             rd_req_id_buffer_tail_ps1 <= rd_req_id_buffer_tail_ps1 + 1'b1;
         end
     end

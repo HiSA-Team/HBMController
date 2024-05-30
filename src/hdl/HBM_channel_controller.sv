@@ -290,12 +290,12 @@ end
 /* COMPONENTS INSTANTIATION */
 
 /* WRITE BUFFERS */
-block_ram #
+distributed_ram #
 (
     .ADDR_WIDTH(P_REQ_ID_WIDTH),
     .DATA_WIDTH(P_DATA_WIDTH)
 )
-block_ram_data_ps0
+distributed_ram_data_ps0
 (
     .data_in(input_write_data),
     .read_addr(wrt_data_req_id_ps0), 
@@ -305,12 +305,12 @@ block_ram_data_ps0
     .data_out(blk_ram_data_out_ps0)
 );
 
-block_ram #
+distributed_ram #
 (
     .ADDR_WIDTH(P_REQ_ID_WIDTH),
     .DATA_WIDTH(P_DATA_WIDTH)
 )
-block_ram_data_ps1
+distributed_ram_data_ps1
 (
     .data_in(input_write_data),
     .read_addr(wrt_data_req_id_ps1), 
