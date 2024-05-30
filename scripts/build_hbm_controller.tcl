@@ -1,5 +1,6 @@
 add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sources_1 "\
     $src_dir/hdl/block_ram.sv \
+    $src_dir/hdl/ram_for_REQ_to_CMD.sv \
     $src_dir/hdl/last_level_command_forwarder.sv \
     $src_dir/hdl/CAS_arbiter.sv \
     $src_dir/hdl/RAS_arbiter.sv \

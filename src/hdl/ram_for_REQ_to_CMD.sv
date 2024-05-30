@@ -11,7 +11,7 @@ module block_ram #(
     output [(DATA_WIDTH-1):0] data_out
 );
 
-/*(* rw_addr_collision = "yes" *)*/(* ram_style = "distributed" *) reg [DATA_WIDTH-1:0] ram[0:2**ADDR_WIDTH-1];
+(* rw_addr_collision = "yes" *)(* ram_style = "block" *) reg [DATA_WIDTH-1:0] ram[0:2**ADDR_WIDTH-1];
 reg [ADDR_WIDTH-1:0] read_addr_reg;
 
 always @ (posedge clk) begin
