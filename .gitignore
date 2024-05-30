@@ -14,7 +14,9 @@ benchmarks
 benchmarks/*
 
 build
+build*
 build/*
+build*/*
 
 vivado.*
 .Xil

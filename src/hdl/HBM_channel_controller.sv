@@ -271,14 +271,21 @@ always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin
     end
 end
 
-always_comb begin 
-    if ( reset_hbm_controller == 1'b0 ) begin
-        foreach(input_req_id[i]) input_req_id[i] <= {P_REQ_ID_WIDTH {1'b0}};
-    end
-    else begin
-        input_req_id[bank_address] <= counter_requests;
-    end
+// always_comb begin 
+//     if ( reset_hbm_controller == 1'b0 ) begin
+//         foreach(input_req_id[i]) input_req_id[i] <= {P_REQ_ID_WIDTH {1'b0}};
+//     end
+//     else begin
+//         input_req_id[bank_address] <= counter_requests;
+//     end
+// end
+
+/* To be tested */
+always_comb begin
+    foreach(input_req_id[i]) input_req_id[i] <= counter_requests;
 end
+
+
 
 /* COMPONENTS INSTANTIATION */
 
