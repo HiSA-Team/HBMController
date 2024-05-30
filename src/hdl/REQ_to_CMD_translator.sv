@@ -267,7 +267,7 @@ always @ ( posedge clk or negedge rst_n ) begin
     end
 end
 
-ram_for_REQ_to_CMD # (
+block_ram # (
     .DATA_WIDTH(P_REQ_ID_WIDTH+P_CMD_ID_WIDTH+4+P_BA_ADDR_WIDTH+P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH),
     .ADDR_WIDTH(INDEX_QUEUE_WIDTH)
 ) ram_for_REQ_to_CMD_i (
