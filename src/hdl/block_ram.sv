@@ -1,6 +1,6 @@
 `timescale 1ps / 1ps
 
-module ram_for_REQ_to_CMD #(
+module block_ram #(
     parameter DATA_WIDTH=256,
     parameter ADDR_WIDTH=32
 )(

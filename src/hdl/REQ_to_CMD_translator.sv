@@ -84,17 +84,15 @@ module REQ_to_CMD_translator#
 
 localparam INDEX_QUEUE_WIDTH = $clog2(P_QUEUE_LEN);
 
-wire [P_REQ_ID_WIDTH+P_CMD_ID_WIDTH+4+P_BA_ADDR_WIDTH+P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH - 1 : 0] ram_data_in[0:2];
+wire [P_REQ_ID_WIDTH+P_CMD_ID_WIDTH+4+P_BA_ADDR_WIDTH+P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH - 1 : 0] ram_data_in;
 wire [P_REQ_ID_WIDTH+P_CMD_ID_WIDTH+4+P_BA_ADDR_WIDTH+P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH - 1 : 0] ram_data_out;
 
-reg [P_CMD_ID_WIDTH-1] ram_cmd_id[0:2];
-reg [3:0] ram_cmd[0:2];
+reg [P_CMD_ID_WIDTH-1:0] ram_cmd_id;
+reg [3:0] ram_cmd;
 reg ram_wrt_en;
 reg ram_multiple_wrt;
 
-assign ram_data_in[0] = {input_req_id, ram_cmd_id[0], ram_cmd[0], bank_address, row_address, column_address};
-assign ram_data_in[1] = {input_req_id, ram_cmd_id[1], ram_cmd[1], bank_address, row_address, column_address};
-assign ram_data_in[2] = {input_req_id, ram_cmd_id[2], ram_cmd[2], bank_address, row_address, column_address};
+assign ram_data_in = {input_req_id, ram_cmd_id, ram_cmd, bank_address, row_address, column_address};
 
 
 reg [P_REQ_ID_WIDTH-1:0]      r_bank_req_id;
@@ -122,13 +120,11 @@ assign request_picked = r_request_picked;
 reg [P_ROW_ADDR_WIDTH : 0]    actual_row_open;
 
 wire incr_queue_cnt;
-wire incr_three_queue_cnt;
 wire deincr_queue_cnt;
  
+reg [1:0] push_three; 
 
-assign incr_queue_cnt        =  request_valid && (actual_row_open == row_address) && (queue_cnt < P_QUEUE_LEN);
-assign incr_three_queue_cnt  =  request_valid && actual_row_open != row_address && queue_cnt < P_QUEUE_LEN-3;
-
+assign incr_queue_cnt        =  (request_valid &&  push_three == 2'b00 && queue_cnt < P_QUEUE_LEN) || (push_three > 2'b00 && queue_cnt < P_QUEUE_LEN);
 assign deincr_queue_cnt      =  cmd_picked && queue_cnt > 0;
 
 
@@ -136,30 +132,21 @@ assign deincr_queue_cnt      =  cmd_picked && queue_cnt > 0;
 /* QUEUE CNT MANAGEMENT */
 /************************/
 
-always @ ( posedge clk or negedge rst_n ) begin
-    if ( rst_n == 1'b0 ) begin
-        queue_cnt <= { INDEX_QUEUE_WIDTH+1 { 1'b0 } };
-    end
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        queue_cnt  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+    end 
     else begin
-        if ( incr_queue_cnt && ~incr_three_queue_cnt && ~deincr_queue_cnt ) begin
+        if ( incr_queue_cnt && ~deincr_queue_cnt ) begin
             queue_cnt <= queue_cnt + 1'b1;
-        end
-        else if ( ~incr_queue_cnt && incr_three_queue_cnt && ~deincr_queue_cnt) begin
-            queue_cnt <= queue_cnt + 2'b11;
-        end
-        else if (~incr_queue_cnt && ~incr_three_queue_cnt && deincr_queue_cnt) begin
+        end 
+        else if ( ~incr_queue_cnt && deincr_queue_cnt ) begin
             queue_cnt <= queue_cnt - 1'b1;
         end
-        else if (incr_queue_cnt && ~incr_three_queue_cnt && deincr_queue_cnt) begin
+        else if ( incr_queue_cnt && deincr_queue_cnt ) begin
             queue_cnt <= queue_cnt;
         end
-        else if (~incr_queue_cnt && incr_three_queue_cnt && deincr_queue_cnt) begin
-            queue_cnt <= queue_cnt + 2'b10;
-        end
-        else begin
-            queue_cnt <= queue_cnt;
-        end
-    end
+    end 
 end
 
 
@@ -170,13 +157,22 @@ end
 always @ ( posedge clk or negedge rst_n ) begin
     if ( rst_n == 1'b0 ) begin
         actual_row_open <= { P_ROW_ADDR_WIDTH+1 { 1'b1 } };
+        push_three <= 1'b0;
     end
     else begin
-        if (request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] != row_address && queue_cnt < P_QUEUE_LEN-3) begin
+        if ( push_three == 2'b00 && request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] != row_address && queue_cnt < P_QUEUE_LEN) begin
             actual_row_open <= {1'b0, row_address};
+            push_three <= 2'b01;
+        end
+        else if (push_three == 2'b01 && queue_cnt < P_QUEUE_LEN) begin
+            push_three <= 2'b10
+        end
+        else if (push_three == 2'b10 && queue_cnt < P_QUEUE_LEN) begin
+            push_three <= 2'b00
         end
         else begin
             actual_row_open <= actual_row_open;
+            push_three <= push_three;
         end
     end
 end
@@ -194,44 +190,57 @@ always @ ( posedge clk or negedge rst_n ) begin
         ram_multiple_wrt <= 1'b0;
     end
     else begin
-        if ( request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] == row_address && queue_cnt < P_QUEUE_LEN) begin
+        if (push_three == 2'b00 && request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] == row_address && queue_cnt < P_QUEUE_LEN) begin
             if ( input_request == P_WRT_REQ ) begin
-                ram_cmd[0] <= P_COL_WRT;
+                ram_cmd <= P_COL_WRT;
             end 
             else if ( input_request == P_RD_REQ ) begin
-                ram_cmd[0] <= P_COL_RD;
+                ram_cmd <= P_COL_RD;
             end
-            ram_cmd_id[0]        <= 1'b0;
+            ram_cmd_id           <= 1'b0;
+
+
             ram_wrt_en           <= 1'b1;
-            ram_multiple_wrt     <= 1'b0;
             head                 <= head + 1'b1;
             r_request_picked     <= 1'b1;
         end
-        else if (request_valid && queue_cnt < P_QUEUE_LEN-3) begin
-            ram_cmd[0]                 <= P_ROW_PRE;
-            ram_cmd_id[0]              <= 1'b0;
+        else if (push_three == 2'b00 && request_valid && actual_row_open[P_ROW_ADDR_WIDTH:0] != row_address && queue_cnt < P_QUEUE_LEN) begin
+            ram_cmd              <= P_ROW_PRE;
+            ram_cmd_id           <= 1'b0;
             
-            ram_cmd[1]                 <= P_ROW_ACT;
-            ram_cmd_id[1]              <= 1'b1;
+            ram_wrt_en           <= 1'b1;
+            head                 <= head + 1'b1;
+            r_request_picked     <= 1'b0;
             
+        end
+        else if (push_three == 2'b01 && queue_cnt < P_QUEUE_LEN) begin
+            ram_cmd              <= P_ROW_ACT;
+            ram_cmd_id           <= 1'b1;
+
+            ram_wrt_en           <= 1'b1;
+            head                 <= head + 1'b1;
+            r_request_picked     <= 1'b0;    
+        
+        end
+        else if (push_three == 2'b10 && queue_cnt < P_QUEUE_LEN) begin
             if ( input_request == P_WRT_REQ ) begin
-                ram_cmd[2]                <= P_COL_WRT;
+                ram_cmd          <= P_COL_WRT;
             end
             else if ( input_request == P_RD_REQ ) begin
-                ram_cmd[2]                <= P_COL_RD;
+                ram_cmd          <= P_COL_RD;
             end
-            ram_cmd_id[2]                 <= 2'b10;
+            ram_cmd_id           <= 2'b10;
             
-            head <= head + 2'b11;
-            r_request_picked <= 1'b1;
-            ram_wrt_en <= 1'b1;
-            ram_multiple_wrt <= 1'b1;
-        end            
+            ram_wrt_en           <= 1'b1;
+            head                 <= head + 1'b1;
+            r_request_picked     <= 1'b1;
+            
+        end
+
         else begin
             head <= head;
             r_request_picked <= 1'b0;
             ram_wrt_en <= 1'b0;
-            ram_multiple_wrt <= 1'b0;
         end
     end
 end
@@ -272,7 +281,6 @@ ram_for_REQ_to_CMD # (
     .DATA_WIDTH(P_REQ_ID_WIDTH+P_CMD_ID_WIDTH+4+P_BA_ADDR_WIDTH+P_ROW_ADDR_WIDTH+P_COL_ADDR_WIDTH),
     .ADDR_WIDTH(INDEX_QUEUE_WIDTH)
 ) ram_for_REQ_to_CMD_i (
-    .multiple_write(ram_multiple_wrt),
     .data_in(ram_data_in),
     .read_addr(tail),
     .write_addr(head),
