@@ -282,7 +282,7 @@ end
 
 /* To be tested */
 always_comb begin
-    foreach(input_req_id[i]) input_req_id[i] <= counter_requests;
+    input_req_id[bank_address] <= counter_requests;
 end
 
 

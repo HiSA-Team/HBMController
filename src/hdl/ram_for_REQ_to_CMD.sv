@@ -1,10 +1,11 @@
 `timescale 1ps / 1ps
 
-module ram_for_REQ_to_CMD #(
+module block_ram #(
     parameter DATA_WIDTH=256,
     parameter ADDR_WIDTH=32
 )(
-    input [(DATA_WIDTH-1):0] data_in,
+    input multiple_write,
+    input [(DATA_WIDTH-1):0] data_in [0:2],
     input [(ADDR_WIDTH-1):0] read_addr, write_addr,
     input wr_en, clk,
     output [(DATA_WIDTH-1):0] data_out
@@ -16,7 +17,11 @@ reg [ADDR_WIDTH-1:0] read_addr_reg;
 always @ (posedge clk) begin
     read_addr_reg <= read_addr;
     if (wr_en) begin
-        ram[write_addr] <= data_in;
+        ram[write_addr] <= data_in[0];
+        if (multiple_write) begin
+            ram[write_addr+1'b1] <= data_in[1];
+            ram[write_addr+2'b10] <= data_in[2];
+        end
     end
 end
 
