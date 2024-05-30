@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
+module last_level_command_forwarder # (
     parameter       P_DRIVE_PRECHARGE_CMD    = 114,
     parameter		P_PRECHG_THR             = 200,
     parameter		P_ACT_THR	             = 40,
@@ -35,7 +35,8 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     parameter       P_DATA_WIDTH             = 256,
     parameter       P_BA_N_PS                = 16,       
     parameter       P_BA_N_G                 = 4, 
-    parameter       P_WRT_DATA_BUFFER_LEN    = 16,
+    parameter       P_WRT_DATA_BUFFER_LEN    = 4,
+    parameter       P_RD_ID_BUFFER_LEN       = 16,
 
     /* COMMANDS     */
     /* COL COMMANDS */
@@ -69,8 +70,9 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     parameter       tFAW    =  32'd30,
     parameter       tWTRs   =  32'd8,
     parameter       tRFCpb  =  32'd73,
-    parameter       tRREFD  =  32'd4     /* Per Bank REF to Per Bank REF/ACT (Different Banks) */
-
+    parameter       tRREFD  =  32'd4,     /* Per Bank REF to Per Bank REF/ACT (Different Banks) */
+    parameter       P_REQ_ID_WIDTH = 32'd6,
+    parameter       P_CMD_ID_WIDTH = 32'd3
 
 )(
     //DFI INTERFACE SIGNALS
@@ -105,6 +107,7 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     output           dfi_lp_pwr_e_req,
     output           dfi_lp_sr_e_req,
     output           dfi_lp_pwr_x_req,
+    output           dfi_lp_pwr_x_e_req,
     output           dfi_aw_tx_indx_ld,
     output           dfi_dw_tx_indx_ld,
     output           dfi_dw_rx_indx_ld,
@@ -130,35 +133,35 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     
         
     /* RAS cmd PS0 */
-    output                              ready_to_cmd_ras_ps0,
+    /*(* keep = "TRUE" *)*/ output          ready_to_cmd_ras_ps0,
     input [3:0]                         cmd_ras_ps0,
-    input [20:0]                        req_ras_id_ps0,
-    input [20:0]                        cmd_ras_id_ps0,
+    input [P_REQ_ID_WIDTH-1:0]          req_ras_id_ps0,
+    input [P_CMD_ID_WIDTH-1:0]          cmd_ras_id_ps0,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_ras_ps0,
     input [P_ROW_ADDR_WIDTH-1:0]        row_address_ras_ps0,
     
     /* CAS cmd PS0 */
-    output                              ready_to_cmd_cas_ps0,
+    /*(* keep = "TRUE" *)*/ output          ready_to_cmd_cas_ps0,
     input [3:0]                         cmd_cas_ps0,
-    input [20:0]                        req_cas_id_ps0,
-    input [20:0]                        cmd_cas_id_ps0,
+    input [P_REQ_ID_WIDTH-1:0]          req_cas_id_ps0,
+    input [P_CMD_ID_WIDTH-1:0]          cmd_cas_id_ps0,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_cas_ps0,
     input [P_COL_ADDR_WIDTH-1:0]        column_address_cas_ps0,
     input [P_DATA_WIDTH-1:0]            wrt_data_cas_ps0,
     
     /* RAS cmd PS1 */
-    output                              ready_to_cmd_ras_ps1,
+    /*(* keep = "TRUE" *)*/ output          ready_to_cmd_ras_ps1,
     input [3:0]                         cmd_ras_ps1,
-    input [20:0]                        req_ras_id_ps1,
-    input [20:0]                        cmd_ras_id_ps1,
+    input [P_REQ_ID_WIDTH-1:0]          req_ras_id_ps1,
+    input [P_CMD_ID_WIDTH-1:0]          cmd_ras_id_ps1,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_ras_ps1,
     input [P_ROW_ADDR_WIDTH-1:0]        row_address_ras_ps1,
     
     /* CAS cmd PS1 */
-    output                              ready_to_cmd_cas_ps1,
+    /*(* keep = "TRUE" *)*/ output          ready_to_cmd_cas_ps1,
     input [3:0]                         cmd_cas_ps1,
-    input [20:0]                        req_cas_id_ps1,
-    input [20:0]                        cmd_cas_id_ps1,
+    input [P_REQ_ID_WIDTH-1:0]          req_cas_id_ps1,
+    input [P_CMD_ID_WIDTH-1:0]          cmd_cas_id_ps1,
     input [P_BA_ADDR_WIDTH-1:0]         bank_address_cas_ps1,
     input [P_COL_ADDR_WIDTH-1:0]        column_address_cas_ps1,
     input [P_DATA_WIDTH-1:0]            wrt_data_cas_ps1,
@@ -168,14 +171,40 @@ module ll_command_forwarder_RAS_CAS_PS0_PS1_queue # (
     output [(P_BA_N_PS*2)-1:0]          served_cas,
 
     /* Data Read out with the associate request id */
-    output [20:0]                       rd_data_req_id_ps0,
+    output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0,
     output [P_DATA_WIDTH-1:0]           rd_data_ps0,
-    output [20:0]                       rd_data_req_id_ps1,
+    output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1,
     output [P_DATA_WIDTH-1:0]           rd_data_ps1,
+
+    // output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps0,
+    // output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps1,
 
     output reset_hbm_controller
     
 );
+
+assign dfi_dw_wrdata_mask_p0   = 32'h0000_0000;
+assign dfi_dw_wrdata_dbi_p0    = 32'h0000_0000;
+assign dfi_dw_wrdata_par_p0    = 8'h00;
+assign dfi_dw_wrdata_par_en_p0 = 8'h00;
+assign dfi_dw_wrdata_mask_p1   = 32'h0000_0000;
+assign dfi_dw_wrdata_dbi_p1    = 32'h0000_0000;
+assign dfi_dw_wrdata_par_p1    = 8'h00;
+assign dfi_dw_wrdata_par_en_p1 = 8'h00;
+assign dfi_lp_pwr_x_e_req      = 1'b0;
+
+assign dfi_dw_wrdata_dq_en_p0  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}}; 
+assign dfi_dw_wrdata_dq_en_p1  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}}; 
+
+assign dfi_aw_ck_dis           = 1'b0;
+assign dfi_lp_pwr_e_req        = 1'b0;
+assign dfi_lp_sr_e_req         = 1'b0;
+assign dfi_lp_pwr_x_req        = 1'b0;
+assign dfi_aw_tx_indx_ld       = 1'b0;
+assign dfi_dw_tx_indx_ld       = 1'b0;
+assign dfi_dw_rx_indx_ld       = 1'b0;
+assign dfi_ctrlupd_ack         = 1'b0;
+assign dfi_phyupd_req          = 1'b0;
 
 /* STATES */
 localparam LP_IDLE			    = 4'd0;
@@ -239,10 +268,22 @@ reg		[15:0]	r_col_cmd_p0;
 reg		[15:0]	r_col_cmd_p1;
 
 
-wire              can_serve_actual_ras_ps0;
-wire              can_serve_actual_ras_ps1;
-wire              can_serve_actual_cas_ps0;
-wire              can_serve_actual_cas_ps1;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_ras_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_ras_ps1;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_cas_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_cas_ps1;
+
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_act_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_act_ps1;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_pre_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_pre_ps1;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_ref_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_ref_ps1;;
+
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_wrt_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_wrt_ps1;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_rd_ps0;
+/*(* keep = "TRUE" *)*/ wire              can_serve_actual_rd_ps1;
 
 
 assign dfi_aw_ck_p0  = r_dfi_aw_ck_p0;
@@ -265,92 +306,94 @@ assign served_ras = r_served_ras;
 assign served_cas = r_served_cas;
 
 
-// assign ready_to_cmd_ras_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
-// assign ready_to_cmd_cas_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
-// assign ready_to_cmd_ras_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
-// assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+assign ready_to_cmd_ras_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+assign ready_to_cmd_cas_ps0 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+assign ready_to_cmd_ras_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
+assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) ? 1'b1 : 1'b0;
 
 
-reg r_ready_to_cmd_ras_ps0;
-reg r_ready_to_cmd_ras_ps1;
-reg r_ready_to_cmd_cas_ps0;
-reg r_ready_to_cmd_cas_ps1;
+//reg r_ready_to_cmd_ras_ps0;
+//reg r_ready_to_cmd_ras_ps1;
+//reg r_ready_to_cmd_cas_ps0;
+//reg r_ready_to_cmd_cas_ps1;
 
-assign ready_to_cmd_ras_ps0 = r_ready_to_cmd_ras_ps0;
-assign ready_to_cmd_ras_ps1 = r_ready_to_cmd_ras_ps1;
-assign ready_to_cmd_cas_ps0 = r_ready_to_cmd_cas_ps0;
-assign ready_to_cmd_cas_ps1 = r_ready_to_cmd_cas_ps1;
+//assign ready_to_cmd_ras_ps0 = r_ready_to_cmd_ras_ps0;
+//assign ready_to_cmd_ras_ps1 = r_ready_to_cmd_ras_ps1;
+//assign ready_to_cmd_cas_ps0 = r_ready_to_cmd_cas_ps0;
+//assign ready_to_cmd_cas_ps1 = r_ready_to_cmd_cas_ps1;
 
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_ras_ps0 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_ras_ps0 <= 1'b1;
-        end
-        else if ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_ras_ps0 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_ras_ps0 <= 1'b0;
-        end
-    end
-end
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_ras_ps0 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_ras_ps0 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_ras_ps0 || cmd_ras_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_ras_ps0 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_ras_ps0 <= 1'b0;
+//        end
+//    end
+//end
 
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_ras_ps1 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_ras_ps1 <= 1'b1;
-        end
-        else if ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_ras_ps1 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_ras_ps1 <= 1'b0;
-        end
-    end
-end
-
-
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_cas_ps0 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_cas_ps0 <= 1'b1;
-        end
-        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_cas_ps0 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_cas_ps0 <= 1'b0;
-        end
-    end
-end
-
-always @(posedge dfi_clk or negedge dfi_rst_n) begin
-    if (dfi_rst_n == 1'b0) begin
-        r_ready_to_cmd_cas_ps1 <= 1'b0;
-    end 
-    else begin
-        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
-            r_ready_to_cmd_cas_ps1 <= 1'b1;
-        end
-        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
-            r_ready_to_cmd_cas_ps1 <= 1'b1;
-        end
-        else begin
-            r_ready_to_cmd_cas_ps1 <= 1'b0;
-        end
-    end
-end
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_ras_ps1 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_ras_ps1 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_ras_ps1 || cmd_ras_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_ras_ps1 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_ras_ps1 <= 1'b0;
+//        end
+//    end
+//end
 
 
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_cas_ps0 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_cas_ps0 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_cas_ps0 || cmd_cas_ps0 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_cas_ps0 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_cas_ps0 <= 1'b0;
+//        end
+//    end
+//end
+
+//always @(posedge dfi_clk or negedge dfi_rst_n) begin
+//    if (dfi_rst_n == 1'b0) begin
+//        r_ready_to_cmd_cas_ps1 <= 1'b0;
+//    end 
+//    else begin
+//        if ( r_phy_tg_ps == LP_CMD_WAIT ) begin
+//            r_ready_to_cmd_cas_ps1 <= 1'b1;
+//        end
+//        else if ( (can_serve_actual_cas_ps1 || cmd_cas_ps1 == P_GENERAL_NOP) && r_phy_tg_ps == LP_CMD_WAIT_1 ) begin
+//            r_ready_to_cmd_cas_ps1 <= 1'b1;
+//        end
+//        else begin
+//            r_ready_to_cmd_cas_ps1 <= 1'b0;
+//        end
+//    end
+//end
+
+
+// assign wrt_data_req_id_ps0 = req_cas_id_ps0;
+// assign wrt_data_req_id_ps1 = req_cas_id_ps1;
 
 
 
@@ -359,8 +402,8 @@ reg [P_DATA_WIDTH-1 : 0] wrt_data_p1;
 
 reg [P_DATA_WIDTH-1 : 0] r_rd_data_ps0;
 reg [P_DATA_WIDTH-1 : 0] r_rd_data_ps1;
-reg [20:0]               r_rd_data_req_id_ps0;
-reg [20:0]               r_rd_data_req_id_ps1;
+reg [P_REQ_ID_WIDTH-1:0]               r_rd_data_req_id_ps0;
+reg [P_REQ_ID_WIDTH-1:0]               r_rd_data_req_id_ps1;
 
 assign rd_data_ps0 = r_rd_data_ps0;
 assign rd_data_ps1 = r_rd_data_ps1;
@@ -674,7 +717,7 @@ reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_for_reset_ps0;
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_for_reset_ps1; 
 reg [INDEX_QUEUE_WIDTH   : 0 ]   wrt_data_buffer_cnt_ps0; 
 
-reg [7:0] wrt_to_data_cnt_ps0 [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];
+reg [2:0] wrt_to_data_cnt_ps0 [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];
 
 
 wire                              incr_wrt_data_buffer_cnt_ps0;
@@ -683,7 +726,7 @@ wire                              deincr_wrt_data_buffer_cnt_ps0;
 wire                              rst_wrt_to_data_cnt_ps0;
 
 
-assign     incr_wrt_data_buffer_cnt_ps0 = can_serve_actual_cas_ps0 && (cmd_cas_ps0 == P_COL_WRT);
+assign     incr_wrt_data_buffer_cnt_ps0 = can_serve_actual_wrt_ps0;
 assign     deincr_wrt_data_buffer_cnt_ps0 = (wrt_data_buffer_cnt_ps0 > 0) && (wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2);
 
 
@@ -697,7 +740,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     else begin
         if ( incr_wrt_data_buffer_cnt_ps0 && ~deincr_wrt_data_buffer_cnt_ps0 ) begin
             wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0 + 1'b1;
-        
+            
         end 
         else if ( ~incr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps0 ) begin
             wrt_data_buffer_cnt_ps0 <= wrt_data_buffer_cnt_ps0 - 1'b1;
@@ -708,30 +751,40 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end 
 end
 
-assign rst_wrt_to_data_cnt_ps0 = can_serve_actual_cas_ps0 && (cmd_cas_ps0 == P_COL_WRT) &&  (wrt_data_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN);
+assign rst_wrt_to_data_cnt_ps0 = can_serve_actual_wrt_ps0 /*&& wrt_data_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN*/;
+
+genvar i;
+generate
+    for ( i=0; i<P_WRT_DATA_BUFFER_LEN; i=i+1 ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if( dfi_rst_n == 1'b0 ) begin
+                wrt_to_data_cnt_ps0[i] <= {8{1'b0}};
+            end
+            else begin
+                if (rst_wrt_to_data_cnt_ps0)  begin
+                    if ( i == wrt_data_buffer_tail_for_reset_ps0 ) begin
+                        wrt_to_data_cnt_ps0[i] <= {8{1'b0}};
+                    end
+                    else begin
+                        wrt_to_data_cnt_ps0[i]  <= wrt_to_data_cnt_ps0[i] + 1'b1;
+                    end
+                end
+                else begin
+                    wrt_to_data_cnt_ps0[i]  <= wrt_to_data_cnt_ps0[i]  + 1'b1;
+                end
+            end
+        end
+    end
+endgenerate
+
 
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        for(integer i = 0; i< P_WRT_DATA_BUFFER_LEN; i = i + 1)  wrt_to_data_cnt_ps0[i] <= {8{1'b0}};
         wrt_data_buffer_tail_for_reset_ps0 <= { INDEX_QUEUE_WIDTH { 1'b0 } }; 
     end
     else begin
         if (rst_wrt_to_data_cnt_ps0)  begin
-
-            for(integer i = 0; i< P_WRT_DATA_BUFFER_LEN; i = i + 1) begin
-                if ( i == wrt_data_buffer_tail_for_reset_ps0 ) begin
-                    wrt_to_data_cnt_ps0[wrt_data_buffer_tail_for_reset_ps0] <= {8{1'b0}};
-                    wrt_data_buffer_tail_for_reset_ps0 <= wrt_data_buffer_tail_for_reset_ps0 + 1'b1;
-                end
-                else begin
-                    wrt_to_data_cnt_ps0[i]  <= wrt_to_data_cnt_ps0[i] + 1'b1;
-                end
-            end
-        end
-        else begin
-            for(integer i = 0; i< P_WRT_DATA_BUFFER_LEN; i = i + 1) begin
-                wrt_to_data_cnt_ps0[i]  <= wrt_to_data_cnt_ps0[i]  + 1'b1;
-            end
+            wrt_data_buffer_tail_for_reset_ps0 <= wrt_data_buffer_tail_for_reset_ps0 + 1'b1;
         end
     end
 end
@@ -745,7 +798,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
         wrt_data_buffer_head_ps0 <= {INDEX_QUEUE_WIDTH{1'b0}};
     end
     else begin
-        if ( can_serve_actual_cas_ps0 && cmd_cas_ps0 == P_COL_WRT ) begin      
+        if ( can_serve_actual_wrt_ps0 ) begin      
             if ( wrt_data_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN ) begin
                 wrt_data_buffer_ps0[wrt_data_buffer_head_ps0] <= wrt_data_cas_ps0;   
                 wrt_data_buffer_head_ps0 <= wrt_data_buffer_head_ps0 + 1'b1;
@@ -754,26 +807,25 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end
 end
 
-
 /******************************/
 /* READ DATA REQ ID QUEUE PS0 */
 /******************************/
-
-reg [20:0]                       rd_req_id_buffer_ps0         [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];                               
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps0;
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps0; 
-reg [INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps0; 
+localparam RD_INDEX_QUEUE_WIDTH = $clog2(P_RD_ID_BUFFER_LEN);
+reg [P_REQ_ID_WIDTH-1:0]         rd_req_id_buffer_ps0         [ 0 : P_RD_ID_BUFFER_LEN-1 ];                               
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps0;
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps0; 
+reg [RD_INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps0; 
 
 wire                              incr_rd_req_id_buffer_cnt_ps0;
 wire                              deincr_rd_req_id_buffer_cnt_ps0;
 
-assign incr_rd_req_id_buffer_cnt_ps0    = rd_req_id_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN && cmd_cas_ps0 == P_COL_RD && can_serve_actual_cas_ps0;
+assign incr_rd_req_id_buffer_cnt_ps0    = rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0;
 assign deincr_rd_req_id_buffer_cnt_ps0  = rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_cnt_ps0  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+        rd_req_id_buffer_cnt_ps0  <= {RD_INDEX_QUEUE_WIDTH+1{1'b0}};
     end 
     else begin
         if ( incr_rd_req_id_buffer_cnt_ps0 && ~deincr_rd_req_id_buffer_cnt_ps0 ) begin
@@ -792,12 +844,12 @@ end
 /* Fill req ID queue */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_head_ps0 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
-        for ( integer i = 0; i < P_WRT_DATA_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps0[i] <= { 64 { 1'b1 } }; 
+        rd_req_id_buffer_head_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        for ( integer i = 0; i < P_RD_ID_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps0[i] <= { 64 { 1'b1 } }; 
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
-        if ( rd_req_id_buffer_cnt_ps0 < P_WRT_DATA_BUFFER_LEN && cmd_cas_ps0 == P_COL_RD && can_serve_actual_cas_ps0 ) begin
+        if ( rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0 ) begin
             rd_req_id_buffer_ps0[rd_req_id_buffer_head_ps0] <= req_cas_id_ps0;
             rd_req_id_buffer_head_ps0 <= rd_req_id_buffer_head_ps0 + 1'b1;
         end
@@ -808,8 +860,8 @@ end
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         r_rd_data_ps0             <= { P_DATA_WIDTH { 1'b1 } };
-        r_rd_data_req_id_ps0      <= { 64 { 1'b1 } };
-        rd_req_id_buffer_tail_ps0 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
+        r_rd_data_req_id_ps0      <= { P_REQ_ID_WIDTH { 1'b1 } };
+        rd_req_id_buffer_tail_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
     end
     else begin
         if ( rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11 ) begin
@@ -830,7 +882,7 @@ reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_head_ps1;
 reg [INDEX_QUEUE_WIDTH-1 : 0 ]   wrt_data_buffer_tail_ps1; 
 reg [INDEX_QUEUE_WIDTH   : 0 ]   wrt_data_buffer_cnt_ps1; 
 
-reg [7:0] wrt_to_data_cnt_ps1 [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];
+reg [2:0] wrt_to_data_cnt_ps1 [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];
 
 
 wire                              incr_wrt_data_buffer_cnt_ps1;
@@ -839,7 +891,7 @@ wire                              deincr_wrt_data_buffer_cnt_ps1;
 wire                              rst_wrt_to_data_cnt_ps1;
 
 
-assign     incr_wrt_data_buffer_cnt_ps1 = can_serve_actual_cas_ps1 && (cmd_cas_ps1 == P_COL_WRT);
+assign     incr_wrt_data_buffer_cnt_ps1 = can_serve_actual_wrt_ps1;
 assign     deincr_wrt_data_buffer_cnt_ps1 = (wrt_data_buffer_cnt_ps1 > 0) && (wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1);
 
 
@@ -853,7 +905,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     else begin
         if ( incr_wrt_data_buffer_cnt_ps1 && ~deincr_wrt_data_buffer_cnt_ps1 ) begin
             wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1 + 1'b1;
-        
+            
         end 
         else if ( ~incr_wrt_data_buffer_cnt_ps1 && deincr_wrt_data_buffer_cnt_ps1 ) begin
             wrt_data_buffer_cnt_ps1 <= wrt_data_buffer_cnt_ps1 - 1'b1;
@@ -864,30 +916,39 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end 
 end
 
-assign rst_wrt_to_data_cnt_ps1 = can_serve_actual_cas_ps1 && (cmd_cas_ps1 == P_COL_WRT) &&  (wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN);
+assign rst_wrt_to_data_cnt_ps1 = can_serve_actual_wrt_ps1 /*&&  (wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN)*/;
+
+generate
+    for ( i=0; i<P_WRT_DATA_BUFFER_LEN; i=i+1 ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+            if( dfi_rst_n == 1'b0 ) begin
+                wrt_to_data_cnt_ps1[i] <= {8{1'b0}};
+            end
+            else begin
+                if (rst_wrt_to_data_cnt_ps1)  begin
+                    if ( i == wrt_data_buffer_tail_for_reset_ps1 ) begin
+                        wrt_to_data_cnt_ps1[i] <= {8{1'b0}};
+                    end
+                    else begin
+                        wrt_to_data_cnt_ps1[i]  <= wrt_to_data_cnt_ps1[i] + 1'b1;
+                    end
+                end
+                else begin
+                    wrt_to_data_cnt_ps1[i]  <= wrt_to_data_cnt_ps1[i]  + 1'b1;
+                end
+            end
+        end
+    end
+endgenerate
+
 
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        for(integer i = 0; i < P_WRT_DATA_BUFFER_LEN; i = i + 1)  wrt_to_data_cnt_ps1[i] <= {8{1'b0}};
         wrt_data_buffer_tail_for_reset_ps1 <= { INDEX_QUEUE_WIDTH { 1'b0 } }; 
     end
     else begin
         if (rst_wrt_to_data_cnt_ps1)  begin
-
-            for(integer i = 0; i< P_WRT_DATA_BUFFER_LEN; i = i + 1) begin
-                if ( i == wrt_data_buffer_tail_for_reset_ps1 ) begin
-                    wrt_to_data_cnt_ps1[wrt_data_buffer_tail_for_reset_ps1] <= {8{1'b0}};
-                    wrt_data_buffer_tail_for_reset_ps1 <= wrt_data_buffer_tail_for_reset_ps1 + 1'b1;
-                end
-                else begin
-                    wrt_to_data_cnt_ps1[i]  <= wrt_to_data_cnt_ps1[i] + 1'b1;
-                end
-            end
-        end
-        else begin
-            for(integer i = 0; i< P_WRT_DATA_BUFFER_LEN; i = i + 1) begin
-                wrt_to_data_cnt_ps1[i]  <= wrt_to_data_cnt_ps1[i]  + 1'b1;
-            end
+            wrt_data_buffer_tail_for_reset_ps1 <= wrt_data_buffer_tail_for_reset_ps1 + 1'b1;
         end
     end
 end
@@ -903,8 +964,8 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     end
     
     else begin
-        if ( can_serve_actual_cas_ps1 && cmd_cas_ps1 == P_COL_WRT ) begin      
-           if ( wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN ) begin
+        if ( can_serve_actual_wrt_ps1 ) begin      
+            if ( wrt_data_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN ) begin
                 wrt_data_buffer_ps1[wrt_data_buffer_head_ps1] <= wrt_data_cas_ps1;   
                 wrt_data_buffer_head_ps1 <= wrt_data_buffer_head_ps1 + 1'b1;    
             end 
@@ -916,21 +977,21 @@ end
 /* READ DATA REQ ID QUEUE PS1 */
 /******************************/
 
-reg [20:0]                       rd_req_id_buffer_ps1         [ 0 : P_WRT_DATA_BUFFER_LEN-1 ];                               
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps1;
-reg [INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps1; 
-reg [INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps1; 
+reg [P_REQ_ID_WIDTH-1:0]                       rd_req_id_buffer_ps1         [ 0 : P_RD_ID_BUFFER_LEN-1 ];                               
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_head_ps1;
+reg [RD_INDEX_QUEUE_WIDTH-1 : 0 ]   rd_req_id_buffer_tail_ps1; 
+reg [RD_INDEX_QUEUE_WIDTH   : 0 ]   rd_req_id_buffer_cnt_ps1; 
 
 wire                              incr_rd_req_id_buffer_cnt_ps1;
 wire                              deincr_rd_req_id_buffer_cnt_ps1;
 
-assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN && cmd_cas_ps1 == P_COL_RD && can_serve_actual_cas_ps1;
+assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1;
 assign deincr_rd_req_id_buffer_cnt_ps1  = rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_cnt_ps1  <= {INDEX_QUEUE_WIDTH+1{1'b0}};
+        rd_req_id_buffer_cnt_ps1  <= {RD_INDEX_QUEUE_WIDTH+1{1'b0}};
     end 
     else begin
         if ( incr_rd_req_id_buffer_cnt_ps1 && ~deincr_rd_req_id_buffer_cnt_ps1 ) begin
@@ -949,12 +1010,12 @@ end
 /* Fill req ID queue */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_head_ps1 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
-        for ( integer i = 0; i < P_WRT_DATA_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps1[i] <= { 64 { 1'b1 } }; 
+        rd_req_id_buffer_head_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        for ( integer i = 0; i < P_RD_ID_BUFFER_LEN; i = i + 1 ) rd_req_id_buffer_ps1[i] <= { 64 { 1'b1 } }; 
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
-        if ( rd_req_id_buffer_cnt_ps1 < P_WRT_DATA_BUFFER_LEN && cmd_cas_ps1 == P_COL_RD && can_serve_actual_cas_ps1 ) begin
+        if ( rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1 ) begin
             rd_req_id_buffer_ps1[rd_req_id_buffer_head_ps1] <= req_cas_id_ps1;
             rd_req_id_buffer_head_ps1 <= rd_req_id_buffer_head_ps1 + 1'b1;
         end
@@ -965,8 +1026,8 @@ end
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         r_rd_data_ps1             <= { P_DATA_WIDTH { 1'b1 } };
-        r_rd_data_req_id_ps1      <= { 64 { 1'b1 } };
-        rd_req_id_buffer_tail_ps1 <= { INDEX_QUEUE_WIDTH { 1'b0 } };
+        r_rd_data_req_id_ps1      <= { P_REQ_ID_WIDTH { 1'b1 } };
+        rd_req_id_buffer_tail_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
     end
     else begin
         if ( rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[3:2] == 2'b11 ) begin
@@ -979,7 +1040,6 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
 end
 
 
-
 /********************/
 /* SEND DATA TO HBM */
 /********************/
@@ -988,8 +1048,8 @@ end
 reg wrt_sync_ps0;
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        wrt_data_p1         <=  { P_DATA_WIDTH { 1'b1 } };
-        wrt_data_p0         <=  { P_DATA_WIDTH { 1'b1 } };
+        wrt_data_p1         <=  { P_DATA_WIDTH { 1'b0 } };
+        wrt_data_p0         <=  { P_DATA_WIDTH { 1'b0 } };
         wrt_data_buffer_tail_ps1 <= {INDEX_QUEUE_WIDTH{1'b0}};   
         wrt_data_buffer_tail_ps0 <= {INDEX_QUEUE_WIDTH{1'b0}}; 
         wrt_sync_ps0 <= 1'b0;
@@ -1080,8 +1140,8 @@ reg double_act_ras_sync;
 reg [3:0] sync_cmd_ras_ps1;
 reg [P_BA_ADDR_WIDTH  -1 : 0] sync_bank_addr_ras_ps1;
 reg [P_ROW_ADDR_WIDTH -1 : 0] sync_row_addr_ras_ps1;
-reg [20:0]                    sync_req_ras_id_ps1;
-reg [20:0]                    sync_cmd_ras_id_ps1;
+reg [P_REQ_ID_WIDTH-1:0]                    sync_req_ras_id_ps1;
+reg [P_CMD_ID_WIDTH-1:0]                    sync_cmd_ras_id_ps1;
 
 
 always @( posedge dfi_clk or negedge dfi_rst_n ) begin
@@ -1090,11 +1150,11 @@ always @( posedge dfi_clk or negedge dfi_rst_n ) begin
         sync_cmd_ras_ps1 <= P_GENERAL_NOP;
         sync_bank_addr_ras_ps1 <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
         sync_row_addr_ras_ps1  <=  { P_ROW_ADDR_WIDTH { 1'b0 } };
-        sync_req_ras_id_ps1    <=  { 64 {1'b0} };
-        sync_cmd_ras_id_ps1    <=  { 64 {1'b0} };
+        sync_req_ras_id_ps1    <=  { P_REQ_ID_WIDTH {1'b0} };
+        sync_cmd_ras_id_ps1    <=  { P_CMD_ID_WIDTH {1'b0} };
     end 
     else begin 
-        if ( (cmd_ras_ps0 == P_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == P_ROW_ACT || cmd_ras_ps1 == P_ROW_PRE || cmd_ras_ps1 == P_ROW_REFPB) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == P_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == P_ROW_ACT || cmd_ras_ps0 == P_ROW_PRE || cmd_ras_ps0 == P_ROW_REFPB) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
+        if ( (can_serve_actual_act_ps0 && can_serve_actual_ras_ps1) || (can_serve_actual_act_ps1 && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
             double_act_ras_sync <= 1'b1;
             sync_cmd_ras_ps1 <= cmd_ras_ps1;
             sync_bank_addr_ras_ps1 <=  bank_address_ras_ps1;
@@ -1107,8 +1167,8 @@ always @( posedge dfi_clk or negedge dfi_rst_n ) begin
             sync_cmd_ras_ps1 <= P_GENERAL_NOP;
             sync_bank_addr_ras_ps1 <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
             sync_row_addr_ras_ps1  <=  { P_ROW_ADDR_WIDTH { 1'b0 } };
-            sync_req_ras_id_ps1    <=  { 64 {1'b0} };
-            sync_cmd_ras_id_ps1    <=  { 64 {1'b0} };
+            sync_req_ras_id_ps1    <=  { P_REQ_ID_WIDTH {1'b0} };
+            sync_cmd_ras_id_ps1    <=  { P_CMD_ID_WIDTH {1'b0} };
         end 
     end
 end
@@ -1142,24 +1202,27 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 r_row_cmd_p1	 <= {sync_row_addr_ras_ps1[4:2], LP_PAR, sync_row_addr_ras_ps1[1:0], sync_row_addr_ras_ps1[10:5]};
                 r_served_ras <= 1'b1 << {LP_BA4_1, sync_bank_addr_ras_ps1[3:0]};
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
+                `endif
             end 
             else if ( sync_cmd_ras_ps1 == P_ROW_PRE ) begin
                 r_row_cmd_p0		<= { sync_bank_addr_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, sync_bank_addr_ras_ps1[2:0], P_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
                 r_served_ras <= 1'b1 << {LP_BA4_1, sync_bank_addr_ras_ps1[3:0]};
-                
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
-                
+
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
+                `endif
             end
             else if ( sync_cmd_ras_ps1 == P_ROW_REFPB ) begin
                 r_row_cmd_p0	 <= {sync_bank_addr_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, sync_bank_addr_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= 12'hfff;
                 r_served_ras <= 1'b1 << {LP_BA4_1, sync_bank_addr_ras_ps1[3:0]};
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  sync_req_ras_id_ps1, sync_cmd_ras_id_ps1, sync_cmd_ras_ps1, $time);
+                `endif
             end
             else begin
                 r_served_ras    <= { (P_BA_N_PS*2) {1'b0} };
@@ -1169,129 +1232,143 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
                 
             end
         end
-        else if ( (can_serve_actual_ras_ps0 && cmd_ras_ps0 != P_GENERAL_NOP) || (can_serve_actual_ras_ps1 && cmd_ras_ps1 != P_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            if ((cmd_ras_ps0 == P_ROW_ACT && can_serve_actual_ras_ps0 && (cmd_ras_ps1 == P_ROW_ACT || cmd_ras_ps1 == P_ROW_PRE || cmd_ras_ps1 == P_ROW_REFPB) && can_serve_actual_ras_ps1) || (cmd_ras_ps1 == P_ROW_ACT && can_serve_actual_ras_ps1 && (cmd_ras_ps0 == P_ROW_ACT || cmd_ras_ps0 == P_ROW_PRE || cmd_ras_ps0 == P_ROW_REFPB) && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
+        else /*if ( (can_serve_actual_ras_ps0 && cmd_ras_ps0 != P_GENERAL_NOP) || (can_serve_actual_ras_ps1 && cmd_ras_ps1 != P_GENERAL_NOP) )*/ begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
+            if ((can_serve_actual_act_ps0 && can_serve_actual_ras_ps1) || (can_serve_actual_act_ps1 && can_serve_actual_ras_ps0)) begin
                 if ( cmd_ras_ps0 == P_ROW_ACT )  begin
                     r_row_cmd_p0	 <= {bank_address_ras_ps0[3], row_address_ras_ps0[13], LP_BA4_0, LP_PAR, row_address_ras_ps0[12:11], bank_address_ras_ps0[2:0],1'b0/*r_RA[14]*/,P_ROW_ACT[1:0]};
                     r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
                     r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
 
-                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                
+                    `ifdef DEBUG
+                        $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    `endif 
                 end 
                 else if ( cmd_ras_ps0 == P_ROW_PRE ) begin
                     r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], P_ROW_PRE};
                     r_row_cmd_p1		<= 12'hfff;
                     r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
-                    
-                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
 
+                    `ifdef DEBUG
+                        $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    `endif
                 end
                 else if ( cmd_ras_ps0 == P_ROW_REFPB ) begin
                     r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], P_ROW_REFPB[2:0]};
                     r_row_cmd_p1	 <= 12'hfff;
                     r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
-                     
-                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                
+                    
+                    `ifdef DEBUG
+                        $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    `endif
+
                 end
                 else begin
                     r_served_ras    <= { (P_BA_N_PS*2) {1'b0} };
                 end
             end
             
-            else if ( (cmd_ras_ps0 == P_ROW_ACT && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 )) begin
+            else if ( can_serve_actual_act_ps0 && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 )) begin
                 r_row_cmd_p0	 <= {bank_address_ras_ps0[3], row_address_ras_ps0[13], LP_BA4_0, LP_PAR, row_address_ras_ps0[12:11], bank_address_ras_ps0[2:0],1'b0/*r_RA[14]*/,P_ROW_ACT[1:0]};
                 r_row_cmd_p1	 <= {row_address_ras_ps0[4:2], LP_PAR, row_address_ras_ps0[1:0], row_address_ras_ps0[10:5]};
                 r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                `endif
             end 
                         
-            else if ( (cmd_ras_ps0 == P_ROW_PRE && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 )  ) begin
+            else if ( can_serve_actual_pre_ps0 && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 )  ) begin
                 r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], P_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
                 r_served_ras <= 1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]};
-            
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
 
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                `endif
             end
             
-            else if ( (cmd_ras_ps0 == P_ROW_PRE && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == P_ROW_PRE && can_serve_actual_ras_ps1 )  ) begin
+            else if ( can_serve_actual_pre_ps0 && (can_serve_actual_pre_ps1 )  ) begin
                 r_row_cmd_p0		<= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], P_ROW_PRE};
                 r_row_cmd_p1		<= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], P_ROW_PRE};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-                
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
-            else if ( (cmd_ras_ps1 == P_ROW_ACT && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 )) begin
+            else if ( (can_serve_actual_act_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 )) begin
                 r_row_cmd_p0	 <= {bank_address_ras_ps1[3], row_address_ras_ps1[13], LP_BA4_1, LP_PAR, row_address_ras_ps1[12:11], bank_address_ras_ps1[2:0],1'b0/*r_RA[14]*/,P_ROW_ACT[1:0]};
                 r_row_cmd_p1	 <= {row_address_ras_ps1[4:2], LP_PAR, row_address_ras_ps1[1:0], row_address_ras_ps1[10:5]};
                 r_served_ras <= (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif 
             end 
                         
-            else if ( (cmd_ras_ps1 == P_ROW_PRE && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 )  ) begin
+            else if ( (can_serve_actual_pre_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 )  ) begin
                 r_row_cmd_p0		<= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], P_ROW_PRE};
                 r_row_cmd_p1		<= 12'hfff;
                 r_served_ras <= (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-                             
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif             
             end
             
-            else if ( (cmd_ras_ps0 == P_ROW_REFPB && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 ) ) begin
+            else if ( (can_serve_actual_ref_ps0) && (cmd_ras_ps1 == P_GENERAL_NOP || ~can_serve_actual_ras_ps1 ) ) begin
                 r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= 12'hfff;
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]});
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                `endif
             end
             
-            else if ( (cmd_ras_ps1 == P_ROW_REFPB && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 ) ) begin
+            else if ( (can_serve_actual_ref_ps1) && (cmd_ras_ps0 == P_GENERAL_NOP || ~can_serve_actual_ras_ps0 ) ) begin
                 r_row_cmd_p0	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= 12'hfff;
                 r_served_ras <= (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
-            else if ( (cmd_ras_ps0 == P_ROW_REFPB && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == P_ROW_PRE && can_serve_actual_ras_ps1 ) ) begin
+            else if ( (can_serve_actual_ref_ps0) && (can_serve_actual_pre_ps1 ) ) begin
                 r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= { bank_address_ras_ps1[3] , 1'b0, LP_BA4_1, LP_PAR, 2'b00, bank_address_ras_ps1[2:0], P_ROW_PRE};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
-            else if ( (cmd_ras_ps1 == P_ROW_REFPB && can_serve_actual_ras_ps1) && (cmd_ras_ps0 == P_ROW_PRE && can_serve_actual_ras_ps0 ) ) begin
+            else if ( (can_serve_actual_ref_ps1) && (cmd_ras_ps0 == P_ROW_PRE && can_serve_actual_ras_ps0 ) ) begin
                 r_row_cmd_p0	 <= { bank_address_ras_ps0[3] , 1'b0, LP_BA4_0, LP_PAR, 2'b00, bank_address_ras_ps0[2:0], P_ROW_PRE};
                 r_row_cmd_p1	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
-            else if ( (cmd_ras_ps0 == P_ROW_REFPB && can_serve_actual_ras_ps0) && (cmd_ras_ps1 == P_ROW_REFPB && can_serve_actual_ras_ps1 ) ) begin
+            else if ( (can_serve_actual_ref_ps0) && (can_serve_actual_ref_ps1 ) ) begin
                 r_row_cmd_p0	 <= { bank_address_ras_ps0[3], 1'b0, LP_BA4_0, LP_PAR, 2'b11, bank_address_ras_ps0[2:0], P_ROW_REFPB[2:0]};
                 r_row_cmd_p1	 <= { bank_address_ras_ps1[3], 1'b0, LP_BA4_1, LP_PAR, 2'b11, bank_address_ras_ps1[2:0], P_ROW_REFPB[2:0]};
                 r_served_ras <= (1'b1 << {LP_BA4_0, bank_address_ras_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_ras_ps1[3:0]} );
-
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
-            
+                
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps0, cmd_ras_id_ps0, cmd_ras_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_ras_id_ps1, cmd_ras_id_ps1, cmd_ras_ps1, $time);
+                `endif
             end
             
             else begin
@@ -1303,13 +1380,13 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : ras_cmd_driver
             end
             
         end
-        else begin
-            r_row_cmd_p0    <= 12'hfff;
-            r_row_cmd_p1    <= 12'hfff;
+        // else begin
+        //     r_row_cmd_p0    <= 12'hfff;
+        //     r_row_cmd_p1    <= 12'hfff;
             
-            r_served_ras    <= { (P_BA_N_PS*2) {1'b0} };
+        //     r_served_ras    <= { (P_BA_N_PS*2) {1'b0} };
             
-        end   
+        // end   
     end
 end
 
@@ -1376,81 +1453,89 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
     end
 
     else begin
-        if ( (can_serve_actual_cas_ps0 && cmd_cas_ps0 != P_GENERAL_NOP) || (can_serve_actual_cas_ps1 && cmd_cas_ps1 != P_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
-            if ( (cmd_cas_ps0 == P_COL_WRT && can_serve_actual_cas_ps0 ) && ( cmd_cas_ps1 == P_GENERAL_NOP || ~can_serve_actual_cas_ps1 )  ) begin
+        // if ( (can_serve_actual_cas_ps0 && cmd_cas_ps0 != P_GENERAL_NOP) || (can_serve_actual_cas_ps1 && cmd_cas_ps1 != P_GENERAL_NOP) ) begin    /* Sono pronto a ricevere un comando e questo che ricevo è valido */
+            if ( (can_serve_actual_wrt_ps0 ) && ( cmd_cas_ps1 == P_GENERAL_NOP || ~can_serve_actual_cas_ps1 )  ) begin
                 r_col_cmd_p0        <= { LP_BA4_0, column_address_cas_ps0[5:2], LP_PAR, column_address_cas_ps0[1], 1'b0, bank_address_cas_ps0[3:0], P_COL_WRT[3:0]}; 
                 r_col_cmd_p1        <= 16'hffff;
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]});
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                `endif
             end 
                         
-            else if ((cmd_cas_ps0 == P_COL_WRT && can_serve_actual_cas_ps0 ) && ( cmd_cas_ps1 == P_COL_WRT && can_serve_actual_cas_ps1 ) ) begin
+            else if ((can_serve_actual_wrt_ps0 ) && ( can_serve_actual_wrt_ps1 ) ) begin
                 r_col_cmd_p0        <= { LP_BA4_0, column_address_cas_ps0[5:2], LP_PAR, column_address_cas_ps0[1], 1'b0, bank_address_cas_ps0[3:0], P_COL_WRT[3:0]}; 
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_WRT[3:0]}; 
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
-            else if ((cmd_cas_ps0 == P_COL_WRT && can_serve_actual_cas_ps0 ) && ( cmd_cas_ps1 == P_COL_RD && can_serve_actual_cas_ps1 ) ) begin
+            else if ((can_serve_actual_wrt_ps0 ) && ( can_serve_actual_rd_ps1 ) ) begin
                 r_col_cmd_p0        <= { LP_BA4_0, column_address_cas_ps0[5:2], LP_PAR, column_address_cas_ps0[1], 1'b0, bank_address_cas_ps0[3:0], P_COL_WRT[3:0]}; 
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_RD};
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
-            else if ( (cmd_cas_ps0 == P_COL_RD && can_serve_actual_cas_ps0 ) && ( cmd_cas_ps1 == P_GENERAL_NOP || ~can_serve_actual_cas_ps1 )  ) begin
+            else if ( (can_serve_actual_rd_ps0 ) && ( cmd_cas_ps1 == P_GENERAL_NOP || ~can_serve_actual_cas_ps1 )  ) begin
                 r_col_cmd_p0        <= { LP_BA4_0, column_address_cas_ps0[5:2], LP_PAR, column_address_cas_ps0[1], 1'b0, bank_address_cas_ps0[3:0], P_COL_RD}; 
                 r_col_cmd_p1        <= 16'hffff;                
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}); 
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                `endif
             end 
                         
-            else if ((cmd_cas_ps0 == P_COL_RD && can_serve_actual_cas_ps0 ) && ( cmd_cas_ps1 == P_COL_WRT && can_serve_actual_cas_ps1 ) ) begin
+            else if ((can_serve_actual_rd_ps0 ) && ( can_serve_actual_wrt_ps1 ) ) begin
                 r_col_cmd_p0        <= { LP_BA4_0, column_address_cas_ps0[5:2], LP_PAR, column_address_cas_ps0[1], 1'b0, bank_address_cas_ps0[3:0], P_COL_RD}; 
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_WRT[3:0]}; 
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG            
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
-            else if ((cmd_cas_ps0 == P_COL_RD && can_serve_actual_cas_ps0 ) && ( cmd_cas_ps1 == P_COL_RD && can_serve_actual_cas_ps1 ) ) begin
+            else if ((can_serve_actual_rd_ps0 ) && ( can_serve_actual_rd_ps1 ) ) begin
                 r_col_cmd_p0        <= { LP_BA4_0, column_address_cas_ps0[5:2], LP_PAR, column_address_cas_ps0[1], 1'b0, bank_address_cas_ps0[3:0], P_COL_RD}; 
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_RD};
                 r_served_cas <= (1'b1 << {LP_BA4_0, bank_address_cas_ps0[3:0]}) + (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]}); 
 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps0, cmd_cas_id_ps0, cmd_cas_ps0, $time);
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end
             
-            else if ( (cmd_cas_ps1 == P_COL_WRT && can_serve_actual_cas_ps1 ) && ( cmd_cas_ps0 == P_GENERAL_NOP || ~can_serve_actual_cas_ps0 )  ) begin
+            else if ( (can_serve_actual_wrt_ps1 ) && ( cmd_cas_ps0 == P_GENERAL_NOP || ~can_serve_actual_cas_ps0 )  ) begin
                 r_col_cmd_p0        <= 16'hffff;
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_WRT[3:0]}; 
                 r_served_cas <= (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]});
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end 
             
-            else if ( (cmd_cas_ps1 == P_COL_RD && can_serve_actual_cas_ps1 ) && ( cmd_cas_ps0 == P_GENERAL_NOP || ~can_serve_actual_cas_ps0 )  ) begin
+            else if ( (can_serve_actual_rd_ps1 ) && ( cmd_cas_ps0 == P_GENERAL_NOP || ~can_serve_actual_cas_ps0 )  ) begin
                 r_col_cmd_p0        <= 16'hffff;
                 r_col_cmd_p1        <= { LP_BA4_1, column_address_cas_ps1[5:2], LP_PAR, column_address_cas_ps1[1], 1'b0, bank_address_cas_ps1[3:0], P_COL_RD};
                 r_served_cas <= (1'b1 << {LP_BA4_1, bank_address_cas_ps1[3:0]});
                 
-                $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
-            
+                `ifdef DEBUG
+                    $display("[ LLCF ]: REQ: %d - CMD: %d (%d) served at %d",  req_cas_id_ps1, cmd_cas_id_ps1, cmd_cas_ps1, $time);
+                `endif
             end 
             
             else begin
@@ -1461,20 +1546,20 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : cas_cmd_driver
                 
             end
             
-        end
-        else begin
-            r_col_cmd_p0    <= 16'hffff;
-            r_col_cmd_p1    <= 16'hffff;
+        // end
+        // else begin
+        //     r_col_cmd_p0    <= 16'hffff;
+        //     r_col_cmd_p1    <= 16'hffff;
             
-            r_served_cas    <= { (P_BA_N_PS*2) {1'b0} };
-        end   
+        //     r_served_cas    <= { (P_BA_N_PS*2) {1'b0} };
+        // end   
     end
 end
 
-reg [7:0] last_wrt_bg_cnt_ps0 [0 : LP_BG_N - 1];  /*  Last write bank group counter, time elapsed from the last write in a given bank group in PS0  */
-reg [7:0] last_rd_bg_cnt_ps0  [0 : LP_BG_N - 1];  /*  Last read bank group counter, time elapsed from the last read in a given bank group in PS0    */       
-reg [7:0] last_wrt_bg_cnt_ps1 [0 : LP_BG_N - 1];  /*  Last write bank group counter, time elapsed from the last write in a given bank group in PS1  */
-reg [7:0] last_rd_bg_cnt_ps1  [0 : LP_BG_N - 1];  /*  Last read bank group counter, time elapsed from the last read in a given bank group in PS1    */       
+reg [4:0] last_wrt_bg_cnt_ps0 [0 : LP_BG_N - 1];  /*  Last write bank group counter, time elapsed from the last write in a given bank group in PS0  */
+reg [4:0] last_rd_bg_cnt_ps0  [0 : LP_BG_N - 1];  /*  Last read bank group counter, time elapsed from the last read in a given bank group in PS0    */       
+reg [4:0] last_wrt_bg_cnt_ps1 [0 : LP_BG_N - 1];  /*  Last write bank group counter, time elapsed from the last write in a given bank group in PS1  */
+reg [4:0] last_rd_bg_cnt_ps1  [0 : LP_BG_N - 1];  /*  Last read bank group counter, time elapsed from the last read in a given bank group in PS1    */       
 
 /*************************************************************/
 /* WIRE TO SAY IF THE ACTUAL CAS COMMAND RESPECT CONSTRAINTS */
@@ -1489,17 +1574,17 @@ wire [0 : LP_BG_N - 1] actual_rd_respect_short_cnstr_ps1;
 wire [0 : LP_BG_N - 1] actual_rd_respect_long_cnstr_ps1;
 
 
-reg [7:0] last_act_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last act bank group counter, time elapsed from the last ACT in a given bank group in PS0 */
-reg [7:0] last_pre_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last pre bank group counter, time elapsed from the last PRE in a given bank group in PS0 */
-reg [7:0] last_act_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last act bank group counter, time elapsed from the last ACT in a given bank group in PS1 */
-reg [7:0] last_pre_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last pre bank group counter, time elapsed from the last PRE in a given bank group in PS1 */
-reg [7:0] last_ref_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last ref bank group counter, time elapsed from the last REF in a given bank group in PS0 */ 
-reg [7:0] last_ref_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last ref bank group counter, time elapsed from the last REF in a given bank group in PS1 */
+reg [4:0] last_act_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last act bank group counter, time elapsed from the last ACT in a given bank group in PS0 */
+reg [4:0] last_pre_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last pre bank group counter, time elapsed from the last PRE in a given bank group in PS0 */
+reg [4:0] last_act_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last act bank group counter, time elapsed from the last ACT in a given bank group in PS1 */
+reg [4:0] last_pre_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last pre bank group counter, time elapsed from the last PRE in a given bank group in PS1 */
+reg [6:0] last_ref_bg_cnt_ps0 [0 : LP_BG_N - 1];  /* Last ref bank group counter, time elapsed from the last REF in a given bank group in PS0 */ 
+reg [6:0] last_ref_bg_cnt_ps1 [0 : LP_BG_N - 1];  /* Last ref bank group counter, time elapsed from the last REF in a given bank group in PS1 */
 
-reg [7:0] four_act_window_cnt_ps0;                /* tFAW counter ps0 */
-reg [7:0] four_act_window_cnt_ps1;                /* tFAW counter ps1 */
-reg [7:0] act_cnt_ps0;                  /* Number of ps0 ACT in a tFAW window */
-reg [7:0] act_cnt_ps1;                  /* Number of ps1 ACT in a tFAW window */
+reg [5:0] four_act_window_cnt_ps0;                /* tFAW counter ps0 */
+reg [5:0] four_act_window_cnt_ps1;                /* tFAW counter ps1 */
+reg [2:0] act_cnt_ps0;                  /* Number of ps0 ACT in a tFAW window */
+reg [2:0] act_cnt_ps1;                  /* Number of ps1 ACT in a tFAW window */
 reg [P_BA_N_PS-1:0] ref_cnt_ps0;                  /* Number of ps0 REF in a refresh window */
 reg [P_BA_N_PS-1:0] ref_cnt_ps1;                  /* Number of ps0 REF in a refresh window */
 
@@ -1521,21 +1606,21 @@ wire [0 : LP_BG_N - 1] actual_ref_respect_cnstr_ps1;
 /***********************************************/
 /* ACT COUNTS PS0 iN A tFAW WINDOWS MANAGEMENT */
 /***********************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        act_cnt_ps0 <= { 8 { 1'b0 } };
+        act_cnt_ps0 <= { 3 { 1'b0 } };
     end
     else begin
-        if (( four_act_window_cnt_ps0 >= tFAW-1'b1) && ~(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0))) begin
+        if (( four_act_window_cnt_ps0 >= tFAW-1'b1) && ~(/*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0*/ can_serve_actual_act_ps0 && ~double_act_ras_sync)) begin
             act_cnt_ps0 <= 1'b0;
         end
-        else if ( ( four_act_window_cnt_ps0 >= tFAW-1'b1) && (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0))) begin
+        else if ( ( four_act_window_cnt_ps0 >= tFAW-1'b1) && (/*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0*/ can_serve_actual_act_ps0 && ~double_act_ras_sync)) begin
             act_cnt_ps0 <= 1'b1;
         end
         else if ( act_cnt_ps0 >= 4'd4 ) begin
             act_cnt_ps0 <= act_cnt_ps0;
         end
-        else if ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0) ) begin
+        else if ( /*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_0*/ can_serve_actual_act_ps0 && ~double_act_ras_sync ) begin
             act_cnt_ps0 <= act_cnt_ps0 + 1'b1;
         end
     end
@@ -1544,21 +1629,21 @@ end
 /***********************************************/
 /* ACT COUNTS PS1 iN A tFAW WINDOWS MANAGEMENT */
 /***********************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        act_cnt_ps1 <= { 8 { 1'b0 } };
+        act_cnt_ps1 <= { 3 { 1'b0 } };
     end
     else begin
-        if (( four_act_window_cnt_ps1 >= tFAW-1'b1) && ~(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)) ) begin
+        if (( four_act_window_cnt_ps1 >= tFAW-1'b1) && ~(/*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_act_ps1 && ~double_act_ras_sync) ) begin
             act_cnt_ps1 <= 1'b0;
         end
-        else if ( ( four_act_window_cnt_ps1 >= tFAW-1'b1) && ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)) ) begin
+        else if ( ( four_act_window_cnt_ps1 >= tFAW-1'b1) && ( /*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_act_ps1 && ~double_act_ras_sync) ) begin
             act_cnt_ps1 <= 1'b1;
         end
         else if ( act_cnt_ps1 >= 4'd4 ) begin
             act_cnt_ps1 <= act_cnt_ps1;
         end
-        else if ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)) begin
+        else if ( /*r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_act_ps1 && ~double_act_ras_sync) begin
             act_cnt_ps1 <= act_cnt_ps1 + 1'b1;
         end
     end
@@ -1568,15 +1653,15 @@ end
 /*******************/
 /* PS0 tFAW UPDATE */
 /*******************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        four_act_window_cnt_ps0 <= { 8 { 1'b0 } };
+        four_act_window_cnt_ps0 <= { 6 { 1'b0 } };
     end
     else begin
-        if ( (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_0) && ( four_act_window_cnt_ps0 >= tFAW-1'b1) ) begin
+        if ( /*(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_0)*/can_serve_actual_act_ps0 && ~double_act_ras_sync && ( four_act_window_cnt_ps0 >= tFAW-1'b1) ) begin
             four_act_window_cnt_ps0 <= 1'b0;
         end
-        else if ( four_act_window_cnt_ps0 == { 8 { 1'b1 } } ) begin
+        else if ( four_act_window_cnt_ps0 == { 6 { 1'b1 } } ) begin
             four_act_window_cnt_ps0 <= four_act_window_cnt_ps0;
         end
         else begin
@@ -1588,15 +1673,15 @@ end
 /*******************/
 /* PS1 tFAW UPDATE */
 /*******************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
-        four_act_window_cnt_ps1 <= { 8 { 1'b0 } };
+        four_act_window_cnt_ps1 <= { 6 { 1'b0 } };
     end
     else begin
-        if ( (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_1) && ( four_act_window_cnt_ps1 >= tFAW-1'b1) ) begin
+        if ( /*(r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]} ) && (r_row_cmd_p0[9] == LP_BA4_1)*/ can_serve_actual_act_ps1 && ~double_act_ras_sync && ( four_act_window_cnt_ps1 >= tFAW-1'b1) ) begin
             four_act_window_cnt_ps1 <= 1'b0;
         end
-        else if ( four_act_window_cnt_ps1 == { 8 { 1'b1 } } ) begin
+        else if ( four_act_window_cnt_ps1 == { 6 { 1'b1 } } ) begin
             four_act_window_cnt_ps1 <= four_act_window_cnt_ps1;
         end
         else begin
@@ -1608,13 +1693,14 @@ end
 /**************************************************/
 /* REF COUNTS PS0 iN A REFRESH WINDOWS MANAGEMENT */
 /**************************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         ref_cnt_ps0 <= { P_BA_N_PS { 1'b0 } };
     end
     else begin
         /* A ps0 REF is served */
-        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) )) begin
+//        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) )) begin
+          if ( can_serve_actual_ref_ps0 && ~double_act_ras_sync ) begin
             /* The last REF is the last of a refresh window, reset the counter */
             if ( ref_cnt_ps0 == P_BA_N_PS ) begin
                 ref_cnt_ps0 <= 1'b1;
@@ -1629,14 +1715,15 @@ end
 /**************************************************/
 /* REF COUNTS PS0 iN A REFRESH WINDOWS MANAGEMENT */
 /**************************************************/
-always @ ( /*posedge*/ negedge dfi_clk or negedge dfi_rst_n ) begin
+always @ ( posedge /*negedge*/ dfi_clk or negedge dfi_rst_n ) begin
     if ( dfi_rst_n == 1'b0 ) begin
         ref_cnt_ps1 <= { P_BA_N_PS { 1'b0 } };
     end
     else begin
         /* A ps1 REF is served */
-        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) )) begin
+//        if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) || ((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) )) begin
             /* The last REF is the last of a refresh window, reset the counter */
+        if ( can_serve_actual_ref_ps1 && ~double_act_ras_sync ) begin
             if ( ref_cnt_ps1 == P_BA_N_PS ) begin
                 ref_cnt_ps1 <= 1'b1;
             end
@@ -1651,22 +1738,23 @@ end
 
 
 
-genvar i;
+//genvar i;
 generate
     for ( i = 0; i < LP_BG_N; i = i + 1) begin
     
         /********************************************/
         /* RAS TIMING CHECK AND COUNTERS MANAGEMENT */
         /********************************************/
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps0_driver
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps0_driver
             if ( dfi_rst_n == 1'b0 ) begin
-                last_wrt_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+                last_wrt_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_WRT) && ( (r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
-                    last_wrt_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_WRT) && ( (r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if ( can_serve_actual_wrt_ps0 && bank_address_cas_ps0[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_wrt_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_wrt_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
+                else if ( last_wrt_bg_cnt_ps0[i] == { 5 {1'b1 }} ) begin
                     last_wrt_bg_cnt_ps0[i] <= last_wrt_bg_cnt_ps0[i];
                 end
                 else begin
@@ -1675,15 +1763,16 @@ generate
             end
         end 
         
-        always @ (negedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps1_driver
+        always @ (posedge dfi_clk or negedge dfi_rst_n ) begin : last_wrt_bg_cnt_ps1_driver
             if ( dfi_rst_n == 1'b0 ) begin
-                last_wrt_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+                last_wrt_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_col_cmd_p1[3:0] == P_COL_WRT) && ( ( r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
-                    last_wrt_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_col_cmd_p1[3:0] == P_COL_WRT) && ( ( r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if ( can_serve_actual_wrt_ps1 && bank_address_cas_ps1[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_wrt_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_wrt_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
+                else if ( last_wrt_bg_cnt_ps1[i] == { 5 {1'b1 }} ) begin
                     last_wrt_bg_cnt_ps1[i] <= last_wrt_bg_cnt_ps1[i];
                 end
                 else begin
@@ -1692,15 +1781,16 @@ generate
             end
         end 
         
-        always @ (negedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps0_driver
+        always @ (posedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps0_driver
             if ( dfi_rst_n == 1'b0 ) begin
-                last_rd_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+                last_rd_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_RD) && ( ( r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && ( r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
-                    last_rd_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+//                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p0[3:0] == P_COL_RD) && ( ( r_col_cmd_p0[7:4] >= (i*P_BA_N_G)) && ( r_col_cmd_p0[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if ( can_serve_actual_rd_ps0 && bank_address_cas_ps0[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_rd_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_rd_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
+                else if ( last_rd_bg_cnt_ps0[i] == { 5 {1'b1 }} ) begin
                     last_rd_bg_cnt_ps0[i] <= last_rd_bg_cnt_ps0[i];
                 end
                 else begin
@@ -1709,15 +1799,16 @@ generate
             end
         end
         
-        always @ (negedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps1_driver
+        always @ (posedge dfi_clk or negedge dfi_rst_n ) begin : last_rd_bg_cnt_ps1_driver
             if ( dfi_rst_n == 1'b0 ) begin
-                last_rd_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+                last_rd_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
             end
             else begin
-                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p1[3:0] == P_COL_RD) && ((r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
-                    last_rd_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+//                if ((r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_col_cmd_p1[3:0] == P_COL_RD) && ((r_col_cmd_p1[7:4] >= (i*P_BA_N_G)) && (r_col_cmd_p1[7:4] < ((i+1)*P_BA_N_G)) )) begin
+                if ( can_serve_actual_rd_ps1 && bank_address_cas_ps1[3:0] >= (i*P_BA_N_G) && bank_address_cas_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_rd_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_rd_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
+                else if ( last_rd_bg_cnt_ps1[i] == { 5 {1'b1 }} ) begin
                     last_rd_bg_cnt_ps1[i] <= last_rd_bg_cnt_ps1[i];
                 end
                 else begin
@@ -1742,15 +1833,16 @@ generate
         /********************************************/
         /* RAS TIMING CHECK AND COUNTERS MANAGEMENT */
         /********************************************/
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin : last_act_bg_cnt_ps0_driver
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin : last_act_bg_cnt_ps0_driver
             if ( dfi_rst_n == 1'b0 ) begin
-                last_act_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+                last_act_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if (  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_0) && ( ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
-                    last_act_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+//                if (  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && (r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_0) && ( ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
+                if ( can_serve_actual_act_ps0 && ~double_act_ras_sync && bank_address_ras_ps0[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_act_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_act_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
+                else if ( last_act_bg_cnt_ps0[i] == { 5 {1'b1 }} ) begin
                     last_act_bg_cnt_ps0[i] <= last_act_bg_cnt_ps0[i];
                 end
                 else begin
@@ -1759,15 +1851,16 @@ generate
             end
         end
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
-                last_act_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+                last_act_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_1) && ( ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
-                    last_act_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ( r_row_cmd_p0[2:0] == {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p0[9] == LP_BA4_1) && ( ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11] ,r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)) )) begin
+                if ( can_serve_actual_act_ps1 && ~double_act_ras_sync && bank_address_ras_ps1[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_act_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_act_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
+                else if ( last_act_bg_cnt_ps1[i] == { 5 {1'b1 }} ) begin
                     last_act_bg_cnt_ps1[i] <= last_act_bg_cnt_ps1[i];
                 end
                 else begin
@@ -1776,15 +1869,16 @@ generate
             end
         end 
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
-                last_pre_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+                last_pre_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_0 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}  && r_row_cmd_p1[9] == LP_BA4_0 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
-                    last_pre_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_0 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}  && r_row_cmd_p1[9] == LP_BA4_0 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
+                if ( can_serve_actual_pre_ps0 && ~double_act_ras_sync && bank_address_ras_ps0[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_pre_bg_cnt_ps0[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_pre_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
+                else if ( last_pre_bg_cnt_ps0[i] == { 5 {1'b1 }} ) begin
                     last_pre_bg_cnt_ps0[i] <= last_pre_bg_cnt_ps0[i];
                 end
                 else begin
@@ -1793,15 +1887,16 @@ generate
             end
         end
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
-                last_pre_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+                last_pre_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
             end 
             else begin
-                if  ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_1 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]} && r_row_cmd_p1[9] == LP_BA4_1 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
-                    last_pre_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+//                if  ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((( r_row_cmd_p0[2:0] == P_ROW_PRE && r_row_cmd_p0[9] == LP_BA4_1 ) && (({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || (( r_row_cmd_p1[2:0] == P_ROW_PRE && r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]} && r_row_cmd_p1[9] == LP_BA4_1 ) && (({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G)))) ) ) begin
+                if ( can_serve_actual_pre_ps1 && ~double_act_ras_sync && bank_address_ras_ps1[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_pre_bg_cnt_ps1[i] <= { 5 { 1'b0 } };
                 end
-                else if ( last_pre_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
+                else if ( last_pre_bg_cnt_ps1[i] == { 5 {1'b1 }} ) begin
                     last_pre_bg_cnt_ps1[i] <= last_pre_bg_cnt_ps1[i];
                 end
                 else begin
@@ -1811,15 +1906,16 @@ generate
         end
         
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
-                last_ref_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+                last_ref_bg_cnt_ps0[i] <= { 7 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
-                    last_ref_bg_cnt_ps0[i] <= { 8 { 1'b0 } };
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_0)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_0)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
+                if ( can_serve_actual_ref_ps0 && ~double_act_ras_sync && bank_address_ras_ps0[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps0[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_ref_bg_cnt_ps0[i] <= { 7 { 1'b0 } };
                 end
-                else if ( last_ref_bg_cnt_ps0[i] == { 8 {1'b1 }} ) begin
+                else if ( last_ref_bg_cnt_ps0[i] == { 7 {1'b1 }} ) begin
                     last_ref_bg_cnt_ps0[i] <= last_ref_bg_cnt_ps0[i];
                 end
                 else begin
@@ -1829,15 +1925,16 @@ generate
         end
         
         
-        always @ ( negedge dfi_clk or negedge dfi_rst_n ) begin
+        always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             if ( dfi_rst_n == 1'b0 ) begin
-                last_ref_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+                last_ref_bg_cnt_ps1[i] <= { 7 { 1'b0 } };
             end 
             else begin
-                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
-                    last_ref_bg_cnt_ps1[i] <= { 8 { 1'b0 } };
+//                if ( (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1) && ((((r_row_cmd_p0[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[9]==LP_BA4_1)) && (( {r_row_cmd_p0[11], r_row_cmd_p0[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p0[11], r_row_cmd_p0[5:3]} < ((i+1)*P_BA_N_G)))) || ((((r_row_cmd_p1[2:0] == P_ROW_REFPB[2:0]) && (r_row_cmd_p0[2:0] != {1'b0, P_ROW_ACT[1:0]}) && (r_row_cmd_p1[9]==LP_BA4_1)) && (( {r_row_cmd_p1[11], r_row_cmd_p1[5:3]} >= (i*P_BA_N_G)) && ({r_row_cmd_p1[11], r_row_cmd_p1[5:3]} < ((i+1)*P_BA_N_G))))) )) begin
+                if ( can_serve_actual_ref_ps1 && ~double_act_ras_sync && bank_address_ras_ps1[3:0] >= (i*P_BA_N_G) && bank_address_ras_ps1[3:0] < (i+1)*P_BA_N_G  ) begin
+                    last_ref_bg_cnt_ps1[i] <= { 7 { 1'b0 } };
                 end
-                else if ( last_ref_bg_cnt_ps1[i] == { 8 {1'b1 }} ) begin
+                else if ( last_ref_bg_cnt_ps1[i] == { 7 {1'b1 }} ) begin
                     last_ref_bg_cnt_ps1[i] <= last_ref_bg_cnt_ps1[i];
                 end
                 else begin
@@ -1864,10 +1961,23 @@ endgenerate
 /******************************/
 /* CAN SERVE ACTUAL COMMAND ? */
 /******************************/
-assign can_serve_actual_cas_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && ( ( (|actual_wrt_respect_long_cnstr_ps0) && (&actual_wrt_respect_short_cnstr_ps0) ) || ( (|actual_rd_respect_long_cnstr_ps0) && (&actual_rd_respect_short_cnstr_ps0) ) );
-assign can_serve_actual_cas_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && ( ( (|actual_wrt_respect_long_cnstr_ps1) && (&actual_wrt_respect_short_cnstr_ps1) ) || ( (|actual_rd_respect_long_cnstr_ps1) && (&actual_rd_respect_short_cnstr_ps1) ) );
 
-assign can_serve_actual_ras_ps0 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps0) || (&actual_ref_respect_cnstr_ps0) || ((|actual_pre_respect_long_cnstr_ps0) && (&actual_pre_respect_short_cnstr_ps0) ) ) && ~double_act_ras_sync ;
-assign can_serve_actual_ras_ps1 =  (r_phy_tg_ps == LP_CMD_WAIT || r_phy_tg_ps == LP_CMD_WAIT_1 ) && (  (&actual_act_respect_cnstr_ps1) || (&actual_ref_respect_cnstr_ps1) || ((|actual_pre_respect_long_cnstr_ps1) && (&actual_pre_respect_short_cnstr_ps1) ) ) && ~double_act_ras_sync ;
+assign can_serve_actual_act_ps0 = (&actual_act_respect_cnstr_ps0);
+assign can_serve_actual_act_ps1 = (&actual_act_respect_cnstr_ps1);
+assign can_serve_actual_pre_ps0 = (|actual_pre_respect_long_cnstr_ps0) && (&actual_pre_respect_short_cnstr_ps0);
+assign can_serve_actual_pre_ps1 = (|actual_pre_respect_long_cnstr_ps1) && (&actual_pre_respect_short_cnstr_ps1);
+assign can_serve_actual_ref_ps0 = (&actual_ref_respect_cnstr_ps0);
+assign can_serve_actual_ref_ps1 = (&actual_ref_respect_cnstr_ps1);
+
+assign can_serve_actual_wrt_ps0 = (|actual_wrt_respect_long_cnstr_ps0) && (&actual_wrt_respect_short_cnstr_ps0);
+assign can_serve_actual_wrt_ps1 = (|actual_wrt_respect_long_cnstr_ps1) && (&actual_wrt_respect_short_cnstr_ps1);
+assign can_serve_actual_rd_ps0  = (|actual_rd_respect_long_cnstr_ps0) && (&actual_rd_respect_short_cnstr_ps0);
+assign can_serve_actual_rd_ps1  = (|actual_rd_respect_long_cnstr_ps1) && (&actual_rd_respect_short_cnstr_ps1);
+
+assign can_serve_actual_cas_ps0 = ( can_serve_actual_wrt_ps0  || can_serve_actual_rd_ps0 );
+assign can_serve_actual_cas_ps1 = ( can_serve_actual_wrt_ps1 || can_serve_actual_rd_ps1 );
+
+assign can_serve_actual_ras_ps0 = ( can_serve_actual_act_ps0 || can_serve_actual_ref_ps0 || can_serve_actual_pre_ps0 ) && ~double_act_ras_sync;
+assign can_serve_actual_ras_ps1 = ( can_serve_actual_act_ps1 || can_serve_actual_ref_ps1 || can_serve_actual_pre_ps1 ) && ~double_act_ras_sync;
 
 endmodule
