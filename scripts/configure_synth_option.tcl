@@ -2,8 +2,7 @@
 # create_run -flow {Vivado Synthesis 2023} synth_1
 # Add retiming to snth_1
 set_property -dict [ 
-    list STEPS.SYNTH_DESIGN.ARGS.RETIMING true \
-    STEPS.SYNTH_DESIGN.ARGS.KEEP_EQUIVALENT_REGISTERS true 
+    list STEPS.SYNTH_DESIGN.ARGS.RETIMING true 
 ] [get_runs synth_1]
 
 # Create run impl_1
@@ -13,13 +12,13 @@ set_property -dict [
 set_property -dict [ 
     list STEPS.OPT_DESIGN.IS_ENABLED true \
     STEPS.OPT_DESIGN.IS_ENABLED true \
-    STEPS.OPT_DESIGN.ARGS.DIRECTIVE Explore \
-    STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraTimingOpt \
+    STEPS.OPT_DESIGN.ARGS.DIRECTIVE Default \
+    STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Default \
     STEPS.PHYS_OPT_DESIGN.IS_ENABLED true \
-    STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AddRetime \
+    STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore \
     STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE AggressiveExplore \
     STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true \
-    STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AddRetime 
+    STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore 
 ] [get_runs impl_1]
 
 # STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE AggressiveExplore

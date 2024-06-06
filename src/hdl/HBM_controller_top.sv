@@ -53,7 +53,14 @@ module HBM_controller_top#
     output hbm_cattrip_output,
 
     `ifndef DEBUG
-        output done
+        output        done,
+        input  [1:0]  request [0:16-1],
+        input  [31:0] address [0:16-1],
+        input                       request_valid        [0:16-1],
+        output                      request_picked       [0:16-1]
+        // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
+        // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
+
     `endif
 
     `ifdef DEBUG
@@ -77,19 +84,19 @@ localparam MMCM_CLKOUT0_DIVIDE_F = 2;
 localparam MMCM_DIVCLK_DIVIDE    = 1;
 localparam MMCM_CLKIN1_PERIOD    = 10.000;
 
-(* keep = "TRUE" *) wire HBM_REF_CLK_buf_0;
-(* keep = "TRUE" *) wire HBM_REF_CLK_buf_1;
-(* keep = "TRUE" *) wire dfi_clk_buf[0:15] /*[0:N_CHANNELS-1]*/;
-(* keep = "TRUE" *) wire dfi_clk_in[0:15] /*[0:N_CHANNELS-1]*/;
-(* keep = "TRUE" *) wire MMCM_LOCK_0;
-(* keep = "TRUE" *) wire MMCM_LOCK_1;
+/*(* keep = "TRUE" *)*/ wire HBM_REF_CLK_buf_0;
+/*(* keep = "TRUE" *)*/ wire HBM_REF_CLK_buf_1;
+/*(* keep = "TRUE" *)*/ wire dfi_clk_buf[0:15] /*[0:N_CHANNELS-1]*/;
+/*(* keep = "TRUE" *)*/ wire dfi_clk_in[0:15] /*[0:N_CHANNELS-1]*/;
+/*(* keep = "TRUE" *)*/ wire MMCM_LOCK_0;
+/*(* keep = "TRUE" *)*/ wire MMCM_LOCK_1;
 
-(* keep = "TRUE" *) wire      APB_PCLK_IBUF_0;
-(* keep = "TRUE" *) wire      APB_PCLK_BUF_0;
-(* keep = "TRUE" *) wire      APB_PRESET_N_sync_0;
-(* keep = "TRUE" *) wire      APB_PCLK_IBUF_1;
-(* keep = "TRUE" *) wire      APB_PCLK_BUF_1;
-(* keep = "TRUE" *) wire      APB_PRESET_N_sync_1;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_0;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_0;
+/*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_0;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_1;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_1;
+/*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_1;
 
 
 wire	[3:0]		w_rst_sys_rst;
@@ -585,23 +592,23 @@ reg  [3:0]    cnt_rst_1;
         wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
 
         wire reset_hbm_controller[0:16-1];
-        wire [31:0]address[0:16-1];
-        wire [1:0]request[0:16-1];
+        // wire [31:0]address[0:16-1];
+        // wire [1:0]request[0:16-1];
         wire [P_DATA_WIDTH-1:0] write_data[0:16-1];
 
-        reg [31:0] r_address[0:16-1];
-        reg [1:0] r_request[0:16-1];
+        // reg [31:0] r_address[0:16-1];
+        // reg [1:0] r_request[0:16-1];
         reg [P_DATA_WIDTH-1:0] r_wrt_data[0:16-1];
         reg [0:16-1]r_done;
 
-        assign address = r_address;
-        assign request = r_request;
+        // assign address = r_address;
+        // assign request = r_request;
         assign write_data = r_wrt_data;
 
         assign done = &r_done[0:N_CHANNELS-1];
 
-        (* keep = "TRUE" *) reg   request_valid  [0:N_CHANNELS-1];
-        (* keep = "TRUE" *) wire  request_picked [0:N_CHANNELS-1];
+        // /*(* keep = "TRUE" *)*/ reg   request_valid  [0:N_CHANNELS-1];
+        // /*(* keep = "TRUE" *)*/ wire  request_picked [0:N_CHANNELS-1];
     `endif
 
     
@@ -765,7 +772,7 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
                     r_done[i] <= 1'b0;
                 end
                 else begin
-                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                    if ( &rd_data_req_id_ps0[i] && |rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
                         r_done[i] <= 1'b1;
                     end
                     else begin
@@ -776,26 +783,26 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
 
             always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
                 if (dfi_rst_n[6] == 1'b0) begin
-                    r_address[i] <= {33{1'b0}};
-                    r_request[i] <= 2'b00;
+                    // r_address[i] <= {33{1'b0}};
+                    // r_request[i] <= 2'b00;
                     r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-                    request_valid[i] <= 1'b0;
+                    // request_valid[i] <= 1'b0;
                 end
                 else begin
-                    if (request_valid[i] == 1'b0) begin
-                        request_valid[i] <= 1'b1;
-                        r_address[i] <= r_address[i] + 1'b1;
-                        r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
-                        if ( r_request[i] == 2'b00 ) begin
-                            r_request[i] <= 2'b01; 
-                        end
-                        else begin
-                            r_request[i] <= 2'b00;
-                        end
-                    end
-                    else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-                        request_valid[i] <= 1'b0;
-                    end
+                    // if (request_valid[i] == 1'b0) begin
+                        // request_valid[i] <= 1'b1;
+                        // r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;
+                        // if ( r_request[i] == 2'b00 ) begin
+                        //     r_request[i] <= 2'b01; 
+                        // end
+                        // else begin
+                        //     r_request[i] <= 2'b00;
+                        // end
+                    // end
+                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                    //     request_valid[i] <= 1'b0;
+                    // end
                 end
             end
         `endif
@@ -817,7 +824,7 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
                     r_done[i] <= 1'b0;
                 end
                 else begin
-                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                    if ( &rd_data_req_id_ps0[i] && |rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
                         r_done[i] <= 1'b1;
                     end
                     else begin
@@ -828,26 +835,26 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
 
             always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
                 if (dfi_rst_n[14] == 1'b0) begin
-                    r_address[i] <= {33{1'b0}};
-                    r_request[i] <= 2'b00;
+                    // r_address[i] <= {33{1'b0}};
+                    // r_request[i] <= 2'b00;
                     r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-                    request_valid[i] <= 1'b0;
+                    // request_valid[i] <= 1'b0;
                 end
                 else begin
-                    if (request_valid[i] == 1'b0) begin
-                        request_valid[i] <= 1'b1;
-                        r_address[i] <= r_address[i] + 1'b1;
-                        r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
-                        if ( r_request[i] == 2'b00 ) begin
-                            r_request[i] <= 2'b01; 
-                        end
-                        else begin
-                            r_request[i] <= 2'b00;
-                        end
-                    end
-                    else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-                        request_valid[i] <= 1'b0;
-                    end
+                    // if (request_valid[i] == 1'b0) begin
+                    //     request_valid[i] <= 1'b1;
+                        // r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
+                        // if ( r_request[i] == 2'b00 ) begin
+                        //     r_request[i] <= 2'b01; 
+                        // end
+                        // else begin
+                        //     r_request[i] <= 2'b00;
+                        // end
+                    // end
+                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                    //     request_valid[i] <= 1'b0;
+                    // end
                 end
             end
         `endif
@@ -886,7 +893,7 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
                     r_done[i] <= 1'b0;
                 end
                 else begin
-                    if ( &dfi_dw_rddata_valid[i] && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b1}} && dfi_dw_rddata_p0[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                    if ( &rd_data_req_id_ps0[i] && |rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
                         r_done[i] <= 1'b1;
                     end
                     else begin
@@ -897,26 +904,26 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
 
             always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
                 if (dfi_rst_n[i] == 1'b0) begin
-                    r_address[i] <= {33{1'b0}};
-                    r_request[i] <= 2'b00;
+                    // r_address[i] <= {33{1'b0}};
+                    // r_request[i] <= 2'b00;
                     r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-                    request_valid[i] <= 1'b0;
+                    // request_valid[i] <= 1'b0;
                 end
                 else begin
-                    if (request_valid[i] == 1'b0) begin
-                        request_valid[i] <= 1'b1;
-                        r_address[i] <= r_address[i] + 1'b1;
-                        r_wrt_data[i] <= r_wrt_data[i] + 1'b1;
-                        if ( r_request[i] == 2'b00 ) begin
-                            r_request[i] <= 2'b01; 
-                        end
-                        else begin
-                            r_request[i] <= 2'b00;
-                        end
-                    end
-                    else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-                        request_valid[i] <= 1'b0;
-                    end
+                    // if (request_valid[i] == 1'b0) begin
+                    //     request_valid[i] <= 1'b1;
+                        // r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
+                        // if ( r_request[i] == 2'b00 ) begin
+                        //     r_request[i] <= 2'b01; 
+                        // end
+                        // else begin
+                        //     r_request[i] <= 2'b00;
+                        // end
+                    // end
+                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                    //     request_valid[i] <= 1'b0;
+                    // end
                 end
             end
         `endif

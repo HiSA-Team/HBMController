@@ -45,17 +45,17 @@ module CAS_arbiter#
     input  [P_REQ_ID_WIDTH-1:0]      req_cas_id_bank        [0 : P_BA_N_PS - 1], 
     input  [P_CMD_ID_WIDTH-1:0]      cmd_cas_id_bank        [0 : P_BA_N_PS - 1],        
     input  [3:0]                     cmd_cas_bank           [0 : P_BA_N_PS - 1],
-    input  [P_BA_ADDR_WIDTH-1 : 0]   bank_address_bank      [0 : P_BA_N_PS - 1],
-    input  [P_COL_ADDR_WIDTH-1 : 0]  column_address_bank    [0 : P_BA_N_PS - 1],
+    // input  [1:0]                     bank_group_bank        [0 : P_BA_N_PS - 1],
+    // input  [P_COL_ADDR_WIDTH-1 : 0]  column_address_bank    [0 : P_BA_N_PS - 1],
     
-    input  ready_to_cmd_cas,
+    /*(* keep = "True" *)*/ input  ready_to_cmd_cas,
     output [3:0]                        cmd_cas,
     output [P_REQ_ID_WIDTH-1:0]         req_id_cas,
     output [P_CMD_ID_WIDTH-1:0]         cmd_id_cas,
-    output [P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_cas,
-    output [P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas,
+    output [1:0]                        bank_group_cas,
+    // output [P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas,
 
-    output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id
+    output [P_REQ_ID_WIDTH-1:0]         ram_cas_req_id
 
 );
 
@@ -71,8 +71,8 @@ reg [3:0] actual_cmd_serving_type;     /*  Bundling Type RD or WRT */
 reg [P_REQ_ID_WIDTH-1:0] r_req_id_cas;
 reg [P_CMD_ID_WIDTH-1:0] r_cmd_id_cas;
 reg [3:0] r_cmd_cas;
-reg [P_BA_ADDR_WIDTH - 1 : 0] r_bank_address_cas;
-reg [P_COL_ADDR_WIDTH - 1 : 0] r_column_address_cas;
+reg [1:0] r_bank_group_cas;
+// reg [P_COL_ADDR_WIDTH - 1 : 0] r_column_address_cas;
 reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
 
 
@@ -80,21 +80,33 @@ reg [0 : P_BA_N_PS - 1]r_cmd_cas_bank_picked;
 /*(* keep = "True" *)*/ wire [3:0]                          cmd_inter_selected;
 /*(* keep = "True" *)*/ wire [P_REQ_ID_WIDTH-1:0]           req_id_selected_by_bg;
 /*(* keep = "True" *)*/ wire [P_CMD_ID_WIDTH-1:0]           cmd_id_selected_by_bg;
-/*(* keep = "True" *)*/ wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_address_selected_by_bg;
-/*(* keep = "True" *)*/ wire [P_COL_ADDR_WIDTH - 1 : 0]     column_address_selected_by_bg;
+/*(* keep = "True" *)*/ wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_group_selected_by_bg;
+// /*(* keep = "True" *)*/ wire [P_COL_ADDR_WIDTH - 1 : 0]     column_address_selected_by_bg;
 
 
-assign wrt_data_req_id = req_id_selected_by_bg;
+ reg [P_REQ_ID_WIDTH-1:0] r_ram_cas_req_id;
+//assign ram_cas_req_id = req_id_selected_by_bg;
+ assign ram_cas_req_id = r_ram_cas_req_id;
+
+always_latch begin
+    if ( ready_to_cmd_cas &&  cmd_inter_selected == actual_cmd_serving_type) begin
+        r_ram_cas_req_id <= req_id_selected_by_bg;
+    end
+    else begin
+        r_ram_cas_req_id <= r_ram_cas_req_id;
+    end
+end
 
 
-(* keep = "True" *)wire change_round;
+
+/*(* keep = "True" *)*/ wire change_round;
 
 
 assign req_id_cas = r_req_id_cas;
 assign cmd_id_cas = r_cmd_id_cas;
 assign cmd_cas = r_cmd_cas;
-assign bank_address_cas = r_bank_address_cas;
-assign column_address_cas = r_column_address_cas;
+assign bank_group_cas = r_bank_group_cas;
+// assign column_address_cas = r_column_address_cas;
 assign cmd_cas_bank_picked = r_cmd_cas_bank_picked;
 
 
@@ -106,8 +118,8 @@ assign change_round =  actual_bank_group_serving == LP_BG_N-1 && actual_bank_ser
 assign cmd_inter_selected            =   cmd_cas_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
 assign req_id_selected_by_bg         =   req_cas_id_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
 assign cmd_id_selected_by_bg         =   cmd_cas_id_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-assign bank_address_selected_by_bg   =   bank_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-assign column_address_selected_by_bg =   column_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
+// assign bank_group_selected_by_bg     =   bank_group_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
+// assign column_address_selected_by_bg =   column_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
 
 /*********************************/
 /* SEND CAS CMD SELECTED TO LLCF */
@@ -115,8 +127,8 @@ assign column_address_selected_by_bg =   column_address_bank[(actual_bank_group_
 always @ ( posedge clk or negedge rst_n ) begin : cmd_driver
     if ( rst_n == 1'b0 ) begin
         r_cmd_cas                 <=  P_GENERAL_NOP;
-        r_bank_address_cas        <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
-        r_column_address_cas      <=  { P_COL_ADDR_WIDTH { 1'b0 } };   
+        r_bank_group_cas        <=  { 2  { 1'b0 } };
+        // r_column_address_cas      <=  { P_COL_ADDR_WIDTH { 1'b0 } };   
         r_req_id_cas              <=  { P_REQ_ID_WIDTH { 1'b1 } };
         r_cmd_id_cas              <=  { P_CMD_ID_WIDTH { 1'b1 } };
     end
@@ -125,8 +137,8 @@ always @ ( posedge clk or negedge rst_n ) begin : cmd_driver
             r_cmd_cas            <=  cmd_inter_selected;
             r_req_id_cas         <=  req_id_selected_by_bg;
             r_cmd_id_cas         <=  cmd_id_selected_by_bg; 
-            r_bank_address_cas   <=  bank_address_selected_by_bg;
-            r_column_address_cas <=  column_address_selected_by_bg;
+            r_bank_group_cas     <=  actual_bank_group_serving;
+            // r_column_address_cas <=  column_address_selected_by_bg;
             `ifdef DEBUG
                 $display("[ CAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
             `endif
@@ -162,19 +174,44 @@ endgenerate
 /**********************************/
 /* ACTUAL BANK SERVING MANAGEMENT */
 /**********************************/
-always @(posedge clk or negedge rst_n)  begin : actual_bank_serving_driver
-    if (rst_n == 1'b0 ) begin
-        foreach (actual_bank_serving[i]) actual_bank_serving[i] <= {LP_ACTUAL_BANK_SERVING_WIDTH{1'b0}};
-    end
-    else begin
-        if ( cmd_inter_selected != actual_cmd_serving_type) begin
-            actual_bank_serving[actual_bank_group_serving] <= actual_bank_serving[actual_bank_group_serving] + 1'b1;
+// always @(posedge clk or negedge rst_n)  begin : actual_bank_serving_driver
+//     if (rst_n == 1'b0 ) begin
+//         foreach (actual_bank_serving[i]) actual_bank_serving[i] <= {LP_ACTUAL_BANK_SERVING_WIDTH{1'b0}};
+//     end
+//     else begin
+//         if ( cmd_inter_selected != actual_cmd_serving_type) begin
+//             actual_bank_serving[actual_bank_group_serving] <= actual_bank_serving[actual_bank_group_serving] + 1'b1;
+//         end
+//         else if (cmd_inter_selected == actual_cmd_serving_type && ready_to_cmd_cas) begin
+//             actual_bank_serving[actual_bank_group_serving] <= actual_bank_serving[actual_bank_group_serving] + 1'b1;
+//         end
+//     end
+// end
+
+genvar j;
+generate
+    for (j = 0; j < LP_BG_N; j = j+1 ) begin
+        always @(posedge clk or negedge rst_n)  begin : actual_bank_serving_driver
+            if (rst_n == 1'b0 ) begin
+                actual_bank_serving[j] <= {LP_ACTUAL_BANK_SERVING_WIDTH{1'b0}};
+            end
+            else begin
+                if ( actual_bank_group_serving == j ) begin
+                    if ( cmd_inter_selected != actual_cmd_serving_type) begin
+                        actual_bank_serving[j] <= actual_bank_serving[j] + 1'b1;
+                    end
+                    else if ( cmd_inter_selected == actual_cmd_serving_type && ready_to_cmd_cas) begin
+                        actual_bank_serving[j] <= actual_bank_serving[j] + 1'b1;
+                    end
+                end
+                else begin
+                    actual_bank_serving[j] <= actual_bank_serving[j];
+                end
+            end
         end
-        else if (cmd_inter_selected == actual_cmd_serving_type && ready_to_cmd_cas) begin
-            actual_bank_serving[actual_bank_group_serving] <= actual_bank_serving[actual_bank_group_serving] + 1'b1;
-        end
     end
-end
+endgenerate
+
 
 
 /*********************************/
@@ -183,16 +220,20 @@ end
 always @(posedge clk or negedge rst_n) begin : actual_bank_group_serving_driver
     if (rst_n == 1'b0) begin
         actual_bank_group_serving <= {LP_ACTUAL_BANK_GROUP_SERVING_WIDTH {1'b0}};
+        // r_ram_cas_req_id <= { P_REQ_ID_WIDTH{1'b0} }/*req_cas_id_bank[(0*P_BA_N_G) + actual_bank_serving[0]]*/;
     end
     else begin
         if ( cmd_inter_selected == actual_cmd_serving_type && ready_to_cmd_cas) begin
             actual_bank_group_serving <= actual_bank_group_serving + 1'b1; 
+            // r_ram_cas_req_id <= req_cas_id_bank[((actual_bank_group_serving+1'b1)*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving+1'b1]];
         end
         else if ( cmd_inter_selected != actual_cmd_serving_type) begin
             actual_bank_group_serving <= actual_bank_group_serving + 1'b1;
+            // r_ram_cas_req_id <= req_cas_id_bank[((actual_bank_group_serving+1'b1)*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving+1'b1]];
         end
         else begin
             actual_bank_group_serving <= actual_bank_group_serving;
+            // r_ram_cas_req_id <= r_ram_cas_req_id;
         end
     end
 end
