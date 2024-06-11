@@ -54,10 +54,10 @@ module HBM_controller_top#
 
     `ifndef DEBUG
         output        done,
-        input  [1:0]  request [0:16-1],
-        input  [31:0] address [0:16-1],
-        input                       request_valid        [0:16-1],
-        output                      request_picked       [0:16-1]
+        input  [1:0]  request [0:N_CHANNELS-1],
+        input  [31:0] address [0:N_CHANNELS-1],
+        input                       request_valid        [0:N_CHANNELS-1],
+        output                      request_picked       [0:N_CHANNELS-1]
         // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
         // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
 
@@ -515,7 +515,7 @@ reg  [3:0]    cnt_rst_1;
         .PSINCDEC            (1'b0)
     );
     
-    if (N_CHANNELS >= 8) begin
+    if (N_CHANNELS >= 1 /*8*/) begin
         MMCME4_ADV
         #(.BANDWIDTH            ("OPTIMIZED"),
             .CLKOUT4_CASCADE      ("FALSE"),
@@ -772,7 +772,7 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
                     r_done[i] <= 1'b0;
                 end
                 else begin
-                    if ( &rd_data_req_id_ps0[i] && |rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
                         r_done[i] <= 1'b1;
                     end
                     else begin
@@ -824,7 +824,7 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
                     r_done[i] <= 1'b0;
                 end
                 else begin
-                    if ( &rd_data_req_id_ps0[i] && |rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
                         r_done[i] <= 1'b1;
                     end
                     else begin
@@ -893,7 +893,7 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
                     r_done[i] <= 1'b0;
                 end
                 else begin
-                    if ( &rd_data_req_id_ps0[i] && |rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
                         r_done[i] <= 1'b1;
                     end
                     else begin

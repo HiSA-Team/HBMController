@@ -118,10 +118,11 @@ assign row_address_selected_by_bg    =  row_address_bank[(actual_bank_group_serv
 always @ (posedge clk or negedge rst_n) begin
     if(rst_n == 1'b0) begin
         r_cmd_ras                 <=  P_GENERAL_NOP;
-         r_bank_address_ras        <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
-        r_bank_group_ras         <=  { 2 { 1'b0 } };   
+        r_bank_address_ras       <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
+        r_bank_group_ras          <=  { 2 { 1'b0 } };   
         r_req_id_ras              <=  { P_REQ_ID_WIDTH { 1'b1 } };
         r_cmd_id_ras              <=  { P_CMD_ID_WIDTH { 1'b1 } };
+        r_row_address_ras         <=  { P_ROW_ADDR_WIDTH { 1'b1 } };
     end
     else begin
         if ( ready_to_cmd_ras && (cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB)) begin

@@ -21,15 +21,12 @@ set_property IOSTANDARD LVCMOS18 [get_ports ARESET_N_1]
 set_property PACKAGE_PIN D32 [get_ports hbm_cattrip_output]
 set_property IOSTANDARD LVCMOS18 [get_ports hbm_cattrip_output]
 
-
 create_pblock pblock_1
 add_cells_to_pblock [get_pblocks pblock_1] [get_cells  [list {genblk2[0].HBM_channel_controller_i} {genblk2[1].HBM_channel_controller_i} {genblk2[2].HBM_channel_controller_i} {genblk2[3].HBM_channel_controller_i} {genblk2[4].HBM_channel_controller_i} {genblk2[5].HBM_channel_controller_i} {genblk2[6].HBM_channel_controller_i} {genblk2[7].HBM_channel_controller_i} {u_mmcm_0}]]
 resize_pblock [get_pblocks pblock_1] -add {CLOCKREGION_X0Y0:CLOCKREGION_X3Y2}
 create_pblock pblock_2
 add_cells_to_pblock [get_pblocks pblock_2] [get_cells  [list {genblk2[8].HBM_channel_controller_i} {genblk2[9].HBM_channel_controller_i} {genblk2[10].HBM_channel_controller_i} {genblk2[11].HBM_channel_controller_i} {genblk2[12].HBM_channel_controller_i} {genblk2[13].HBM_channel_controller_i} {genblk2[14].HBM_channel_controller_i} {genblk2[15].HBM_channel_controller_i} {u_mmcm_1} ]] 
 resize_pblock [get_pblocks pblock_2] -add {CLOCKREGION_X4Y0:CLOCKREGION_X7Y2}
-#set_property IS_SOFT TRUE [get_pblocks pblock_1]
-#set_property IS_SOFT TRUE [get_pblocks pblock_2]
 
 set_false_path -from [get_clocks *APB_PCLK_0] -to [get_clocks *APB_PCLK_1]
 set_false_path -from [get_clocks *APB_PCLK_1] -to [get_clocks *APB_PCLK_0] 

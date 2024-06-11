@@ -803,6 +803,7 @@ end
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         rd_req_id_buffer_head_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_req_id_buffer_en_ps0 <= 1'b0;
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
@@ -987,6 +988,7 @@ end
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
         rd_req_id_buffer_head_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_req_id_buffer_en_ps1 <= 1'b0;
     end
     else begin
         /* We are going to serve a RD cmd, so we store the req id in the queue */
