@@ -755,7 +755,7 @@ reg  [3:0]    cnt_rst_1;
 
 genvar i;
 generate
-for( i = 0; i < N_CHANNELS; i = i+1 ) begin
+for( i = 0; i < 16; i = i+1 ) begin
     if (i == 7 ) begin
 
         always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
@@ -930,6 +930,14 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
     
     end
     
+    
+end
+endgenerate
+
+
+
+generate
+for (i=0; i < N_CHANNELS; i = i+1)  begin
     if ( i == 7 ) begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN)
@@ -1132,7 +1140,8 @@ for( i = 0; i < N_CHANNELS; i = i+1 ) begin
         );
     end
 end
-endgenerate
+endgenerate 
+
 
 hbm_0 hbm_0_i
 (

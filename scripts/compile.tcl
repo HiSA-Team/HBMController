@@ -18,7 +18,7 @@ puts "****"
 
 # Launch synthesis
 # launch_runs synth_1 -jobs $cfg(cores)
-launch_runs synth_1 -jobs 8
+launch_runs synth_1 -jobs 16
 
 # Wait on completion
 wait_on_run synth_1
@@ -32,7 +32,7 @@ if {[get_property PROGRESS [get_runs synth_1]] != "100%"} {
 }
 
 
-launch_runs impl_1 -jobs 8
+launch_runs impl_1 -jobs 16
 # Wait on completion
 wait_on_run impl_1
 if {[get_property PROGRESS [get_runs impl_1]] != "100%"} {   
