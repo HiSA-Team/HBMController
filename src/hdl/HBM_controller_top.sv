@@ -41,25 +41,25 @@ module HBM_controller_top#
     input APB_PCLK_0,
     input APB_PRESET_N_0,
     
-//    input HBM_REF_CLK_1,
     input ARESET_N_1,
     input APB_PCLK_1,
     input APB_PRESET_N_1,
 
-    // input [31:0]address,
-    // input [256-1:0]write_data,
-    // input [1:0]request,
-
     output hbm_cattrip_output,
 
+    output dfi_clk,
+    output dfi_rst,
+
     `ifndef DEBUG
-        output        done,
-        input  [1:0]  request [0:N_CHANNELS-1],
-        input  [31:0] address [0:N_CHANNELS-1],
+        // output        done,
+        input  [1:0]                request              [0:N_CHANNELS-1],
+        input  [31:0]               address              [0:N_CHANNELS-1],
         input                       request_valid        [0:N_CHANNELS-1],
-        output                      request_picked       [0:N_CHANNELS-1]
-        // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
-        // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
+        output                      request_picked       [0:N_CHANNELS-1],
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:N_CHANNELS-1]
 
     `endif
 
@@ -84,19 +84,19 @@ localparam MMCM_CLKOUT0_DIVIDE_F = 2;
 localparam MMCM_DIVCLK_DIVIDE    = 1;
 localparam MMCM_CLKIN1_PERIOD    = 10.000;
 
-/*(* keep = "TRUE" *)*/ wire HBM_REF_CLK_buf_0;
-/*(* keep = "TRUE" *)*/ wire HBM_REF_CLK_buf_1;
-/*(* keep = "TRUE" *)*/ wire dfi_clk_buf[0:15] /*[0:N_CHANNELS-1]*/;
-/*(* keep = "TRUE" *)*/ wire dfi_clk_in[0:15] /*[0:N_CHANNELS-1]*/;
-/*(* keep = "TRUE" *)*/ wire MMCM_LOCK_0;
-/*(* keep = "TRUE" *)*/ wire MMCM_LOCK_1;
+wire HBM_REF_CLK_buf_0;
+wire HBM_REF_CLK_buf_1;
+wire dfi_clk_buf[0:15];
+wire dfi_clk_in[0:15];
+wire MMCM_LOCK_0;
+wire MMCM_LOCK_1;
 
-/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_0;
-/*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_0;
-/*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_0;
-/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_1;
-/*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_1;
-/*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_1;
+wire      APB_PCLK_IBUF_0;
+wire      APB_PCLK_BUF_0;
+wire      APB_PRESET_N_sync_0;
+wire      APB_PCLK_IBUF_1;
+wire      APB_PCLK_BUF_1;
+wire      APB_PRESET_N_sync_1;
 
 
 wire	[3:0]		w_rst_sys_rst;
@@ -586,10 +586,10 @@ reg  [3:0]    cnt_rst_1;
     
 
     `ifndef DEBUG
-        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
-        wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
-        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1   [0:16-1];
-        wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
+//        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
+//        wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
+//        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1   [0:16-1];
+//        wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
 
         wire reset_hbm_controller[0:16-1];
         // wire [31:0]address[0:16-1];
@@ -935,6 +935,8 @@ end
 endgenerate
 
 
+assign dfi_clk = dfi_clk_buf[0]; // for now just to do a first physical synthesis...
+assign dfi_rst = dfi_rst_n[0];
 
 generate
 for (i=0; i < N_CHANNELS; i = i+1)  begin
