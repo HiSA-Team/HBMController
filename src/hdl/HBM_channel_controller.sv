@@ -39,6 +39,9 @@ module HBM_channel_controller # (
 
     /* FIFO QUEUE LEN */
     parameter       P_QUEUE_LEN             = 8,
+    
+    /* MAPPING ADDRESS POLICY */
+    parameter       P_MAPPING_POLICY        = 1,
 
     /* WRT BUFFER LEN */
     parameter       P_WRT_DATA_BUFFER_LEN   = 4,
@@ -231,36 +234,49 @@ wire  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps0;
 wire  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps1;
 
 /* ADDRESS MAPPING POLICY */
+
+generate
 /* 14R-6C-2BG-2B-PC-2C */
-`ifdef ADDRESS_MAPPING_1
+//`ifdef ADDRESS_MAPPING_1
+if (P_MAPPING_POLICY == 1) begin
     assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[12:7]};
+    assign column_address =  {input_address[12:8], 1'b1};
     assign bank_address   =  {input_address[2], input_address[6:3]};
-`endif
+//`endif
+end
+else if (P_MAPPING_POLICY == 2) begin
 /* 14R-6C-2B-2BG-PC-2C */
-`ifdef ADDRESS_MAPPING_2
+//`ifdef ADDRESS_MAPPING_2
     assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[12:7]};
+    assign column_address =  {input_address[12:8], 1'b1};
     assign bank_address   =  {input_address[2], input_address[4:3],input_address[6:5]};
-`endif
+//`endif
+end 
+else if (P_MAPPING_POLICY == 3) begin
 /* PC-2BG-2B-14R-6C */
-`ifdef ADDRESS_MAPPING_3
+//`ifdef ADDRESS_MAPPING_3
     assign row_address    =  {input_address[21:8]};
-    assign column_address =  {input_address[7:2]};
+    assign column_address =  {input_address[7:3], 1'b1};
     assign bank_address   =  {input_address[26:22]};
-`endif
+//`endif
+end
+else if (P_MAPPING_POLICY == 4) begin 
 /* 14R-PC-2BG-2B-6C */ 
-`ifdef ADDRESS_MAPPING_4
+//`ifdef ADDRESS_MAPPING_4
     assign row_address    =  {input_address[26:13]};
-    assign column_address =  {input_address[7:2]};
+    assign column_address =  {input_address[7:3], 1'b1};
     assign bank_address   =  {input_address[12:8]};
-`endif
+//`endif
+end
+else if (P_MAPPING_POLICY == 5) begin 
 /* 14R-2BG-2B-6C-PC */
-`ifdef ADDRESS_MAPPING_5
+//`ifdef ADDRESS_MAPPING_5
     assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[8:3]};
+    assign column_address =  {input_address[8:4], 1'b1};
     assign bank_address   =  {input_address[2], input_address[12:9]};
-`endif
+//`endif
+end
+endgenerate
 /* END ADDRESS MAPPING POLICY */
 
 /* TRACK THE NUMBER OF REQUESTS */
@@ -376,31 +392,22 @@ generate
                 .P_COL_WRT		   (P_COL_WRT    ),
                 .P_COL_RD          (P_COL_RD     )
             ) REQ_to_CMD_translator_i (
-                .clk               (dfi_clk_buf         ),
-                .rst_n             (reset_hbm_controller),
-                
-                .input_req_id      (input_req_id[i]     ), 
-                .input_request     (input_request    ),
-                
-                .row_address(row_address),
-                // .column_address(column_address),
-//                 .bank_address(bank_address),
-
-                .request_valid     (request_valid[i]  ),
-                .request_picked    (request_picked[i] ),
-               
+                .clk               (dfi_clk_buf              ),
+                .rst_n             (reset_hbm_controller     ),
+                .input_req_id      (input_req_id[i]          ), 
+                .input_request     (input_request            ),
+                .row_address       (row_address              ),
+                .request_valid     (request_valid[i]         ),
+                .request_picked    (request_picked[i]        ),
                 .req_id            (req_id[i]                ),
                 .cmd_id            (cmd_id[i]                ),
                 .cmd_picked        (cmd_picked_dispatcher[i] ),
                 .cmd               (cmd_dispatcher[i]        ),
-//                .cmd_valid         (cmd_valid_dispatcher[i]  )
-//                 .bank_addr         (bank_addr_dispatcher[i]  ),
-                 .row_addr          (row_addr_dispatcher[i]   )
-                // .col_addr          (col_addr_dispatcher[i]   )
+                .row_addr          (row_addr_dispatcher[i]   )
             );
     
     
-            bank_scheduler#(
+            bank_scheduler #(
                 .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH ),
                 .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH ),
                 .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH  ), 
@@ -428,8 +435,6 @@ generate
                 .tBURST                    (tBURST ),
                 .tRFCpb                    (tRFCpb ),
                 .tREFP                     (tREFP  )  
-
-
             ) bank_scheduler_i (
                 .clk                       (dfi_clk_buf ),
                 .rst_n                     (reset_hbm_controller   ),

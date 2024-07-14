@@ -1,4 +1,3 @@
-
 `timescale 1 ns / 1 ps
 
 	module HBM_AXI_Wrapper #
@@ -8,7 +7,7 @@
         parameter P_BA_N_PS    = 16,         /* Number of Banks per group */
 
         /* FIFO QUEUE LEN */
-        parameter P_QUEUE_LEN  = 8,
+        parameter P_QUEUE_LEN  = 4,
         
         /* MAPPING ADDRESS POLICY */
         parameter MAPPING_POLICY = 1,
@@ -101,14 +100,14 @@
     wire dfi_clk [0:N_CHANNELS-1];
     wire dfi_rst [0:N_CHANNELS-1];
 
-    reg wr_en;
-    reg rd_en;
+    reg wr_en [0:N_CHANNELS-1];
+    reg rd_en [0:N_CHANNELS-1];
 
-    wire empty;
-    wire full; 
+    wire empty [0:N_CHANNELS-1];
+    wire full [0:N_CHANNELS-1]; 
 
-    reg  [ 256 + 32 + 2 - 1 : 0 ] data_in;
-    wire [ 256 + 32 + 2 - 1 : 0 ] data_out;
+    reg  [ 256 + 32 + 2 - 1 : 0 ] data_in  [0:N_CHANNELS-1];
+    wire [ 256 + 32 + 2 - 1 : 0 ] data_out [0:N_CHANNELS-1];
 
 	// AXI4FULL signals
 	reg [C_S_AXI_ADDR_WIDTH-1 : 0] 	axi_awaddr;
@@ -296,7 +295,7 @@
 	    end 
 	  else
 	    begin    
-	      if ( ~axi_wready && S_AXI_WVALID && axi_awv_awr_flag && ~full )
+	      if ( ~axi_wready && S_AXI_WVALID && axi_awv_awr_flag && ~full[0] )
 	        begin
 	          // slave can accept the write data
 	          axi_wready <= 1'b1;
@@ -359,7 +358,7 @@
 	    end 
 	  else
 	    begin    
-	      if (~axi_arready && S_AXI_ARVALID && ~axi_awv_awr_flag && ~axi_arv_arr_flag && ~full)
+	      if (~axi_arready && S_AXI_ARVALID && ~axi_awv_awr_flag && ~axi_arv_arr_flag && ~full[0])
 	        begin
 	          axi_arready <= 1'b1;
 	          axi_arv_arr_flag <= 1'b1;
@@ -497,74 +496,72 @@
 	      assign mem_address = (axi_arv_arr_flag? axi_araddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB]:(axi_awv_awr_flag? axi_awaddr[ADDR_LSB+OPT_MEM_ADDR_BITS:ADDR_LSB]:0));
 	    end
 	endgenerate
-    
 
-    async_dual_port_fifo #(
-        .DATA_WIDTH( 256 + 32 + 2 ),
-        .ADDR_WIDTH(32),
-        .N_STAGE(3)
-    ) async_dual_port_fifo_i (
-        .wr_en(wr_en),
-        .rd_en(rd_en),
-        
-        .wr_clk(S_AXI_ACLK),
-        .wr_rst(S_AXI_ARESETN),
 
-        .rd_clk(dfi_clk[0]),
-        .rd_rst(dfi_rst[0]),
-        
-        .full(full),
-        .empty(empty),
 
-        .data_in(data_in),
-        .data_out(data_out)
-    );
-
-    always @(posedge S_AXI_ACLK or negedge S_AXI_ARESETN ) begin
-        if ( S_AXI_ARESETN == 1'b0 ) begin
-            wr_en <= 1'b0;
-            data_in <= { 256 + 32 + 2 { 1'b0 } };
-        end
-        else begin
-            if ( axi_wready && S_AXI_WVALID ) begin /* full prevent axi_wready to go high, see above... */
-                wr_en   <= 1'b1;
-                data_in <= { S_AXI_WDATA, S_AXI_AWADDR, 2'h00 };  
-            end
-            else if ( axi_arready && S_AXI_ARVALID ) begin /* full prevent axi_arready to go high, see above... */
-                wr_en   <= 1'b1;
-                data_in <= { {256 { 1'b0 }}, S_AXI_ARADDR, 2'h01 };
-            end
-            else begin
-                wr_en   <= 1'b0;
-                data_in <= { 256 + 32 + 2 { 1'b0 } };
-            end
-        end
-    end
-
-    
-    assign valid = |data_valid[0] || |data_valid[1] || |data_valid[2] || |data_valid[3]
-                   || |data_valid[4] || |data_valid[5] || |data_valid[6] || |data_valid[7] 
-                   || |data_valid[8] || |data_valid[9] || |data_valid[10] || |data_valid[11]
-                   || |data_valid[12] || |data_valid[13] || |data_valid[14] || |data_valid[15];                 
-
-	always @( rd_data_ps0[0], /*axi_rvalid*/ valid  )
-	begin
-	  if (valid) 
-	    begin
-	      // Read address mux
-	      axi_rdata <= rd_data_ps0[0];
-	    end   
-	  else
-	    begin
-	      axi_rdata <= 32'h00000000;
-	    end       
-	end    
-	
 	reg  [P_DATA_WIDTH-1:0]   write_data           [0:N_CHANNELS-1];
 
-    genvar k;
+	genvar k;
     generate
         for ( k = 0; k < N_CHANNELS ; k = k+1 ) begin
+
+			async_dual_port_fifo #(
+				.DATA_WIDTH( 256 + 32 + 2 ),
+				.ADDR_WIDTH(32),
+				.N_STAGE(3)
+			) async_dual_port_fifo_i (
+				.wr_en(wr_en[k]),
+				.rd_en(rd_en[k]),
+				
+				.wr_clk(S_AXI_ACLK),
+				.wr_rst(S_AXI_ARESETN),
+
+				.rd_clk(dfi_clk[k]),
+				.rd_rst(dfi_rst[k]),
+				
+				.full(full[k]),
+				.empty(empty[k]),
+
+				.data_in(data_in[k]),
+				.data_out(data_out[k])
+			);
+
+
+			always @(posedge S_AXI_ACLK or negedge S_AXI_ARESETN ) begin
+				if ( S_AXI_ARESETN == 1'b0 ) begin
+					wr_en[k] <= 1'b0;
+					data_in[k] <= { 256 + 32 + 2 { 1'b0 } };
+				end
+				else begin
+					if ( axi_wready && S_AXI_WVALID ) begin /* full prevent axi_wready to go high, see above... */
+						wr_en[k]   <= 1'b1;
+						data_in[k] <= { S_AXI_WDATA, S_AXI_AWADDR, 2'h00 };  
+					end
+					else if ( axi_arready && S_AXI_ARVALID ) begin /* full prevent axi_arready to go high, see above... */
+						wr_en[k]   <= 1'b1;
+						data_in[k] <= { {256 { 1'b0 }}, S_AXI_ARADDR, 2'h01 };
+					end
+					else begin
+						wr_en[k]   <= 1'b0;
+						data_in[k] <= { 256 + 32 + 2 { 1'b0 } };
+					end
+				end
+    		end
+
+			always @( posedge dfi_clk[k] or negedge dfi_rst[k] ) begin
+				if (dfi_rst[k] == 1'b0) begin
+					rd_en[k] <= 1'b0;
+				end
+				else begin
+					if ( empty[k] == 1'b0 ) begin
+						rd_en[k] <= 1'b1;
+					end
+					else begin
+						rd_en[k] <= 1'b0;
+					end
+				end
+			end
+
             always @( posedge dfi_clk[k] or negedge dfi_rst[k] ) begin
                 if (dfi_rst[k] == 1'b0) begin
                     request_valid[k] <= 1'b0;
@@ -573,16 +570,11 @@
                     write_data[k] <= { 256 + 32 + 2 { 1'b0 } };
                 end
                 else begin
-                    if ( ~request_valid[k] && rd_en ) begin
+                    if ( ~request_valid[k] && rd_en[k] ) begin
                         request_valid[k] <= 1'b1;
-
-						if ( k == 0) begin
-							request[k]    <= data_out[1:0];
-							address[k]    <= data_out[33:2];
-							write_data[k] <= data_out[289:34];
-						end
-                        
-                        
+						request[k]    <= data_out[k][1:0];
+						address[k]    <= data_out[k][33:2];
+						write_data[k] <= data_out[k][289:34];                
                     end
                     else if ( request_valid[k] && ~request_picked[k] ) begin
                         request_valid[k] <= 1'b1;
@@ -603,21 +595,28 @@
             end
         end 
     endgenerate
+
+
     
+
     
-    always @( posedge dfi_clk[0] or negedge dfi_rst[0] ) begin
-        if (dfi_rst[0] == 1'b0) begin
-            rd_en <= 1'b0;
-        end
-        else begin
-            if ( empty == 1'b0 ) begin
-                rd_en <= 1'b1;
-            end
-            else begin
-                rd_en <= 1'b0;
-            end
-        end
-    end
+    assign valid = |data_valid[0] || |data_valid[1] || |data_valid[2] || |data_valid[3]
+                   || |data_valid[4] || |data_valid[5] || |data_valid[6] || |data_valid[7] 
+                   || |data_valid[8] || |data_valid[9] || |data_valid[10] || |data_valid[11]
+                   || |data_valid[12] || |data_valid[13] || |data_valid[14] || |data_valid[15];                 
+
+	always @( rd_data_ps0[0], /*axi_rvalid*/ valid  )
+	begin
+	  if (valid) 
+	    begin
+	      // Read address mux
+	      axi_rdata <= rd_data_ps0[0];
+	    end   
+	  else
+	    begin
+	      axi_rdata <= 32'h00000000;
+	    end       
+	end
 
 
     HBM_controller_top #(
