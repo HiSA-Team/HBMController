@@ -11,7 +11,7 @@ For now, the synthesis and implementation go well on the Alveo U280 card.
 
 ## Getting started
 
-#### Create the build directory :
+#### Create the build directory
 ~~~~
 mkdir build && cd build
 ~~~~
