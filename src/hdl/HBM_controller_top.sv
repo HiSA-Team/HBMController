@@ -70,19 +70,19 @@ module HBM_controller_top#
 
 //    `endif
 
-//    `ifdef DEBUG
+   `ifdef DEBUG
 //        input  [31:0]               address              [0:16-1],
 //        input  [1:0]                request              [0:16-1],
 //        input  [P_DATA_WIDTH-1:0]   write_data           [0:16-1],
 //        input                       request_valid        [0:16-1],
 //        output                      request_picked       [0:16-1],
-//        output                      reset_hbm_controller [0:16-1],
+       ,output                      reset_hbm_controller [0:16-1]
 
 //        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
 //        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:16-1],
 //        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
 //        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:16-1]
-//    `endif
+   `endif
 
 );
 
@@ -944,8 +944,14 @@ end
 endgenerate
 
 
-assign dfi_clk = dfi_clk_buf/*[0]*/; // for now just to do a first physical synthesis...
-assign dfi_rst = dfi_rst_n/*[0]*/;
+`ifdef DEBUG
+    assign dfi_clk = dfi_clk_buf[0:0];
+    assign dfi_rst = dfi_rst_n[0:0];
+`endif
+`ifndef DEBUG
+    assign dfi_clk = dfi_clk_buf;
+    assign dfi_rst = dfi_rst_n;
+`endif
 
 generate
 for (i=0; i < N_CHANNELS; i = i+1)  begin

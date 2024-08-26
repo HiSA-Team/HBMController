@@ -129,9 +129,9 @@ initial begin
     $finish;
 end
 
-wire [7:0]     rd_data_req_id_ps0   [0:16-1];
+wire [8:0]     rd_data_req_id_ps0   [0:16-1];
 wire [255:0]   rd_data_ps0          [0:16-1];
-wire [7:0]     rd_data_req_id_ps1   [0:16-1];
+wire [8:0]     rd_data_req_id_ps1   [0:16-1];
 wire [255:0]   rd_data_ps1          [0:16-1];
 
 
@@ -141,15 +141,15 @@ HBM_controller_top_i (
     .ARESET_N_0(ARESET_N_0),
     .APB_PCLK_0(APB_PCLK),
     .APB_PRESET_N_0(APB_PRESET_N),
-    .address(input_address),
-    .request(input_request),
-    .write_data(input_data),
-    .request_valid(request_valid),
-    .request_picked(request_picked),
-    .reset_hbm_controller(reset_hbm_controller),
-    .rd_data_req_id_ps0(rd_data_req_id_ps0),
-    .rd_data_ps0(rd_data_ps0),
-    .rd_data_req_id_ps1(rd_data_req_id_ps1),
-    .rd_data_ps1(rd_data_ps1)
+    .address(input_address[0:0]),
+    .request(input_request[0:0]),
+    .write_data(input_data[0:0]),
+    .request_valid(request_valid[0:0]),
+    .request_picked(request_picked[0:0]),
+    .reset_hbm_controller(reset_hbm_controller/*[0:0]*/),
+    .rd_data_req_id_ps0(rd_data_req_id_ps0[0:0]),
+    .rd_data_ps0(rd_data_ps0[0:0]),
+    .rd_data_req_id_ps1(rd_data_req_id_ps1[0:0]),
+    .rd_data_ps1(rd_data_ps1[0:0])
 );
 endmodule
