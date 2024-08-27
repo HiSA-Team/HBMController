@@ -33,7 +33,14 @@ module HBM_controller_top#
     parameter P_MAPPING_POLICY        = 1,
     
     /* REQ and CMD IDs */
-    parameter P_REQ_ID_WIDTH = $clog2(P_BA_N_PS*P_QUEUE_LEN*2),
+    // `ifdef DEBUG
+    //     parameter P_REQ_ID_WIDTH = 32,
+    // `endif
+
+    // `ifndef DEBUG
+        parameter P_REQ_ID_WIDTH = $clog2(P_BA_N_PS*P_QUEUE_LEN*2),
+    // `endif
+    
     parameter P_CMD_ID_WIDTH = 32'd3
 
 )
@@ -44,45 +51,41 @@ module HBM_controller_top#
     input APB_PCLK_0,
     input APB_PRESET_N_0,
     
+//    input HBM_REF_CLK_1,
     input ARESET_N_1,
     input APB_PCLK_1,
     input APB_PRESET_N_1,
 
+    // input [31:0]address,
+    // input [256-1:0]write_data,
+    // input [1:0]request,
+
     output hbm_cattrip_output,
 
-    output dfi_clk [0:N_CHANNELS-1],
-    output dfi_rst [0:N_CHANNELS-1],
-
-//    `ifndef DEBUG
-        // output        done,
-        
-        input  [P_DATA_WIDTH-1:0]   write_data           [0:N_CHANNELS-1],
-        input  [1:0]                request              [0:N_CHANNELS-1],
-        input  [31:0]               address              [0:N_CHANNELS-1],
+    `ifndef DEBUG
+        output        done,
+        input  [1:0]  request [0:N_CHANNELS-1],
+        input  [31:0] address [0:N_CHANNELS-1],
         input                       request_valid        [0:N_CHANNELS-1],
-        
-        output [3:0]                data_valid           [0:N_CHANNELS-1],      
-        output                      request_picked       [0:N_CHANNELS-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:N_CHANNELS-1]
+        output                      request_picked       [0:N_CHANNELS-1]
+        // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
+        // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
 
-//    `endif
+    `endif
 
-   `ifdef DEBUG
-//        input  [31:0]               address              [0:16-1],
-//        input  [1:0]                request              [0:16-1],
-//        input  [P_DATA_WIDTH-1:0]   write_data           [0:16-1],
-//        input                       request_valid        [0:16-1],
-//        output                      request_picked       [0:16-1],
-       ,output                      reset_hbm_controller [0:16-1]
+    `ifdef DEBUG
+        input  [31:0]               address              [0:16-1],
+        input  [1:0]                request              [0:16-1],
+        input  [P_DATA_WIDTH-1:0]   write_data           [0:16-1],
+        input                       request_valid        [0:16-1],
+        output                      request_picked       [0:16-1],
+        output                      reset_hbm_controller [0:16-1],
 
-//        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
-//        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:16-1],
-//        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
-//        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:16-1]
-   `endif
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:16-1],
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:16-1]
+    `endif
 
 );
 
@@ -91,19 +94,19 @@ localparam MMCM_CLKOUT0_DIVIDE_F = 2;
 localparam MMCM_DIVCLK_DIVIDE    = 1;
 localparam MMCM_CLKIN1_PERIOD    = 10.000;
 
-wire HBM_REF_CLK_buf_0;
-wire HBM_REF_CLK_buf_1;
-wire dfi_clk_buf[0:15];
-wire dfi_clk_in[0:15];
-wire MMCM_LOCK_0;
-wire MMCM_LOCK_1;
+/*(* keep = "TRUE" *)*/ wire HBM_REF_CLK_buf_0;
+/*(* keep = "TRUE" *)*/ wire HBM_REF_CLK_buf_1;
+/*(* keep = "TRUE" *)*/ wire dfi_clk_buf[0:15] /*[0:N_CHANNELS-1]*/;
+/*(* keep = "TRUE" *)*/ wire dfi_clk_in[0:15] /*[0:N_CHANNELS-1]*/;
+/*(* keep = "TRUE" *)*/ wire MMCM_LOCK_0;
+/*(* keep = "TRUE" *)*/ wire MMCM_LOCK_1;
 
-wire      APB_PCLK_IBUF_0;
-wire      APB_PCLK_BUF_0;
-wire      APB_PRESET_N_sync_0;
-wire      APB_PCLK_IBUF_1;
-wire      APB_PCLK_BUF_1;
-wire      APB_PRESET_N_sync_1;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_0;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_0;
+/*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_0;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_1;
+/*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_1;
+/*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_1;
 
 
 wire	[3:0]		w_rst_sys_rst;
@@ -214,8 +217,6 @@ reg           w_rst_sys_rst_1_r2_1;
 reg           rst_mmcm_1;
 reg  [3:0]    cnt_rst_1;
 
-
-assign data_valid[0] = dfi_dw_rddata_valid[0];
 
     
     always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
@@ -595,26 +596,26 @@ assign data_valid[0] = dfi_dw_rddata_valid[0];
     
 
     `ifndef DEBUG
-//        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
-//        wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
-//        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1   [0:16-1];
-//        wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
+        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
+        wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
+        wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1   [0:16-1];
+        wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
 
         wire reset_hbm_controller[0:16-1];
         // wire [31:0]address[0:16-1];
         // wire [1:0]request[0:16-1];
-//        wire [P_DATA_WIDTH-1:0] write_data[0:16-1];
+        wire [P_DATA_WIDTH-1:0] write_data[0:16-1];
 
         // reg [31:0] r_address[0:16-1];
         // reg [1:0] r_request[0:16-1];
-//        reg [P_DATA_WIDTH-1:0] r_wrt_data[0:16-1];
-//        reg [0:16-1]r_done;
+        reg [P_DATA_WIDTH-1:0] r_wrt_data[0:16-1];
+        reg [0:16-1]r_done;
 
         // assign address = r_address;
         // assign request = r_request;
-//        assign write_data = r_wrt_data;
+        assign write_data = r_wrt_data;
 
-//        assign done = &r_done[0:N_CHANNELS-1];
+        assign done = &r_done[0:N_CHANNELS-1];
 
         // /*(* keep = "TRUE" *)*/ reg   request_valid  [0:N_CHANNELS-1];
         // /*(* keep = "TRUE" *)*/ wire  request_picked [0:N_CHANNELS-1];
@@ -767,41 +768,41 @@ generate
 for( i = 0; i < 16; i = i+1 ) begin
     if (i == 7 ) begin
 
-//        always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
-//            if (~ARESET_N_0) begin
-//                dfi_rst_n[6] <= 1'b0;
-//            end else begin
-//                dfi_rst_n[6] <= rst0_st0_r2_n[6];
-//            end
-//        end
+        always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
+            if (~ARESET_N_0) begin
+                dfi_rst_n[6] <= 1'b0;
+            end else begin
+                dfi_rst_n[6] <= rst0_st0_r2_n[6];
+            end
+        end
 
         `ifndef DEBUG
-//            always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
-//                if (dfi_rst_n[6] == 1'b0) begin
-//                    r_done[i] <= 1'b0;
-//                end
-//                else begin
-//                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
-//                        r_done[i] <= 1'b1;
-//                    end
-//                    else begin
-//                        r_done[i] <= 1'b0;
-//                    end
-//                end
-//            end
+            always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
+                if (dfi_rst_n[6] == 1'b0) begin
+                    r_done[i] <= 1'b0;
+                end
+                else begin
+                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                        r_done[i] <= 1'b1;
+                    end
+                    else begin
+                        r_done[i] <= 1'b0;
+                    end
+                end
+            end
 
-//            always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
-//                if (dfi_rst_n[6] == 1'b0) begin
-//                    // r_address[i] <= {33{1'b0}};
-//                    // r_request[i] <= 2'b00;
-//                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-//                    // request_valid[i] <= 1'b0;
-//                end
-//                else begin
+            always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
+                if (dfi_rst_n[6] == 1'b0) begin
+                    // r_address[i] <= {33{1'b0}};
+                    // r_request[i] <= 2'b00;
+                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                    // request_valid[i] <= 1'b0;
+                end
+                else begin
                     // if (request_valid[i] == 1'b0) begin
                         // request_valid[i] <= 1'b1;
                         // r_address[i] <= r_address[i] + 1'b1;
-//                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;
+                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;
                         // if ( r_request[i] == 2'b00 ) begin
                         //     r_request[i] <= 2'b01; 
                         // end
@@ -812,60 +813,60 @@ for( i = 0; i < 16; i = i+1 ) begin
                     // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
                     //     request_valid[i] <= 1'b0;
                     // end
-//                end
-//            end
+                end
+            end
         `endif
 
     end
     else if ( i == 15 ) begin
 
-//        always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
-//            if (~ARESET_N_1) begin
-//                dfi_rst_n[14] <= 1'b0;
-//            end else begin
-//                dfi_rst_n[14] <= rst0_st0_r2_n[14];
-//            end
-//        end
+        always @ (posedge dfi_clk_buf[14] or negedge ARESET_N_1) begin
+            if (~ARESET_N_1) begin
+                dfi_rst_n[14] <= 1'b0;
+            end else begin
+                dfi_rst_n[14] <= rst0_st0_r2_n[14];
+            end
+        end
 
         `ifndef DEBUG
-//            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
-//                if (dfi_rst_n[14] == 1'b0) begin
-//                    r_done[i] <= 1'b0;
-//                end
-//                else begin
-//                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
-//                        r_done[i] <= 1'b1;
-//                    end
-//                    else begin
-//                        r_done[i] <= 1'b0;
-//                    end
-//                end
-//            end
+            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
+                if (dfi_rst_n[14] == 1'b0) begin
+                    r_done[i] <= 1'b0;
+                end
+                else begin
+                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                        r_done[i] <= 1'b1;
+                    end
+                    else begin
+                        r_done[i] <= 1'b0;
+                    end
+                end
+            end
 
-//            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
-//                if (dfi_rst_n[14] == 1'b0) begin
-//                    // r_address[i] <= {33{1'b0}};
-//                    // r_request[i] <= 2'b00;
-//                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-//                    // request_valid[i] <= 1'b0;
-//                end
-//                else begin
-//                    // if (request_valid[i] == 1'b0) begin
-//                    //     request_valid[i] <= 1'b1;
-//                        // r_address[i] <= r_address[i] + 1'b1;
-//                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
-//                        // if ( r_request[i] == 2'b00 ) begin
-//                        //     r_request[i] <= 2'b01; 
-//                        // end
-//                        // else begin
-//                        //     r_request[i] <= 2'b00;
-//                        // end
-//                    // end
-//                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-//                    //     request_valid[i] <= 1'b0;
-//                    // end
-//                end
-//            end
+            always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
+                if (dfi_rst_n[14] == 1'b0) begin
+                    // r_address[i] <= {33{1'b0}};
+                    // r_request[i] <= 2'b00;
+                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                    // request_valid[i] <= 1'b0;
+                end
+                else begin
+                    // if (request_valid[i] == 1'b0) begin
+                    //     request_valid[i] <= 1'b1;
+                        // r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
+                        // if ( r_request[i] == 2'b00 ) begin
+                        //     r_request[i] <= 2'b01; 
+                        // end
+                        // else begin
+                        //     r_request[i] <= 2'b00;
+                        // end
+                    // end
+                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                    //     request_valid[i] <= 1'b0;
+                    // end
+                end
+            end
         `endif
 
     end
@@ -897,44 +898,44 @@ for( i = 0; i < 16; i = i+1 ) begin
         );
 
         `ifndef DEBUG
-//            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
-//                if (dfi_rst_n[i] == 1'b0) begin
-//                    r_done[i] <= 1'b0;
-//                end
-//                else begin
-//                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
-//                        r_done[i] <= 1'b1;
-//                    end
-//                    else begin
-//                        r_done[i] <= 1'b0;
-//                    end
-//                end
-//            end
+            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
+                if (dfi_rst_n[i] == 1'b0) begin
+                    r_done[i] <= 1'b0;
+                end
+                else begin
+                    if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
+                        r_done[i] <= 1'b1;
+                    end
+                    else begin
+                        r_done[i] <= 1'b0;
+                    end
+                end
+            end
 
-//            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
-//                if (dfi_rst_n[i] == 1'b0) begin
-//                    // r_address[i] <= {33{1'b0}};
-//                    // r_request[i] <= 2'b00;
-//                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-//                    // request_valid[i] <= 1'b0;
-//                end
-//                else begin
-//                    // if (request_valid[i] == 1'b0) begin
-//                    //     request_valid[i] <= 1'b1;
-//                        // r_address[i] <= r_address[i] + 1'b1;
-//                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
-//                        // if ( r_request[i] == 2'b00 ) begin
-//                        //     r_request[i] <= 2'b01; 
-//                        // end
-//                        // else begin
-//                        //     r_request[i] <= 2'b00;
-//                        // end
-//                    // end
-//                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-//                    //     request_valid[i] <= 1'b0;
-//                    // end
-//                end
-//            end
+            always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
+                if (dfi_rst_n[i] == 1'b0) begin
+                    // r_address[i] <= {33{1'b0}};
+                    // r_request[i] <= 2'b00;
+                    r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
+                    // request_valid[i] <= 1'b0;
+                end
+                else begin
+                    // if (request_valid[i] == 1'b0) begin
+                    //     request_valid[i] <= 1'b1;
+                        // r_address[i] <= r_address[i] + 1'b1;
+                        r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
+                        // if ( r_request[i] == 2'b00 ) begin
+                        //     r_request[i] <= 2'b01; 
+                        // end
+                        // else begin
+                        //     r_request[i] <= 2'b00;
+                        // end
+                    // end
+                    // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
+                    //     request_valid[i] <= 1'b0;
+                    // end
+                end
+            end
         `endif
     
     end
@@ -944,21 +945,13 @@ end
 endgenerate
 
 
-`ifdef DEBUG
-    assign dfi_clk = dfi_clk_buf[0:0];
-    assign dfi_rst = dfi_rst_n[0:0];
-`endif
-`ifndef DEBUG
-    assign dfi_clk = dfi_clk_buf;
-    assign dfi_rst = dfi_rst_n;
-`endif
 
 generate
 for (i=0; i < N_CHANNELS; i = i+1)  begin
     if ( i == 7 ) begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN),
-            .P_MAPPING_POLICY(P_MAPPING_POLICY)
+            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH)
         )
         HBM_channel_controller_i
         (
@@ -1026,7 +1019,7 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     else if ( i == 15 ) begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN),
-            .P_MAPPING_POLICY(P_MAPPING_POLICY)
+            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH)
         )
         HBM_channel_controller_i
         (
@@ -1095,7 +1088,7 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     else begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN),
-            .P_MAPPING_POLICY(P_MAPPING_POLICY)
+            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH)
         ) 
         HBM_channel_controller_i
         (

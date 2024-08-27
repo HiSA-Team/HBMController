@@ -767,7 +767,7 @@ assign deincr_rd_req_id_buffer_cnt_ps0  = rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw
 reg rd_req_id_buffer_en_ps0;
 wire [P_REQ_ID_WIDTH-1:0]rd_req_id_data_out_ps0;
 
-distributed_ram #(
+block_ram #(
     .DATA_WIDTH(P_REQ_ID_WIDTH),
     .ADDR_WIDTH(RD_INDEX_QUEUE_WIDTH)
 )
@@ -2065,7 +2065,7 @@ assign can_serve_actual_rd_ps1  = (|actual_rd_respect_long_cnstr_ps1) && (&actua
 assign can_serve_actual_cas_ps0 = ( can_serve_actual_wrt_ps0  || can_serve_actual_rd_ps0 );
 assign can_serve_actual_cas_ps1 = ( can_serve_actual_wrt_ps1 || can_serve_actual_rd_ps1 );
 
-assign can_serve_actual_ras_ps0 = ( can_serve_actual_act_ps0 || can_serve_actual_ref_ps0 /*|| can_serve_actual_pre_ps0*/ ) && ~double_act_ras_sync;
-assign can_serve_actual_ras_ps1 = ( can_serve_actual_act_ps1 || can_serve_actual_ref_ps1 /*|| can_serve_actual_pre_ps1*/ ) && ~double_act_ras_sync;
+assign can_serve_actual_ras_ps0 = ( can_serve_actual_act_ps0 || can_serve_actual_ref_ps0 || can_serve_actual_pre_ps0 ) && ~double_act_ras_sync;
+assign can_serve_actual_ras_ps1 = ( can_serve_actual_act_ps1 || can_serve_actual_ref_ps1 || can_serve_actual_pre_ps1 ) && ~double_act_ras_sync;
 
 endmodule
