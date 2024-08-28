@@ -134,21 +134,25 @@ module channel_scheduler#
     input  [P_REQ_ID_WIDTH-1:0]                  req_id_bank                 [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     input  [P_CMD_ID_WIDTH-1:0]                  cmd_id_bank                 [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     input  [3:0]                                 cmd_bank                    [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
-    input  [P_BA_ADDR_WIDTH-1 : 0]               bank_address_bank           [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     input  [P_ROW_ADDR_WIDTH-1 : 0]              row_address_bank            [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
-    input  [P_COL_ADDR_WIDTH-1 : 0]              column_address_bank         [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
-    // input  [P_DATA_WIDTH-1 : 0]                  wrt_data_bank               [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1],
     
     output [(P_BA_N_PS*2)-1:0]          served_ras,
     output [(P_BA_N_PS*2)-1:0]          served_cas,
 
     output reset_hbm_controller,
 
-    input  [ P_DATA_WIDTH - 1 : 0 ]     wrt_data_cas_ps0,
-    input  [ P_DATA_WIDTH - 1 : 0 ]     wrt_data_cas_ps1,
+    input  [P_DATA_WIDTH-1 : 0] ram_cas_out_ps0,
+    input  [P_DATA_WIDTH-1 : 0] ram_cas_out_ps1,
 
-    output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps0,
-    output [P_REQ_ID_WIDTH-1:0]         wrt_data_req_id_ps1, 
+//    output [P_REQ_ID_WIDTH-1:0]         ram_cas_req_id_0_ps0,
+//    output [P_REQ_ID_WIDTH-1:0]         ram_cas_req_id_1_ps0,
+//    output [P_REQ_ID_WIDTH-1:0]         ram_cas_req_id_ps1, 
+
+    output  [P_REQ_ID_WIDTH-1:0] ram_cas_address_req_id_ps0,
+    output  [P_REQ_ID_WIDTH-1:0] ram_cas_address_req_id_ps1,
+    input  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps0,
+    input  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps1,
+
 
     output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0,
     output [P_DATA_WIDTH-1:0]           rd_data_ps0,
@@ -162,10 +166,10 @@ module channel_scheduler#
 /* To ll_command_forwarder */
 wire [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1] cmd_picked_ras;
 wire [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1] cmd_picked_cas;
-wire ready_to_cmd_ras_ps0;
-wire ready_to_cmd_cas_ps0;
-wire ready_to_cmd_ras_ps1;
-wire ready_to_cmd_cas_ps1;
+/*(* keep = "True" *)*/ wire ready_to_cmd_ras_ps0;
+/*(* keep = "True" *)*/ wire ready_to_cmd_cas_ps0;
+/*(* keep = "True" *)*/ wire ready_to_cmd_ras_ps1;
+/*(* keep = "True" *)*/ wire ready_to_cmd_cas_ps1;
 
 genvar i;
 generate 
@@ -179,31 +183,34 @@ endgenerate
 wire [3:0]                         cmd_ras_ps0;
 wire [P_REQ_ID_WIDTH-1:0]          req_ras_id_ps0;
 wire [P_CMD_ID_WIDTH-1:0]          cmd_ras_id_ps0;
-wire [ P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_ras_ps0;
-wire [ P_ROW_ADDR_WIDTH - 1 : 0 ]  row_address_ras_ps0;
+wire [1:0]  bank_group_ras_ps0;
+ wire [ P_ROW_ADDR_WIDTH - 1 : 0 ]  row_address_ras_ps0;
     
 /* CAS cmd PS0 */
 wire [3:0]                         cmd_cas_ps0;
 wire [P_REQ_ID_WIDTH-1:0]          req_cas_id_ps0;
 wire [P_CMD_ID_WIDTH-1:0]          cmd_cas_id_ps0;
-wire [ P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_cas_ps0;
-wire [ P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas_ps0;
-// wire [ P_DATA_WIDTH     - 1 : 0 ]  wrt_data_cas_ps0;
+wire [1:0]  bank_group_cas_ps0;
+// wire [ P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas_ps0;
     
 /* RAS cmd PS1 */
 wire [3:0]                         cmd_ras_ps1;
 wire [P_REQ_ID_WIDTH-1:0]          req_ras_id_ps1;
 wire [P_CMD_ID_WIDTH-1:0]          cmd_ras_id_ps1;
-wire [ P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_ras_ps1;
-wire [ P_ROW_ADDR_WIDTH - 1 : 0 ]  row_address_ras_ps1;
+wire [1:0]  bank_group_ras_ps1;
+ wire [ P_ROW_ADDR_WIDTH - 1 : 0 ]  row_address_ras_ps1;
 
 /* CAS cmd PS1 */
 wire [3:0]                         cmd_cas_ps1;
 wire [P_REQ_ID_WIDTH-1:0]          req_cas_id_ps1;
 wire [P_CMD_ID_WIDTH-1:0]          cmd_cas_id_ps1;
-wire [ P_BA_ADDR_WIDTH  - 1 : 0 ]  bank_address_cas_ps1;
-wire [ P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas_ps1;
-// wire [ P_DATA_WIDTH     - 1 : 0 ]  wrt_data_cas_ps1;
+wire [1:0]  bank_group_cas_ps1;
+// wire [ P_COL_ADDR_WIDTH - 1 : 0 ]  column_address_cas_ps1;
+
+
+wire [P_BA_ADDR_WIDTH-1  : 0] bank_address_ras_ps0; 
+wire [P_BA_ADDR_WIDTH-1  : 0] bank_address_ras_ps1; 
+
 
 
 RAS_arbiter #(
@@ -230,15 +237,15 @@ RAS_arbiter #(
     .req_ras_id_bank            (req_id_bank          [0:P_BA_N_PS-1]),
     .cmd_ras_id_bank            (cmd_id_bank          [0:P_BA_N_PS-1]),
     .cmd_ras_bank               (cmd_bank             [0:P_BA_N_PS-1]),
-    .bank_address_bank          (bank_address_bank    [0:P_BA_N_PS-1]),
-    .row_address_bank           (row_address_bank     [0:P_BA_N_PS-1]),
+     .row_address_bank           (row_address_bank     [0:P_BA_N_PS-1]),
 
     .ready_to_cmd_ras           (ready_to_cmd_ras_ps0 ),
     .cmd_ras                    (cmd_ras_ps0          ),
     .req_id_ras                 (req_ras_id_ps0       ),
     .cmd_id_ras                 (cmd_ras_id_ps0       ),
-    .bank_address_ras           (bank_address_ras_ps0 ),
-    .row_address_ras            (row_address_ras_ps0  ) 
+    .bank_group_ras             (bank_group_ras_ps0 ),
+    .bank_address_ras           (bank_address_ras_ps0),
+    .row_address_ras            (row_address_ras_ps0)
 );
 
 RAS_arbiter #(
@@ -264,15 +271,15 @@ RAS_arbiter #(
     .req_ras_id_bank            (req_id_bank          [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     .cmd_ras_id_bank            (cmd_id_bank          [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     .cmd_ras_bank               (cmd_bank             [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
-    .bank_address_bank          (bank_address_bank    [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
-    .row_address_bank           (row_address_bank     [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+     .row_address_bank           (row_address_bank     [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     
     .ready_to_cmd_ras           (ready_to_cmd_ras_ps1 ),
     .cmd_ras                    (cmd_ras_ps1          ),
     .req_id_ras                 (req_ras_id_ps1       ),
     .cmd_id_ras                 (cmd_ras_id_ps1       ),
-    .bank_address_ras           (bank_address_ras_ps1 ),
-    .row_address_ras            (row_address_ras_ps1  ) 
+    .bank_group_ras             (bank_group_ras_ps1 ),
+    .bank_address_ras           (bank_address_ras_ps1),
+    .row_address_ras            (row_address_ras_ps1)
 );
 
 
@@ -298,16 +305,16 @@ CAS_arbiter #(
     .req_cas_id_bank            (req_id_bank          [0:P_BA_N_PS-1]),
     .cmd_cas_id_bank            (cmd_id_bank          [0:P_BA_N_PS-1]),
     .cmd_cas_bank               (cmd_bank             [0:P_BA_N_PS-1]),
-    .bank_address_bank          (bank_address_bank    [0:P_BA_N_PS-1]),
-    .column_address_bank        (column_address_bank  [0:P_BA_N_PS-1]),
+    // .bank_address_bank          (bank_address_bank    [0:P_BA_N_PS-1]),
+    // .column_address_bank        (column_address_bank  [0:P_BA_N_PS-1]),
     .ready_to_cmd_cas           (ready_to_cmd_cas_ps0   ),
     .cmd_cas                    (cmd_cas_ps0            ),
     .req_id_cas                 (req_cas_id_ps0         ),
     .cmd_id_cas                 (cmd_cas_id_ps0         ), 
-    .bank_address_cas           (bank_address_cas_ps0   ),
-    .column_address_cas         (column_address_cas_ps0 ),
+    .bank_group_cas           (bank_group_cas_ps0   ),
+    // .column_address_cas         (column_address_cas_ps0 ),
 
-    .wrt_data_req_id            (wrt_data_req_id_ps0    )
+    .ram_cas_req_id             (ram_cas_address_req_id_ps0)
 
 );
 
@@ -333,17 +340,17 @@ CAS_arbiter #(
     .req_cas_id_bank            (req_id_bank          [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     .cmd_cas_id_bank            (cmd_id_bank          [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
     .cmd_cas_bank               (cmd_bank             [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
-    .bank_address_bank          (bank_address_bank    [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
-    .column_address_bank        (column_address_bank  [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    // .bank_address_bank          (bank_address_bank    [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
+    // .column_address_bank        (column_address_bank  [P_BA_N_PS:P_TOTAL_PER_CHANNEL_BANK_N - 1]),
 
     .ready_to_cmd_cas           (ready_to_cmd_cas_ps1   ),
     .cmd_cas                    (cmd_cas_ps1            ),
     .req_id_cas                 (req_cas_id_ps1         ),
     .cmd_id_cas                 (cmd_cas_id_ps1         ), 
-    .bank_address_cas           (bank_address_cas_ps1   ),
-    .column_address_cas         (column_address_cas_ps1 ),
+    .bank_group_cas           (bank_group_cas_ps1   ),
+    // .column_address_cas         (column_address_cas_ps1 ),
 
-    .wrt_data_req_id            (wrt_data_req_id_ps1    )
+    .ram_cas_req_id             (ram_cas_address_req_id_ps1)
 
 );
 
@@ -352,7 +359,7 @@ last_level_command_forwarder #(
     .P_ROW_ADDR_WIDTH         (P_ROW_ADDR_WIDTH     ),
     .P_COL_ADDR_WIDTH         (P_COL_ADDR_WIDTH     ),
     .P_BA_ADDR_WIDTH          (P_BA_ADDR_WIDTH      ),
-    .P_WRT_DATA_BUFFER_LEN    (P_WRT_DATA_BUFFER_LEN),
+    // .P_WRT_DATA_BUFFER_LEN    (P_WRT_DATA_BUFFER_LEN),
 
     .P_COL_NOP		    (P_COL_NOP    ),
     .P_COL_RD		    (P_COL_RD     ),
@@ -438,42 +445,53 @@ last_level_command_forwarder #(
     .cmd_ras_ps0              (cmd_ras_ps0          ),
     .req_ras_id_ps0           (req_ras_id_ps0       ),
     .cmd_ras_id_ps0           (cmd_ras_id_ps0       ),
-    .bank_address_ras_ps0     (bank_address_ras_ps0 ),
-    .row_address_ras_ps0      (row_address_ras_ps0  ),
+    .bank_group_ras_ps0       (bank_group_ras_ps0 ),
+     .row_address_ras_ps0      (row_address_ras_ps0  ),
     
     /* CAS cmd PS0 */
     .ready_to_cmd_cas_ps0     (ready_to_cmd_cas_ps0   ),
     .cmd_cas_ps0              (cmd_cas_ps0            ),
     .req_cas_id_ps0           (req_cas_id_ps0         ),
     .cmd_cas_id_ps0           (cmd_cas_id_ps0         ),
-    .bank_address_cas_ps0     (bank_address_cas_ps0   ),
-    .column_address_cas_ps0   (column_address_cas_ps0 ),
-    .wrt_data_cas_ps0         (wrt_data_cas_ps0       ),
+    .bank_group_cas_ps0       (bank_group_cas_ps0   ),
+    // .column_address_cas_ps0   (column_address_cas_ps0 ),
+    // .wrt_data_cas_ps0         (wrt_data_cas_ps0       ),
     
     /* RAS cmd PS1 */
     .ready_to_cmd_ras_ps1     (ready_to_cmd_ras_ps1 ),
     .cmd_ras_ps1              (cmd_ras_ps1          ),
     .req_ras_id_ps1           (req_ras_id_ps1       ),
     .cmd_ras_id_ps1           (cmd_ras_id_ps1       ),
-    .bank_address_ras_ps1     (bank_address_ras_ps1 ),
-    .row_address_ras_ps1      (row_address_ras_ps1  ),
+    .bank_group_ras_ps1       (bank_group_ras_ps1 ),
+     .row_address_ras_ps1      (row_address_ras_ps1  ),
     
     /* CAS cmd PS1 */
     .ready_to_cmd_cas_ps1     (ready_to_cmd_cas_ps1   ),
     .cmd_cas_ps1              (cmd_cas_ps1            ),
     .req_cas_id_ps1           (req_cas_id_ps1         ),
     .cmd_cas_id_ps1           (cmd_cas_id_ps1         ),
-    .bank_address_cas_ps1     (bank_address_cas_ps1   ),
-    .column_address_cas_ps1   (column_address_cas_ps1 ),
-    .wrt_data_cas_ps1         (wrt_data_cas_ps1       ),
+    .bank_group_cas_ps1       (bank_group_cas_ps1   ),
+    // .column_address_cas_ps1   (column_address_cas_ps1 ),
+    // .wrt_data_cas_ps1         (wrt_data_cas_ps1       ),
+    
+    .bank_address_ras_ps0           (bank_address_ras_ps0),
+    .bank_address_ras_ps1           (bank_address_ras_ps1),
     
     .served_ras(served_ras),
     .served_cas(served_cas),
+    
 
     .reset_hbm_controller(reset_hbm_controller),
 
-    // .wrt_data_req_id_ps0(wrt_data_req_id_ps0),
-    // .wrt_data_req_id_ps1(wrt_data_req_id_ps1),
+//    .wrt_data_req_id_0_ps0(ram_cas_req_id_0_ps0),
+//    .wrt_data_req_id_1_ps0(ram_cas_req_id_1_ps0),
+//    .wrt_data_req_id_ps1(ram_cas_req_id_ps1),
+
+    .wrt_data_cas_ps0(ram_cas_out_ps0),
+    .wrt_data_cas_ps1(ram_cas_out_ps1),
+
+    .ram_cas_address_out_ps0(ram_cas_address_out_ps0),
+    .ram_cas_address_out_ps1(ram_cas_address_out_ps1),
 
     .rd_data_req_id_ps0(rd_data_req_id_ps0),
     .rd_data_ps0(rd_data_ps0),

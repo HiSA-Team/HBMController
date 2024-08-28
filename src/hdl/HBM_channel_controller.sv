@@ -38,7 +38,10 @@ module HBM_channel_controller # (
     parameter       P_TOTAL_PER_CHANNEL_BANK_N = 32,        /* Number of Banks per channel, again we consider half bank */
 
     /* FIFO QUEUE LEN */
-    parameter       P_QUEUE_LEN             = 8,
+    parameter       P_QUEUE_LEN             = 4,
+    
+    /* MAPPING ADDRESS POLICY */
+    parameter       P_MAPPING_POLICY        = 1,
 
     /* WRT BUFFER LEN */
     parameter       P_WRT_DATA_BUFFER_LEN   = 4,
@@ -169,16 +172,18 @@ wire [P_BA_ADDR_WIDTH-1  : 0] bank_address;
 
 wire  [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1]    cmd_picked_bank;
 wire  [3:0]                                   cmd_bank                 [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
-wire  [P_BA_ADDR_WIDTH-1 : 0]                 bank_address_bank        [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
-wire  [P_ROW_ADDR_WIDTH-1 : 0]                row_address_bank         [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
-wire  [P_COL_ADDR_WIDTH-1 : 0]                column_address_bank      [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+// wire  [P_BA_ADDR_WIDTH-1 : 0]                 bank_address_bank        [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+ wire  [P_ROW_ADDR_WIDTH-1 : 0]                row_address_bank         [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+// wire  [P_COL_ADDR_WIDTH-1 : 0]                column_address_bank      [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
 
 
 wire [3:0]                       cmd_dispatcher            [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
-wire [P_BA_ADDR_WIDTH-1  : 0]    bank_addr_dispatcher      [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
-wire [P_ROW_ADDR_WIDTH-1 : 0]    row_addr_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
-wire [P_COL_ADDR_WIDTH-1 : 0]    col_addr_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+// wire [P_BA_ADDR_WIDTH-1  : 0]    bank_addr_dispatcher      [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+ wire [P_ROW_ADDR_WIDTH-1 : 0]    row_addr_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+// wire [P_COL_ADDR_WIDTH-1 : 0]    col_addr_dispatcher       [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
 wire                             cmd_picked_dispatcher     [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
+
+//wire cmd_valid_dispatcher [0 : P_TOTAL_PER_CHANNEL_BANK_N - 1];
 
 wire [(P_BA_N_PS*2)-1:0]          served_ras;
 wire [(P_BA_N_PS*2)-1:0]          served_cas;
@@ -207,53 +212,74 @@ reg [P_REQ_ID_WIDTH-1:0] counter_requests;
 assign output_request_picked = |(request_picked);
 
 wire blk_ram_write_en_ps0;
-assign blk_ram_write_en_ps0 = request_valid[bank_address];
+assign blk_ram_write_en_ps0 = input_request_valid & ~bank_address[4]/*request_valid[bank_address]*/;
 
 wire blk_ram_write_en_ps1;
-assign blk_ram_write_en_ps1 = request_valid[bank_address];
+assign blk_ram_write_en_ps1 = input_request_valid & bank_address[4]/*request_valid[bank_address]*/;
 
 wire [P_REQ_ID_WIDTH-1:0] blk_ram_wrt_addr;
 assign blk_ram_wrt_addr = counter_requests;
 
-wire  [P_DATA_WIDTH-1 : 0] blk_ram_data_out_ps0;
-wire  [P_DATA_WIDTH-1 : 0] blk_ram_data_out_ps1;
+//wire  [P_DATA_WIDTH-1 : 0] ram_cas_out_0_ps0;
+wire  [P_DATA_WIDTH-1 : 0] ram_cas_out_ps0;
+wire  [P_DATA_WIDTH-1 : 0] ram_cas_out_ps1;
 
-wire  [P_REQ_ID_WIDTH-1:0] wrt_data_req_id_ps0;
-wire  [P_REQ_ID_WIDTH-1:0] wrt_data_req_id_ps1;
+//wire  [P_REQ_ID_WIDTH-1:0] ram_cas_req_id_0_ps0;
+//wire  [P_REQ_ID_WIDTH-1:0] ram_cas_req_id_1_ps0;
+//wire  [P_REQ_ID_WIDTH-1:0] ram_cas_req_id_ps1;
 
-
+wire  [P_REQ_ID_WIDTH-1:0] ram_cas_address_req_id_ps0;
+wire  [P_REQ_ID_WIDTH-1:0] ram_cas_address_req_id_ps1;
+wire  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps0;
+wire  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps1;
 
 /* ADDRESS MAPPING POLICY */
-/* 14R-6C-2BG-2B-PC-2C */
-`ifdef ADDRESS_MAPPING_1
+
+generate
+/* 14R-5C-2BG-2B-PC */
+//`ifdef ADDRESS_MAPPING_1
+if (P_MAPPING_POLICY == 1) begin
+    assign row_address    =  input_address[28:15];
+    assign column_address =  {input_address[14:10], 1'b1};
+    assign bank_address   =  {input_address[5], input_address[9:6]};
+//`endif
+end
+
+/* WARNINGGGGGGGGGGGGGGGGGGGGGGGGGGGG */
+/* TO BE ADJUSTED */
+else if (P_MAPPING_POLICY == 2) begin
+/* 14R-5C-2B-2BG-PC */
+//`ifdef ADDRESS_MAPPING_2
     assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[12:7]};
-    assign bank_address   =  {input_address[2], input_address[6:3]};
-`endif
-/* 14R-6C-2B-2BG-PC-2C */
-`ifdef ADDRESS_MAPPING_2
-    assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[12:7]};
+    assign column_address =  {input_address[12:8], 1'b1};
     assign bank_address   =  {input_address[2], input_address[4:3],input_address[6:5]};
-`endif
-/* PC-2BG-2B-14R-6C */
-`ifdef ADDRESS_MAPPING_3
+//`endif
+end 
+else if (P_MAPPING_POLICY == 3) begin
+/* PC-2BG-2B-14R-5C */
+//`ifdef ADDRESS_MAPPING_3
     assign row_address    =  {input_address[21:8]};
-    assign column_address =  {input_address[7:2]};
+    assign column_address =  {input_address[7:3], 1'b1};
     assign bank_address   =  {input_address[26:22]};
-`endif
-/* 14R-PC-2BG-2B-6C */ 
-`ifdef ADDRESS_MAPPING_4
+//`endif
+end
+else if (P_MAPPING_POLICY == 4) begin 
+/* 14R-PC-2BG-2B-5C */ 
+//`ifdef ADDRESS_MAPPING_4
     assign row_address    =  {input_address[26:13]};
-    assign column_address =  {input_address[7:2]};
+    assign column_address =  {input_address[7:3], 1'b1};
     assign bank_address   =  {input_address[12:8]};
-`endif
-/* 14R-2BG-2B-6C-PC */
-`ifdef ADDRESS_MAPPING_5
+//`endif
+end
+else if (P_MAPPING_POLICY == 5) begin 
+/* 14R-2BG-2B-5C-PC */
+//`ifdef ADDRESS_MAPPING_5
     assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[8:3]};
+    assign column_address =  {input_address[8:4], 1'b1};
     assign bank_address   =  {input_address[2], input_address[12:9]};
-`endif
+//`endif
+end
+endgenerate
 /* END ADDRESS MAPPING POLICY */
 
 /* TRACK THE NUMBER OF REQUESTS */
@@ -262,7 +288,7 @@ always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin
         counter_requests <= { P_REQ_ID_WIDTH { 1'b0 } };
     end
     else begin
-        if ( request_picked[bank_address] == 1'b1 ) begin
+        if ( |(request_picked) == 1'b1 ) begin
             counter_requests <= counter_requests + 1'b1;
             `ifdef DEBUG
                 $display("[ CONTROLLER %d ]: REQ: %d - CMD: %d (%d) sent at %d", 1'b0, counter_requests, 1'b0, 1'b0, $time);
@@ -271,38 +297,31 @@ always @(posedge dfi_clk_buf or negedge reset_hbm_controller ) begin
     end
 end
 
-// always_comb begin 
-//     if ( reset_hbm_controller == 1'b0 ) begin
-//         foreach(input_req_id[i]) input_req_id[i] <= {P_REQ_ID_WIDTH {1'b0}};
-//     end
-//     else begin
-//         input_req_id[bank_address] <= counter_requests;
-//     end
-// end
 
-/* To be tested */
 always_comb begin
-    foreach(input_req_id[i]) input_req_id[i] <= counter_requests;
+    foreach (input_req_id[i]) input_req_id[i] <= counter_requests;
 end
 
 
 
 /* COMPONENTS INSTANTIATION */
 
-/* WRITE BUFFERS */
+/* CAS BUFFERS */
+/* | WRT DATA | BANK ADDRESS | COL ADDRESS | */
 block_ram #
 (
     .ADDR_WIDTH(P_REQ_ID_WIDTH),
     .DATA_WIDTH(P_DATA_WIDTH)
 )
-block_ram_data_ps0
+cas_data_ps0
 (
     .data_in(input_write_data),
-    .read_addr(wrt_data_req_id_ps0), 
+    .read_addr(ram_cas_address_req_id_ps0),
+     
     .write_addr(blk_ram_wrt_addr),
     .wr_en(blk_ram_write_en_ps0), 
     .clk(dfi_clk_buf),
-    .data_out(blk_ram_data_out_ps0)
+    .data_out(ram_cas_out_ps0)
 );
 
 block_ram #
@@ -310,14 +329,45 @@ block_ram #
     .ADDR_WIDTH(P_REQ_ID_WIDTH),
     .DATA_WIDTH(P_DATA_WIDTH)
 )
-block_ram_data_ps1
+cas_data_ps1
 (
     .data_in(input_write_data),
-    .read_addr(wrt_data_req_id_ps1), 
+    .read_addr(ram_cas_address_req_id_ps1), 
     .write_addr(blk_ram_wrt_addr),
     .wr_en(blk_ram_write_en_ps1), 
     .clk(dfi_clk_buf),
-    .data_out(blk_ram_data_out_ps1)
+    .data_out(ram_cas_out_ps1)
+);
+
+
+block_ram #
+(
+    .ADDR_WIDTH(P_REQ_ID_WIDTH),
+    .DATA_WIDTH(P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH)
+)
+cas_address_ps0
+(
+    .data_in({bank_address, column_address}), 
+    .read_addr(ram_cas_address_req_id_ps0), 
+    .write_addr(blk_ram_wrt_addr),
+    .wr_en(blk_ram_write_en_ps0), 
+    .clk(dfi_clk_buf),
+    .data_out(ram_cas_address_out_ps0)
+);
+
+block_ram #
+(
+    .ADDR_WIDTH(P_REQ_ID_WIDTH),
+    .DATA_WIDTH(P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH)
+)
+cas_address_ps1
+(
+    .data_in({bank_address, column_address}),
+    .read_addr(ram_cas_address_req_id_ps1), 
+    .write_addr(blk_ram_wrt_addr),
+    .wr_en(blk_ram_write_en_ps1), 
+    .clk(dfi_clk_buf),
+    .data_out(ram_cas_address_out_ps1)
 );
 
 genvar i;
@@ -345,30 +395,22 @@ generate
                 .P_COL_WRT		   (P_COL_WRT    ),
                 .P_COL_RD          (P_COL_RD     )
             ) REQ_to_CMD_translator_i (
-                .clk               (dfi_clk_buf         ),
-                .rst_n             (reset_hbm_controller),
-                
-                .input_req_id      (input_req_id[i]     ), 
-                .input_request     (input_request    ),
-                
-                .row_address(row_address),
-                .column_address(column_address),
-                .bank_address(bank_address),
-
-                .request_valid     (request_valid[i]  ),
-                .request_picked    (request_picked[i] ),
-               
+                .clk               (dfi_clk_buf              ),
+                .rst_n             (reset_hbm_controller     ),
+                .input_req_id      (input_req_id[i]          ), 
+                .input_request     (input_request            ),
+                .row_address       (row_address              ),
+                .request_valid     (request_valid[i]         ),
+                .request_picked    (request_picked[i]        ),
                 .req_id            (req_id[i]                ),
                 .cmd_id            (cmd_id[i]                ),
                 .cmd_picked        (cmd_picked_dispatcher[i] ),
                 .cmd               (cmd_dispatcher[i]        ),
-                .bank_addr         (bank_addr_dispatcher[i]  ),
-                .row_addr          (row_addr_dispatcher[i]   ),
-                .col_addr          (col_addr_dispatcher[i]   )
+                .row_addr          (row_addr_dispatcher[i]   )
             );
     
     
-            bank_scheduler#(
+            bank_scheduler #(
                 .P_ROW_ADDR_WIDTH          (P_ROW_ADDR_WIDTH ),
                 .P_COL_ADDR_WIDTH          (P_COL_ADDR_WIDTH ),
                 .P_BA_ADDR_WIDTH           (P_BA_ADDR_WIDTH  ), 
@@ -396,8 +438,6 @@ generate
                 .tBURST                    (tBURST ),
                 .tRFCpb                    (tRFCpb ),
                 .tREFP                     (tREFP  )  
-
-
             ) bank_scheduler_i (
                 .clk                       (dfi_clk_buf ),
                 .rst_n                     (reset_hbm_controller   ),
@@ -405,9 +445,9 @@ generate
                 .req_id_dispatcher         (req_id[i]                ),
                 .cmd_id_dispatcher         (cmd_id[i]                ),
                 .cmd_dispatcher            (cmd_dispatcher[i]        ),
-                .bank_addr_dispatcher      (bank_addr_dispatcher[i]  ),
-                .row_addr_dispatcher       (row_addr_dispatcher[i]   ),
-                .col_addr_dispatcher       (col_addr_dispatcher[i]   ),
+                // .bank_addr_dispatcher      (bank_addr_dispatcher[i]  ),
+                 .row_addr_dispatcher       (row_addr_dispatcher[i]   ),
+                // .col_addr_dispatcher       (col_addr_dispatcher[i]   ),
                 .cmd_picked_dispatcher     (cmd_picked_dispatcher[i] ),
                 
 
@@ -415,11 +455,12 @@ generate
                 .req_id_bank               (req_id_bank[i]         ),
                 .cmd_id_bank               (cmd_id_bank[i]         ),
                 .cmd_bank                  (cmd_bank[i]            ),
-                .bank_address_bank         (bank_address_bank[i]   ),
-                .row_address_bank          (row_address_bank[i]    ),
-                .column_address_bank       (column_address_bank[i] ),
+//                 .bank_address_bank         (bank_address_bank[i]   ),
+                 .row_address_bank          (row_address_bank[i]    ),
+                // .column_address_bank       (column_address_bank[i] ),
                 .served_ras                (served_ras[i]          ),
                 .served_cas                (served_cas[i]          )
+//                .cmd_valid_dispatcher      (cmd_valid_dispatcher[i]  )
             );
     end
 endgenerate
@@ -513,20 +554,28 @@ channel_0_scheduler
     .req_id_bank                 (req_id_bank),
     .cmd_id_bank                 (cmd_id_bank),
     .cmd_bank                    (cmd_bank),
-    .bank_address_bank           (bank_address_bank),
-    .row_address_bank            (row_address_bank),
-    .column_address_bank         (column_address_bank),
     
     .served_ras(served_ras),
     .served_cas(served_cas),
 
     .reset_hbm_controller(reset_hbm_controller),
 
-    .wrt_data_cas_ps0(blk_ram_data_out_ps0),
-    .wrt_data_cas_ps1(blk_ram_data_out_ps1),
+//    .ram_cas_out_0_ps0(ram_cas_out_0_ps0),
+    .ram_cas_out_ps0(ram_cas_out_ps0),
+    .ram_cas_out_ps1(ram_cas_out_ps1),
 
-    .wrt_data_req_id_ps0(wrt_data_req_id_ps0),
-    .wrt_data_req_id_ps1(wrt_data_req_id_ps1),
+    .row_address_bank(row_address_bank),
+
+//    .ram_cas_req_id_0_ps0(ram_cas_req_id_0_ps0),
+//    .ram_cas_req_id_1_ps0(ram_cas_req_id_1_ps0),
+//    .ram_cas_req_id_ps1(ram_cas_req_id_ps1), 
+  
+    .ram_cas_address_req_id_ps0(ram_cas_address_req_id_ps0),
+    .ram_cas_address_req_id_ps1(ram_cas_address_req_id_ps1),
+
+    .ram_cas_address_out_ps0(ram_cas_address_out_ps0),
+    .ram_cas_address_out_ps1(ram_cas_address_out_ps1),
+
 
     .rd_data_req_id_ps0(rd_data_req_id_ps0),
     .rd_data_ps0(rd_data_ps0),

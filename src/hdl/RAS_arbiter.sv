@@ -46,7 +46,6 @@ module RAS_arbiter#
     input  [P_REQ_ID_WIDTH-1:0]      req_ras_id_bank         [0 : P_BA_N_PS - 1], 
     input  [P_CMD_ID_WIDTH-1:0]      cmd_ras_id_bank         [0 : P_BA_N_PS - 1],
     input  [3:0]                     cmd_ras_bank            [0 : P_BA_N_PS - 1],
-    input  [P_BA_ADDR_WIDTH-1 : 0]   bank_address_bank       [0 : P_BA_N_PS - 1],
     input  [P_ROW_ADDR_WIDTH-1 : 0]  row_address_bank        [0 : P_BA_N_PS - 1],
 
     /* Interface to LLCF */
@@ -54,8 +53,10 @@ module RAS_arbiter#
     output [3:0]cmd_ras,
     output [P_REQ_ID_WIDTH-1:0]         req_id_ras,
     output [P_CMD_ID_WIDTH-1:0]         cmd_id_ras,
-    output [P_BA_ADDR_WIDTH-1 : 0]      bank_address_ras,
-    output [P_ROW_ADDR_WIDTH-1 : 0]     row_address_ras 
+    output [1:0]      bank_group_ras,
+    output [P_BA_ADDR_WIDTH-1:0]       bank_address_ras,
+    output [P_ROW_ADDR_WIDTH-1 : 0]     row_address_ras
+
     
 );
 
@@ -65,38 +66,39 @@ localparam ACTUAL_BG_CMD_RAS_SERVING_WIDTH = $clog2(LP_BG_N);
 
 reg [0 : P_BA_N_PS - 1] r_cmd_ras_bank_picked;
 reg [3:0] r_cmd_ras;
-reg [P_BA_ADDR_WIDTH-1 : 0] r_bank_address_ras;
+reg [1:0] r_bank_group_ras;
 reg [P_ROW_ADDR_WIDTH-1 : 0] r_row_address_ras;
 
 reg [P_REQ_ID_WIDTH-1:0] r_req_id_ras;
 reg [P_CMD_ID_WIDTH-1:0] r_cmd_id_ras;
 
 reg [ACTUAL_BG_CMD_RAS_SERVING_WIDTH-1 : 0] actual_bank_group_serving; 
-reg [ACTUAL_BG_SERVING_WIDTH-1 : 0] actual_bank_serving[0 : LP_BG_N - 1];
+reg    [3:0]    actual_bank_serving  [0:15];  
+reg    [3:0]    actual_bank_serving_index;
 
 wire [3:0]                          cmd_inter_selected;
 wire [P_REQ_ID_WIDTH-1:0]           req_id_selected_by_bg;
 wire [P_CMD_ID_WIDTH-1:0]           cmd_id_selected_by_bg;
-wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_address_selected_by_bg;
 wire [P_ROW_ADDR_WIDTH - 1 : 0]     row_address_selected_by_bg;
 
+reg [P_BA_ADDR_WIDTH-1:0]       r_bank_address_ras;
 
 assign req_id_ras = r_req_id_ras;
 assign cmd_id_ras = r_cmd_id_ras;
 assign cmd_ras_bank_picked = r_cmd_ras_bank_picked;
 assign cmd_ras = r_cmd_ras;
+assign bank_group_ras = r_bank_group_ras;
 assign bank_address_ras = r_bank_address_ras;
-assign row_address_ras = r_row_address_ras;
+assign row_address_ras  = r_row_address_ras;
 
 /*********************/
 /* RAS CMD SELECTION */
 /*********************/
-assign cmd_inter_selected            =  cmd_ras_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-assign req_id_selected_by_bg         =  req_ras_id_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-assign cmd_id_selected_by_bg         =  cmd_ras_id_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-assign bank_address_selected_by_bg   =  bank_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
-assign row_address_selected_by_bg    =  row_address_bank[(actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]];
- 
+assign cmd_inter_selected            =  cmd_ras_bank[actual_bank_serving[actual_bank_serving_index]];
+assign req_id_selected_by_bg         =  req_ras_id_bank[actual_bank_serving[actual_bank_serving_index]];
+assign cmd_id_selected_by_bg         =  cmd_ras_id_bank[actual_bank_serving[actual_bank_serving_index]];
+assign row_address_selected_by_bg    =  row_address_bank[actual_bank_serving[actual_bank_serving_index]];
+
 
 /*********************************/
 /* SEND RAS CMD SELECTED TO LLCF */
@@ -105,17 +107,21 @@ always @ (posedge clk or negedge rst_n) begin
     if(rst_n == 1'b0) begin
         r_cmd_ras                 <=  P_GENERAL_NOP;
         r_bank_address_ras        <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
-        r_row_address_ras         <=  { P_ROW_ADDR_WIDTH { 1'b0 } };   
+        r_bank_group_ras          <=  { 2 { 1'b0 } };   
         r_req_id_ras              <=  { P_REQ_ID_WIDTH { 1'b1 } };
         r_cmd_id_ras              <=  { P_CMD_ID_WIDTH { 1'b1 } };
+        r_row_address_ras         <=  { P_ROW_ADDR_WIDTH { 1'b1 } };
     end
     else begin
         if ( ready_to_cmd_ras && (cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB)) begin
-            r_cmd_ras            <=  cmd_inter_selected; 
+            r_cmd_ras            <=  cmd_inter_selected;
             r_req_id_ras         <=  req_id_selected_by_bg;
-            r_cmd_id_ras         <=  cmd_id_selected_by_bg; 
-            r_bank_address_ras   <=  bank_address_selected_by_bg;
+            r_cmd_id_ras         <=  cmd_id_selected_by_bg;
+            r_bank_group_ras     <=  actual_bank_group_serving;
+            r_bank_address_ras   <=  actual_bank_serving[actual_bank_serving_index];
             r_row_address_ras    <=  row_address_selected_by_bg;
+            
+            
             `ifdef DEBUG
                 $display("[ RAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
             `endif
@@ -138,7 +144,7 @@ generate
                 r_cmd_ras_bank_picked[i] <= 1'b0;
             end
             else begin
-                if ( ready_to_cmd_ras && (cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) && (i == ((actual_bank_group_serving*P_BA_N_G) + actual_bank_serving[actual_bank_group_serving]))) begin
+                if ( ready_to_cmd_ras && (cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) && (i == actual_bank_serving[actual_bank_serving_index])) begin
                     r_cmd_ras_bank_picked[i] <= 1'b1;
                 end
                 else if ( r_cmd_ras_bank_picked[i] == 1'b1 && cmd_ras_bank[i] != P_GENERAL_NOP ) begin
@@ -152,33 +158,47 @@ endgenerate
 /**********************************/
 /* ACTUAL BANK SERVING MANAGEMENT */
 /**********************************/
-always @ ( posedge clk or negedge rst_n ) begin
+always @(posedge clk or negedge rst_n ) begin
     if ( rst_n == 1'b0 ) begin
-        foreach ( actual_bank_serving[i] ) actual_bank_serving[i] <= {ACTUAL_BG_SERVING_WIDTH{1'b0}};
+        actual_bank_serving[0]  <= 4'd0;
+        actual_bank_serving[1]  <= 4'd4;
+        actual_bank_serving[2]  <= 4'd8;
+        actual_bank_serving[3]  <= 4'd12;
+        actual_bank_serving[4]  <= 4'd1;
+        actual_bank_serving[5]  <= 4'd5;
+        actual_bank_serving[6]  <= 4'd9;
+        actual_bank_serving[7]  <= 4'd13;
+        actual_bank_serving[8]  <= 4'd2;
+        actual_bank_serving[9]  <= 4'd6;
+        actual_bank_serving[10] <= 4'd10;
+        actual_bank_serving[11] <= 4'd14;
+        actual_bank_serving[12] <= 4'd3;
+        actual_bank_serving[13] <= 4'd7;
+        actual_bank_serving[14] <= 4'd11;
+        actual_bank_serving[15] <= 4'd15;
     end
-    else begin
-        if ( ~(cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) || cmd_inter_selected == P_GENERAL_NOP /*&& ~change_round*/ ) begin
-            actual_bank_serving[actual_bank_group_serving] <= actual_bank_serving[actual_bank_group_serving] + 1'b1;
-        end 
-        else if ( (cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) && ready_to_cmd_ras /* && ~change_round */ ) begin
-            actual_bank_serving[actual_bank_group_serving] <= actual_bank_serving[actual_bank_group_serving] + 1'b1;
-        end
-    end
-end 
+end
 
 /*********************************/
 /* BANK GROUP SERVING MANAGEMENT */
 /*********************************/
 always @(posedge clk or negedge rst_n) begin : actual_bank_group_serving_driver
     if (rst_n == 1'b0) begin
+        actual_bank_serving_index <= 4'd0;
         actual_bank_group_serving <= {ACTUAL_BG_CMD_RAS_SERVING_WIDTH {1'b0}};
     end
     else begin
         if ( (cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) && ready_to_cmd_ras) begin
+            actual_bank_serving_index <= actual_bank_serving_index + 1'b1;
             actual_bank_group_serving <= actual_bank_group_serving + 1'b1; 
         end
-        else if ( ~(cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) || cmd_inter_selected == P_GENERAL_NOP  /*&& actual_bank_serving[actual_bank_group_serving] >= P_BA_N_G-1*/) begin
+        else if ( ~(cmd_inter_selected == P_ROW_ACT || cmd_inter_selected == P_ROW_PRE || cmd_inter_selected == P_ROW_REFPB) || cmd_inter_selected == P_GENERAL_NOP) begin
+            actual_bank_serving_index <= actual_bank_serving_index + 1'b1;
             actual_bank_group_serving <= actual_bank_group_serving + 1'b1; 
+        end
+        else begin
+            actual_bank_serving_index <= actual_bank_serving_index;
+            actual_bank_group_serving <= actual_bank_group_serving;
         end
     end
 end
