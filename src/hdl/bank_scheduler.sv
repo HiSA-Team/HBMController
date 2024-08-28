@@ -47,7 +47,7 @@ module bank_scheduler #
     input [P_REQ_ID_WIDTH-1:0]        req_id_dispatcher,
     input [P_CMD_ID_WIDTH-1:0]        cmd_id_dispatcher,
     input [3:0]                       cmd_dispatcher,
-     input [P_ROW_ADDR_WIDTH-1 : 0]   row_addr_dispatcher,
+    input [P_ROW_ADDR_WIDTH-1 : 0]    row_addr_dispatcher,
 
     output                            cmd_picked_dispatcher,
 
@@ -55,7 +55,7 @@ module bank_scheduler #
     /* Interface to channel_scheduler */
     input                                         cmd_picked_bank,
     output  [3:0]                                 cmd_bank,
-     output  [P_ROW_ADDR_WIDTH-1 : 0]              row_address_bank,
+    output  [P_ROW_ADDR_WIDTH-1 : 0]              row_address_bank,
     output  [P_REQ_ID_WIDTH-1:0]                  req_id_bank,
     output  [P_CMD_ID_WIDTH-1:0]                  cmd_id_bank,           
     

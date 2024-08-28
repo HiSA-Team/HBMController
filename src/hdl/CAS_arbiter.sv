@@ -76,7 +76,7 @@ wire [P_REQ_ID_WIDTH-1:0]           req_id_selected_by_bg;
 wire [P_CMD_ID_WIDTH-1:0]           cmd_id_selected_by_bg;
 wire [P_BA_ADDR_WIDTH - 1 : 0]      bank_group_selected_by_bg;
 
- wire change_round;
+wire change_round;
 
 reg [P_REQ_ID_WIDTH-1:0] r_ram_cas_req_id;
 assign ram_cas_req_id = r_ram_cas_req_id;
