@@ -30,16 +30,16 @@ module HBM_controller_top#
     parameter P_QUEUE_LEN  = 4,
     
     /* MAPPING ADDRESS POLICY */
-    parameter P_MAPPING_POLICY        = 1,
+    parameter P_MAPPING_POLICY        = 2,
     
     /* REQ and CMD IDs */
-    // `ifdef DEBUG
-    //     parameter P_REQ_ID_WIDTH = 32,
-    // `endif
+    `ifdef DEBUG
+        parameter P_REQ_ID_WIDTH = 20,
+    `endif
 
-    // `ifndef DEBUG
+    `ifndef DEBUG
         parameter P_REQ_ID_WIDTH = $clog2(P_BA_N_PS*P_QUEUE_LEN*2),
-    // `endif
+    `endif
     
     parameter P_CMD_ID_WIDTH = 32'd3
 
@@ -951,7 +951,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     if ( i == 7 ) begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN),
-            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH)
+            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
+            .P_MAPPING_POLICY(P_MAPPING_POLICY)
         )
         HBM_channel_controller_i
         (
@@ -1019,7 +1020,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     else if ( i == 15 ) begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN),
-            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH)
+            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
+            .P_MAPPING_POLICY(P_MAPPING_POLICY)
         )
         HBM_channel_controller_i
         (
@@ -1088,7 +1090,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     else begin
         HBM_channel_controller #(
             .P_QUEUE_LEN(P_QUEUE_LEN),
-            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH)
+            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
+            .P_MAPPING_POLICY(P_MAPPING_POLICY)
         ) 
         HBM_channel_controller_i
         (

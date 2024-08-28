@@ -236,16 +236,19 @@ wire  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps1;
 /* ADDRESS MAPPING POLICY */
 
 generate
-/* 14R-6C-2BG-2B-PC-2C */
+/* 14R-5C-2BG-2B-PC */
 //`ifdef ADDRESS_MAPPING_1
 if (P_MAPPING_POLICY == 1) begin
-    assign row_address    =  input_address[26:13];
-    assign column_address =  {input_address[12:8], 1'b1};
-    assign bank_address   =  {input_address[2], input_address[6:3]};
+    assign row_address    =  input_address[28:15];
+    assign column_address =  {input_address[14:10], 1'b1};
+    assign bank_address   =  {input_address[5], input_address[9:6]};
 //`endif
 end
+
+/* WARNINGGGGGGGGGGGGGGGGGGGGGGGGGGGG */
+/* TO BE ADJUSTED */
 else if (P_MAPPING_POLICY == 2) begin
-/* 14R-6C-2B-2BG-PC-2C */
+/* 14R-5C-2B-2BG-PC */
 //`ifdef ADDRESS_MAPPING_2
     assign row_address    =  input_address[26:13];
     assign column_address =  {input_address[12:8], 1'b1};
@@ -253,7 +256,7 @@ else if (P_MAPPING_POLICY == 2) begin
 //`endif
 end 
 else if (P_MAPPING_POLICY == 3) begin
-/* PC-2BG-2B-14R-6C */
+/* PC-2BG-2B-14R-5C */
 //`ifdef ADDRESS_MAPPING_3
     assign row_address    =  {input_address[21:8]};
     assign column_address =  {input_address[7:3], 1'b1};
@@ -261,7 +264,7 @@ else if (P_MAPPING_POLICY == 3) begin
 //`endif
 end
 else if (P_MAPPING_POLICY == 4) begin 
-/* 14R-PC-2BG-2B-6C */ 
+/* 14R-PC-2BG-2B-5C */ 
 //`ifdef ADDRESS_MAPPING_4
     assign row_address    =  {input_address[26:13]};
     assign column_address =  {input_address[7:3], 1'b1};
@@ -269,7 +272,7 @@ else if (P_MAPPING_POLICY == 4) begin
 //`endif
 end
 else if (P_MAPPING_POLICY == 5) begin 
-/* 14R-2BG-2B-6C-PC */
+/* 14R-2BG-2B-5C-PC */
 //`ifdef ADDRESS_MAPPING_5
     assign row_address    =  input_address[26:13];
     assign column_address =  {input_address[8:4], 1'b1};

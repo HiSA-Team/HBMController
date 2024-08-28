@@ -11,15 +11,15 @@ module distributed_ram #(
 );
 
 /*(* rw_addr_collision = "yes" *)*/(* ram_style = "distributed" *) reg [DATA_WIDTH-1:0] ram[0:2**ADDR_WIDTH-1];
-reg [ADDR_WIDTH-1:0] read_addr_reg;
+// reg [ADDR_WIDTH-1:0] read_addr_reg;
 
 always @ (posedge clk) begin
-    read_addr_reg <= read_addr;
+    // read_addr_reg <= read_addr;
     if (wr_en) begin
         ram[write_addr] <= data_in;
     end
 end
 
-assign data_out = ram[read_addr_reg];
+assign data_out = ram[read_addr];
 
 endmodule

@@ -764,21 +764,32 @@ wire                              deincr_rd_req_id_buffer_cnt_ps0;
 assign incr_rd_req_id_buffer_cnt_ps0    = rd_req_id_buffer_cnt_ps0 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps0;
 assign deincr_rd_req_id_buffer_cnt_ps0  = rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
 
-reg rd_req_id_buffer_en_ps0;
-wire [P_REQ_ID_WIDTH-1:0]rd_req_id_data_out_ps0;
+reg  rd_req_id_buffer_en_ps0;
+reg  [P_REQ_ID_WIDTH-1:0] rd_req_id_data_in_ps0;
+wire [P_REQ_ID_WIDTH-1:0] rd_req_id_data_out_ps0;
 
-block_ram #(
+distributed_ram #(
     .DATA_WIDTH(P_REQ_ID_WIDTH),
     .ADDR_WIDTH(RD_INDEX_QUEUE_WIDTH)
 )
 rd_req_id_buffer_ps0(
-    .data_in(req_cas_id_ps0),
+    .data_in(rd_req_id_data_in_ps0),
     .read_addr(rd_req_id_buffer_tail_ps0), 
     .write_addr(rd_req_id_buffer_head_ps0),
     .wr_en(rd_req_id_buffer_en_ps0), 
     .clk(dfi_clk),
     .data_out(rd_req_id_data_out_ps0)
 ); 
+
+/* Data in PS0 */
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        rd_req_id_data_in_ps0 <= { P_REQ_ID_WIDTH { 1'b0 } }; 
+    end
+    else begin
+        rd_req_id_data_in_ps0 <= req_cas_id_ps0;
+    end
+end
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
@@ -802,7 +813,7 @@ end
 /* Fill req ID queue */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_head_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_req_id_buffer_head_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b1 } };
         rd_req_id_buffer_en_ps0 <= 1'b0;
     end
     else begin
@@ -949,21 +960,32 @@ wire                              deincr_rd_req_id_buffer_cnt_ps1;
 assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && can_serve_actual_rd_ps1;
 assign deincr_rd_req_id_buffer_cnt_ps1  = rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11;
 
-reg rd_req_id_buffer_en_ps1;
+reg  rd_req_id_buffer_en_ps1;
+reg  [P_REQ_ID_WIDTH-1:0] rd_req_id_data_in_ps1;
 wire [P_REQ_ID_WIDTH-1:0] rd_req_id_data_out_ps1;
 
-block_ram #(
+distributed_ram #(
     .DATA_WIDTH(P_REQ_ID_WIDTH),
     .ADDR_WIDTH(RD_INDEX_QUEUE_WIDTH)
 )
 rd_req_id_buffer_ps1(
-    .data_in(req_cas_id_ps1),
+    .data_in(rd_req_id_data_in_ps1),
     .read_addr(rd_req_id_buffer_tail_ps1), 
     .write_addr(rd_req_id_buffer_head_ps1),
     .wr_en(rd_req_id_buffer_en_ps1), 
     .clk(dfi_clk),
     .data_out(rd_req_id_data_out_ps1)
 ); 
+
+/* Data in PS1 */
+always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
+    if ( dfi_rst_n == 1'b0 ) begin
+        rd_req_id_data_in_ps1 <= { P_REQ_ID_WIDTH { 1'b0 } }; 
+    end
+    else begin
+        rd_req_id_data_in_ps1 <= req_cas_id_ps1;
+    end
+end
 
 /* Req ID cnt management */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
@@ -987,7 +1009,7 @@ end
 /* Fill req ID queue */
 always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
     if( dfi_rst_n == 1'b0 ) begin
-        rd_req_id_buffer_head_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_req_id_buffer_head_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b1 } };
         rd_req_id_buffer_en_ps1 <= 1'b0;
     end
     else begin
@@ -1015,7 +1037,7 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
             r_rd_data_ps1[255:128]    <=  { dfi_dw_rddata_p1[255:192],   dfi_dw_rddata_p1[127:64]};
             r_rd_data_ps1[127:0]      <=  { dfi_dw_rddata_p0[255:192],   dfi_dw_rddata_p0[127:64]};
             r_rd_data_req_id_ps1      <=  rd_req_id_data_out_ps1;
-            rd_req_id_buffer_tail_ps1 <= rd_req_id_buffer_tail_ps1 + 1'b1;
+            rd_req_id_buffer_tail_ps1 <=  rd_req_id_buffer_tail_ps1 + 1'b1;
         end
     end
 end
