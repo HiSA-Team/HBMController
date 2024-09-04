@@ -238,13 +238,18 @@ wire  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] ram_cas_address_out_ps1;
 generate
 /* 14R-5C-2BG-2B-PC */
 //`ifdef ADDRESS_MAPPING_1
+// if (P_MAPPING_POLICY == 1) begin
+//     assign row_address    =  input_address[28:15];
+//     assign column_address =  {input_address[14:10], 1'b1};
+//     assign bank_address   =  {input_address[5], input_address[9:6]};
+// //`endif
+// end
 if (P_MAPPING_POLICY == 1) begin
     assign row_address    =  input_address[28:15];
     assign column_address =  {input_address[14:10], 1'b1};
-    assign bank_address   =  {input_address[5], input_address[9:6]};
+    assign bank_address   =  {input_address[2], input_address[6:3]};
 //`endif
 end
-
 /* WARNINGGGGGGGGGGGGGGGGGGGGGGGGGGGG */
 /* TO BE ADJUSTED */
 else if (P_MAPPING_POLICY == 2) begin
