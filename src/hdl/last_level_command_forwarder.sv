@@ -170,6 +170,8 @@ module last_level_command_forwarder # (
     output [(P_BA_N_PS*2)-1:0]          served_cas,
 
     /* Data Read out with the associate request id */
+    output                              rd_data_valid_ps0,
+    output                              rd_data_valid_ps1,
     output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0,
     output [P_DATA_WIDTH-1:0]           rd_data_ps0,
     output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1,
@@ -835,13 +837,18 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
         r_rd_data_ps0             <= { P_DATA_WIDTH { 1'b1 } };
         r_rd_data_req_id_ps0      <= { P_REQ_ID_WIDTH { 1'b1 } };
         rd_req_id_buffer_tail_ps0 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_data_valid_ps0         <=  1'b0;
     end
     else begin
         if ( rd_req_id_buffer_cnt_ps0 > 0 && dfi_dw_rddata_valid[1:0] == 2'b11 ) begin
             r_rd_data_ps0[255:128]    <=  { dfi_dw_rddata_p0[191:128],   dfi_dw_rddata_p0[63:0]};
             r_rd_data_ps0[127:0]      <=  { dfi_dw_rddata_p1[191:128],   dfi_dw_rddata_p1[63:0]};
+            rd_data_valid_ps0         <=  1'b1;
             r_rd_data_req_id_ps0      <=  rd_req_id_data_out_ps0;
             rd_req_id_buffer_tail_ps0 <= rd_req_id_buffer_tail_ps0 + 1'b1;
+        end
+        else begin
+            rd_data_valid_ps0         <=  1'b0; 
         end
     end
 end
@@ -1031,13 +1038,18 @@ always @ ( posedge dfi_clk or negedge dfi_rst_n ) begin
         r_rd_data_ps1             <= { P_DATA_WIDTH { 1'b1 } };
         r_rd_data_req_id_ps1      <= { P_REQ_ID_WIDTH { 1'b1 } };
         rd_req_id_buffer_tail_ps1 <= { RD_INDEX_QUEUE_WIDTH { 1'b0 } };
+        rd_data_valid_ps1         <=  1'b0;
     end
     else begin
         if ( rd_req_id_buffer_cnt_ps1 > 0 && dfi_dw_rddata_valid[3:2] == 2'b11 ) begin
             r_rd_data_ps1[255:128]    <=  { dfi_dw_rddata_p1[255:192],   dfi_dw_rddata_p1[127:64]};
             r_rd_data_ps1[127:0]      <=  { dfi_dw_rddata_p0[255:192],   dfi_dw_rddata_p0[127:64]};
             r_rd_data_req_id_ps1      <=  rd_req_id_data_out_ps1;
+            rd_data_valid_ps1         <=  1'b1;
             rd_req_id_buffer_tail_ps1 <=  rd_req_id_buffer_tail_ps1 + 1'b1;
+        end
+        else begin
+            rd_data_valid_ps1         <=  1'b0;
         end
     end
 end

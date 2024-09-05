@@ -6,8 +6,8 @@ set_property board_part $board_part [current_project]
 
 # Create filset
 source "$build_dir/build_hbm_phy.tcl" -notrace
-source "$build_dir/build_hbm_controller.tcl" -notrace
 source "$build_dir/build_fifo_generator.tcl" -notrace
+source "$build_dir/build_hbm_controller.tcl" -notrace
 
 
 # Set HBM_controller as out of context module for synthesis

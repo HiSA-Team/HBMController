@@ -1,4 +1,4 @@
-add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sources_1 "\
+add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sources_1 " \
     $src_dir/hdl/block_ram.sv \
     $src_dir/hdl/distributed_ram.sv \
     $src_dir/hdl/dual_port_ram.sv \
@@ -41,9 +41,11 @@ add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sour
     $src_dir/hdl/switch/reg_signal.sv \
     $src_dir/hdl/switch/reg_write.sv \
     $src_dir/hdl/switch/Switch_Crossbar.sv \
-    $src_dir/hdl/switch/System.sv \"
+    $src_dir/hdl/switch/System.sv \ "
 
 
 add_files -norecurse -fileset constrs_1 -copy_to $project_dir/$project.srcs/constrs_1 "$src_dir/xdc/constraints.xdc"
 
-add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 "$src_dir/sim/HBM_controller_top_tb.sv"
+add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 " \ 
+    $src_dir/sim/HBM_controller_top_tb.sv \ 
+    $src_dir/sim/tb_System.sv \ "

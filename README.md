@@ -43,3 +43,76 @@ Once you have compiled the library you can start a simulation, there is a sample
 ~~~~
 make compile
 ~~~~
+
+```bash
+.
+├── cmake
+│   └── FindVivado.cmake
+├── CMakeLists.txt
+├── example_traces
+│   └── example_0.txt
+├── README.md
+├── scripts
+│   ├── base.tcl
+│   ├── build_fifo_generator.tcl
+│   ├── build_hbm_controller.tcl
+│   ├── build_hbm_phy.tcl
+│   ├── build_project.tcl
+│   ├── compile.tcl
+│   ├── configure_questa_simulator.tcl
+│   └── configure_synth_option.tcl
+└── src
+    ├── hdl
+    │   ├── async_dual_port_fifo.sv
+    │   ├── bank_scheduler.sv
+    │   ├── block_ram.sv
+    │   ├── CAS_arbiter.sv
+    │   ├── channel_scheduler.sv
+    │   ├── distributed_ram.sv
+    │   ├── dual_port_ram.sv
+    │   ├── HBM_AXI_Wrapper_top.v
+    │   ├── HBM_AXI_Wrapper.v
+    │   ├── HBM_channel_controller.sv
+    │   ├── HBM_controller_top.sv
+    │   ├── last_level_command_forwarder.sv
+    │   ├── RAS_arbiter.sv
+    │   ├── REQ_to_CMD_translator.sv
+    │   └── switch
+    │       ├── Arbiter.sv
+    │       ├── AXI4_peripheral_v2_0_M_AXI.sv
+    │       ├── CH_Controller.sv
+    │       ├── comp_in.sv
+    │       ├── comp_out.sv
+    │       ├── counter.sv
+    │       ├── Demux_Addr.sv
+    │       ├── Demux_FIFO_read.sv
+    │       ├── demux_id.sv
+    │       ├── Demux_Signal.sv
+    │       ├── Demux_Write.sv
+    │       ├── FIFO_Switch.sv
+    │       ├── MEM_id_axi_addr.sv
+    │       ├── Mux_Addr.sv
+    │       ├── Mux_FIFO_write.sv
+    │       ├── mux_id.sv
+    │       ├── Mux_Read.sv
+    │       ├── mux_selection.sv
+    │       ├── Mux_Signal.sv
+    │       ├── operational_switch.sv
+    │       ├── reg_addr.sv
+    │       ├── reg_data_read.sv
+    │       ├── reg_data_req.sv
+    │       ├── reg_id_pipe.sv
+    │       ├── reg_id.sv
+    │       ├── reg_pipe.sv
+    │       ├── reg_read.sv
+    │       ├── reg_selection.sv
+    │       ├── reg_signal.sv
+    │       ├── reg_write.sv
+    │       ├── Switch_Crossbar.sv
+    │       └── System.sv
+    ├── sim
+    │   ├── HBM_controller_top_tb.sv
+    │   └── tb_System.sv
+    └── xdc
+        └── constraints.xdc
+```

@@ -129,10 +129,12 @@ initial begin
     $finish;
 end
 
-wire [19:0]     rd_data_req_id_ps0   [0:16-1];
-wire [255:0]   rd_data_ps0          [0:16-1];
-wire [19:0]     rd_data_req_id_ps1   [0:16-1];
-wire [255:0]   rd_data_ps1          [0:16-1];
+wire          rd_data_valid_ps0    [0:16-1];
+wire          rd_data_valid_ps1    [0:16-1];
+wire [19:0]   rd_data_req_id_ps0   [0:16-1];
+wire [255:0]  rd_data_ps0          [0:16-1];
+wire [19:0]   rd_data_req_id_ps1   [0:16-1];
+wire [255:0]  rd_data_ps1          [0:16-1];
 
 
 HBM_controller_top #()

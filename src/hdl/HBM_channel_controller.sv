@@ -159,6 +159,9 @@ module HBM_channel_controller # (
     output output_request_picked,
     output reset_hbm_controller,
 
+    
+    output rd_data_valid_ps0,
+    output rd_data_valid_ps1,
     output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0,
     output [P_DATA_WIDTH-1:0]           rd_data_ps0,
     output [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1,
@@ -581,7 +584,8 @@ channel_0_scheduler
     .ram_cas_address_out_ps0(ram_cas_address_out_ps0),
     .ram_cas_address_out_ps1(ram_cas_address_out_ps1),
 
-
+    .rd_data_valid_ps0(rd_data_valid_ps0),
+    .rd_data_valid_ps1(rd_data_valid_ps1),
     .rd_data_req_id_ps0(rd_data_req_id_ps0),
     .rd_data_ps0(rd_data_ps0),
     .rd_data_req_id_ps1(rd_data_req_id_ps1),

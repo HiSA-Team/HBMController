@@ -80,6 +80,8 @@ module HBM_controller_top#
         output                      request_picked       [0:N_CHANNELS-1],
         output                      reset_hbm_controller [0:N_CHANNELS-1],
 
+        output                      rd_data_valid_ps0    [0:N_CHANNELS-1],
+        output                      rd_data_valid_ps1    [0:N_CHANNELS-1],
         output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
         output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
         output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
@@ -95,6 +97,8 @@ module HBM_controller_top#
         output                      request_picked       [0:16-1],
         output                      reset_hbm_controller [0:16-1],
 
+        output                      rd_data_valid_ps0    [0:16-1],
+        output                      rd_data_valid_ps1    [0:16-1],
         output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
         output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:16-1],
         output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
@@ -1024,6 +1028,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
             ,.input_request_valid           (request_valid[i])
             ,.output_request_picked         (request_picked[i])
 
+            ,.rd_data_valid_ps0(rd_data_valid_ps0[i])
+            ,.rd_data_valid_ps1(rd_data_valid_ps1[i])
             ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
             ,.rd_data_ps0(rd_data_ps0[i])
             ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
@@ -1093,6 +1099,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
             ,.input_request_valid                 (request_valid[i])
             ,.output_request_picked                (request_picked[i])
 
+            ,.rd_data_valid_ps0(rd_data_valid_ps0[i])
+            ,.rd_data_valid_ps1(rd_data_valid_ps1[i])
             ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
             ,.rd_data_ps0(rd_data_ps0[i])
             ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
@@ -1163,6 +1171,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
             ,.input_request_valid                 (request_valid[i])
             ,.output_request_picked                (request_picked[i])
 
+            ,.rd_data_valid_ps0(rd_data_valid_ps0[i])
+            ,.rd_data_valid_ps1(rd_data_valid_ps1[i])
             ,.rd_data_req_id_ps0(rd_data_req_id_ps0[i])
             ,.rd_data_ps0(rd_data_ps0[i])
             ,.rd_data_req_id_ps1(rd_data_req_id_ps1[i])
