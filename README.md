@@ -44,6 +44,8 @@ Once you have compiled the library you can start a simulation, there is a sample
 make compile
 ~~~~
 
+## Directories tree
+
 ```bash
 .
 ├── cmake
