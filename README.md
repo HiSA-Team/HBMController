@@ -70,6 +70,7 @@ make compile
 ## Simulation flow
 The default flow is the trace-based simulation flow shown in the following figure.
 ![Alt text](doc/Trace_based_simulation_flow.png "Trace-based simulation flow")
+
 Basically the SystemVerilog testbench (sim/HBM_controller_top_tb.sv) takes a requests trace in input and sends them (one-by-one) to the controller.
 
 Once the project is built, to simulate it, Questa Advanced Simulator v2020.4 is needed. All the simulation settings are made, you need to download QuestaSim (recommended v2020.4) and compile the simulation libraries if you did not export the COMPILE_SIMLIB variable in the build phase.
