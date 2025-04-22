@@ -21,6 +21,3 @@ build*/*
 vivado.*
 .Xil
 .Xil/*
-
-utils
-utils/*

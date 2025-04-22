@@ -46,7 +46,7 @@ if {${ADDRESS_MAPPING}==1} {
 
 if {${DEBUG}==1} {
     append verilog_define_list " " DEBUG=1
-} 
+}
 
 set_property verilog_define $verilog_define_list [get_filesets sources_1]
 set_property verilog_define $verilog_define_list [get_filesets sim_1]

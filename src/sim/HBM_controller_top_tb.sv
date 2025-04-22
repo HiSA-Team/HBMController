@@ -1,31 +1,11 @@
-`timescale 1ps / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 09/27/2023 10:34:04 AM
-// Design Name: 
-// Module Name: HBM_controller_sim_top
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
+`timescale 1ps/1ps
 
 module HBM_controller_top_tb(
 
     );
-    
-    
-    
+
+
+
 reg HBM_REF_CLK_0;
 reg ARESET_N_0;
 reg APB_PCLK;
@@ -36,11 +16,6 @@ reg APB_PRESET_N;
 ////////////////////////////////////////////////////////////////////////////////
 initial HBM_REF_CLK_0 = 1'b0;
 always HBM_REF_CLK_0 = #5000.00 ~HBM_REF_CLK_0;
-
-/* Clock 5 volte più veloce di HBM_REF_CLK_0 */
-//initial HBM_REF_CLK_0_5 = 1'b0;
-//always HBM_REF_CLK_0_5 = #(5000.00/4) /*1000.00*/ ~HBM_REF_CLK_0_5;
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Generating 100MHz APB clock and Reset
@@ -65,6 +40,8 @@ initial begin
     ARESET_N_0 = 1'b1;
 end
 
+logic clk_450 [0:15];
+
 integer fd;
 string  line;
 string  request;
@@ -75,81 +52,112 @@ reg [255:0] input_data [0:15];
 reg [31:0]tmp_data;
 reg [1:0] input_request [0:15];
 reg request_valid[0:15];
-wire request_picked[0:15]; 
+wire request_picked[0:15];
 wire reset_hbm_controller[0:15];
 
-initial begin
 
-    wait(reset_hbm_controller[0] == 1'b1);
-        
-    fd = $fopen("./example_0.txt", "r");
-    while(!$feof(fd))begin
-        $fgets(line, fd);
-        request = line.substr(0,1);
-        address = line.substr(3, 10).atohex();
-        if (line.len() >= 64 + 2 + 8 ) begin
-            data = line.substr(12, 19).atohex();
-            data = data << 32;
-            tmp_data = line.substr(20, 27).atohex();
-            data = (data + tmp_data) << 32;
-            tmp_data = line.substr(28, 35).atohex();
-            data = (data + tmp_data) << 32;
-            tmp_data = line.substr(36, 43).atohex();
-            data = (data + tmp_data) << 32;
-            tmp_data = line.substr(44, 51).atohex();
-            data = (data + tmp_data) << 32;
-            tmp_data = line.substr(52, 59).atohex();
-            data = (data + tmp_data) << 32;
-            tmp_data = line.substr(60, 67).atohex();
-            data = (data + tmp_data) << 32;
-            tmp_data = line.substr(68, 75).atohex();
-            data = (data + tmp_data);
-        end
-        if (request == "RD") begin
-            input_request[0] <= 2'b01;
+logic f_open = 0;
+
+always @(posedge clk_450[0]) begin
+
+    if ( f_open == 0 ) begin
+        request_valid[0] <= 1'b0;
+        fd = $fopen("./example_0.txt", "r");
+        f_open <= 1;
+    end
+
+    if (reset_hbm_controller[0] == 1'b1) begin
+        if ( !$feof(fd) ) begin
+
+            if ( ~request_valid[0] || (request_valid[0] && request_picked[0])) begin
+                $fgets(line, fd);
+                request = line.substr(0,1);
+                address = line.substr(3, 10).atohex();
+                if (line.len() >= 64 + 2 + 8 ) begin
+                    data = line.substr(12, 19).atohex();
+                    data = data << 32;
+                    tmp_data = line.substr(20, 27).atohex();
+                    data = (data + tmp_data) << 32;
+                    tmp_data = line.substr(28, 35).atohex();
+                    data = (data + tmp_data) << 32;
+                    tmp_data = line.substr(36, 43).atohex();
+                    data = (data + tmp_data) << 32;
+                    tmp_data = line.substr(44, 51).atohex();
+                    data = (data + tmp_data) << 32;
+                    tmp_data = line.substr(52, 59).atohex();
+                    data = (data + tmp_data) << 32;
+                    tmp_data = line.substr(60, 67).atohex();
+                    data = (data + tmp_data) << 32;
+                    tmp_data = line.substr(68, 75).atohex();
+                    data = (data + tmp_data);
+                end
+                if (request == "RD") begin
+                    input_request[0] <= 2'b01;
+                end
+                else begin
+                    input_request[0] <= 2'b00;
+                end
+
+                input_address[0] <= address;
+
+                if (line.len() >= 64 + 2 + 8 ) begin
+                    input_data[0] <= data;
+                end
+
+
+                request_valid[0] <= 1'b1;
+
+            end
+
+//            else if (~request_picked[0] && request_valid[0]) begin
+//                request_valid[0] <= 1'b0;
+//            end
+
         end
         else begin
-            input_request[0] <= 2'b00;
+            $fclose(fd);
+            $finish;
         end
-            
-        input_address[0] <= address;
-            
-        if (line.len() >= 64 + 2 + 8 ) begin
-            input_data[0] <= data;  
-        end
-
-        request_valid[0] <= 1'b1;
-        wait(request_picked[0] == 1'b1);
-        request_valid[0] <= 1'b0;   
-
-        wait(request_picked[0] == 1'b0);
     end
-    
-    $fclose(fd);
-    $finish;
 end
 
-wire [19:0]     rd_data_req_id_ps0   [0:16-1];
-wire [255:0]   rd_data_ps0          [0:16-1];
-wire [19:0]     rd_data_req_id_ps1   [0:16-1];
-wire [255:0]   rd_data_ps1          [0:16-1];
+wire          rd_data_valid_ps0    [0:16-1];
+wire          rd_data_valid_ps1    [0:16-1];
+wire [23:0]   rd_data_req_id_ps0   [0:16-1];
+wire [255:0]  rd_data_ps0          [0:16-1];
+wire [23:0]   rd_data_req_id_ps1   [0:16-1];
+wire [255:0]  rd_data_ps1          [0:16-1];
+
+
+logic [23:0] request_id [0:15];
+
+always_comb begin
+    foreach (request_id[i]) request_id[i] <= '0;
+end
 
 
 HBM_controller_top #()
 HBM_controller_top_i (
     .HBM_REF_CLK_0(HBM_REF_CLK_0),
-    .ARESET_N_0(ARESET_N_0),
-    .APB_PCLK_0(APB_PCLK),
-    .APB_PRESET_N_0(APB_PRESET_N),
+     .ARESET_N_0(ARESET_N_0),
+     .APB_PCLK_0(APB_PCLK),
+     .APB_PRESET_N_0(APB_PRESET_N),
+     .ARESET_N_1(ARESET_N_0),
+     .APB_PCLK_1(APB_PCLK),
+     .APB_PRESET_N_1(APB_PRESET_N),
+
     .address(input_address),
     .request(input_request),
     .write_data(input_data),
     .request_valid(request_valid),
     .request_picked(request_picked),
+    .request_id(request_id),
     .reset_hbm_controller(reset_hbm_controller),
     .rd_data_req_id_ps0(rd_data_req_id_ps0),
     .rd_data_ps0(rd_data_ps0),
     .rd_data_req_id_ps1(rd_data_req_id_ps1),
-    .rd_data_ps1(rd_data_ps1)
+    .rd_data_ps1(rd_data_ps1),
+
+    .dfi_clk_buf(clk_450)
 );
 endmodule

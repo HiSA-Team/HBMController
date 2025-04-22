@@ -16,16 +16,16 @@ endif()
     set(REDUCED_BOARD_PART au280 CACHE STRING "Reduced board.")
 # endif()
 
-if ( NOT N_CHANNELS )   
- set( N_CHANNELS 1 CACHE STRING "Number of HBM channels" ) 
+if ( NOT N_CHANNELS )
+ set( N_CHANNELS 1 CACHE STRING "Number of HBM channels" )
 endif()
 
-if ( NOT ADDRESS_MAPPING )   
- set( ADDRESS_MAPPING 1 CACHE STRING "Address mapping policy" ) 
+if ( NOT ADDRESS_MAPPING )
+ set( ADDRESS_MAPPING 1 CACHE STRING "Address mapping policy" )
 endif()
 
-if ( NOT DEBUG )   
- set( DEBUG 0 CACHE STRING "Debug" ) 
+if ( NOT DEBUG )
+ set( DEBUG 0 CACHE STRING "Debug" )
 endif()
 
 # Configure files
