@@ -1,6 +1,8 @@
 # CrossSim co-simulation (gem5 ↔ Questa RTL)
 
-This guide is adapted from the public [CrossSim](https://github.com/HiSA-Team/CrossSim) reference tree. In **this** repository, the **gem5** integration sources and the **CrossSim DPI shared library** sources live under [`CrossSim/`](../../CrossSim/README.md). The upstream **Vivado** example testbenches are **not** included here; instead, use the DPI template next to this file and wire it to your Questa flow and Xilinx simulation models.
+This document tracks how to rebuild and run the **CrossSim** bridge used with this controller. The **gem5** sidecar and **crosssim** DPI library sources live under [`CrossSim/`](../../CrossSim/README.md). Example SystemVerilog shipped with some CrossSim trees targets Vivado-centric flows; **here**, use the DPI template in this folder with Questa and your compiled Xilinx simulation models.
+
+A high-level diagram is checked in as [`doc/CrossSim.png`](../CrossSim.png) (see also the **Simulation flow** section in the root [`README.md`](../../README.md)).
 
 ## Architecture at a glance
 
@@ -136,7 +138,3 @@ Run Questa with DPI loading `crosssim.so` (exact `vsim`/`vopt` flags depend on y
 - **DPI symbol not found** — Ensure `import "DPI-C"` function names and signatures match `crosssim.h` and the compiled object.
 - **Questa/Vivado model library errors** — Re-run `compile_simlib` for your tool versions; use the correct `modelsim.ini`.
 - **No queue traffic** — Both sides must call `initialize()`; both processes must be running; check shared-memory permissions.
-
-## Upstream license
-
-See [`CrossSim/LICENSE.CrossSim-upstream`](../../CrossSim/LICENSE.CrossSim-upstream) for the license file carried with these sources.

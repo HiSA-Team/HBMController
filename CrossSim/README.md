@@ -5,6 +5,4 @@ This directory contains the **gem5** and **crosssim** components (aligned with t
 - `gem5/` — `DpiMemCtrl` and example `simple.py`
 - `crosssim/` — DPI shared library sources (`crosssim.so`)
 
-The upstream `sources/vivado/` tree is **not** included in this repository. For build instructions, RTL-side DPI usage, and reproduction steps, see **[`doc/CrossSim/README.md`](../doc/CrossSim/README.md)**.
-
-License: `LICENSE.CrossSim-upstream`.
+Reference CrossSim layouts may include a `sources/vivado/` tree with example HDL; **this** repository documents the Questa-oriented flow under **[`doc/CrossSim/README.md`](../doc/CrossSim/README.md)**.

@@ -6,87 +6,91 @@ Vivado is needed to build, synthesize, and implement the project. The only teste
 HBM IP requires an external simulator. Simulations were conducted using Questa Advanced Simulator v2020.4.
 > NOTE: The design has been validated only in simulation. Physical validation is ongoing.
 
-## CrossSim co-simulation
+---
 
-**CrossSim** is a co-simulation bridge between an RTL simulator (for example Questa) and **gem5**. A DPI-C shared library (`crosssim.so`) and POSIX shared-memory queues carry memory requests and responses between the two processes. That lets a full-system or trace-driven gem5 model drive the same memory interface your RTL exposes, instead of (or in addition to) file-based traces.
+## RTL structure and header parameters
 
-A short overview of CrossSim in the context of this work is available as a PDF: **[`doc/CrossSim.pdf`](doc/CrossSim.pdf)**.
+Most numeric widths, queue depths, address-map selection, and request-ID sizing are declared as `localparam` symbols in include files under [`src/rtl/include/`](src/rtl/include/). Edit those headers (or the few module `parameter`s noted below), then regenerate the Vivado project.
 
-**Reproducing the CrossSim setup:** step-by-step instructions (gem5 integration, building `crosssim.so`, Vivado sim libraries, and the RTL DPI hook) are in **[`doc/CrossSim/README.md`](doc/CrossSim/README.md)**. The **gem5** and **crosssim** sources live under [`CrossSim/`](CrossSim/README.md). This repository does **not** include the upstream Vivado example testbenches; you implement the Questa testbench with `import "DPI-C"` against `crosssim.so`. A starting point is **[`doc/CrossSim/HBM_controller_crosssim_dpi_tb_template.sv`](doc/CrossSim/HBM_controller_crosssim_dpi_tb_template.sv)**.
+### [`hbm_controller.svh`](src/rtl/include/hbm_controller.svh)
+
+| Symbol | Meaning |
+| ------ | ------- |
+| `P_ROW_ADDR_WIDTH` | Row address bit width |
+| `P_COL_ADDR_WIDTH` | Column address bit width |
+| `P_BA_ADDR_WIDTH` | Bank address bit width |
+| `P_BA_N_PS` | Banks per pseudo-channel (half-bank view as in RTL comments) |
+| `P_BA_N_G` | Banks per bank group |
+| `P_DATA_WIDTH` | Datapath width (bits) |
+| `P_TOTAL_PER_CHANNEL_BANK_N` | Bank slots per channel |
+| `P_QUEUE_LEN` | Depth of the REQ→CMD translator queue |
+| `P_MAPPING_POLICY` | Selects one of five address decompositions in `HBM_channel_controller.sv` |
+| `P_WRT_DATA_BUFFER_LEN` | Write-side buffering depth |
+| `P_WRT_REQ` / `P_RD_REQ` / `P_REQ_WIDTH` | Request type encoding width and values |
+| `P_REQ_ID_WIDTH` | Request ID width (`DEBUG` vs non-`DEBUG` compile) |
+| `P_CMD_ID_WIDTH` | Command ID width |
+| `LP_BG_N` | Bank groups (derived from `P_BA_N_PS` / `P_BA_N_G`) |
+| `P_RD_ID_BUFFER_LEN` | Read ID tracking buffer depth |
+| `LP_MRS` | Mode-register-related constant used in the command path |
+
+### [`hbm_timing_constraints.svh`](src/rtl/include/hbm_timing_constraints.svh)
+
+**Per-bank scheduling** (`bank_scheduler` and related):
+
+| Symbol | Role |
+| ------ | ---- |
+| `tRCD` | Row command to column command delay |
+| `tRP` | Precharge period |
+| `tRC` | Row cycle |
+| `tRAS` | Row active time |
+| `tWL` | Write latency |
+| `tRL` | Read latency |
+| `tRTPl` | Read-to-precharge (long) spacing |
+| `tWR` | Write recovery |
+| `tBURST` | Burst-related spacing |
+| `tRFCpb` | Per-bank refresh cycle |
+| `tREFP` | Refresh period |
+
+**Channel / LLCF spacing** (arbiters, forwarders, `channel_scheduler`):
+
+| Symbol | Role |
+| ------ | ---- |
+| `tCCDl` | Column-column delay (long) |
+| `tCCDs` | Column-column delay (short) |
+| `tRTW` | Read-to-write turnaround |
+| `tWTRl` | Write-to-read (long) |
+| `tRRD` | Row-row delay |
+| `tFAW` | Four-activate window |
+| `tWTRs` | Write-to-read (short) |
+| `tRREFD` | Refresh-related spacing |
+
+### [`commands.svh`](src/rtl/include/commands.svh)
+
+DRAM-style opcode constants for RAS/CAS (`P_ROW_ACT`, `P_COL_RD`, `P_COL_WRT`, …), general NOP, refresh, and pseudo-channel helpers (`LP_BA4_0`, `LP_BA4_1`, `LP_PAR`). These normally track the protocol; change only if you extend encoding consistently across the RTL.
+
+### [`dfi_interface.svh`](src/rtl/include/dfi_interface.svh)
+
+Expands to the DFI master port list through the Verilog `` `DEFINE_DFI_MASTER_PORTS` `` macro; no separate timing `localparam` table here.
+
+### Top-level module parameters (outside the SVH bundle)
+
+[`HBM_controller_top.sv`](src/rtl/controller/HBM_controller_top.sv) repeats/overrides a subset of the above as `parameter`s (e.g. `N_CHANNELS`, `P_QUEUE_LEN`, `P_MAPPING_POLICY`, `P_APB_PCLK0_BUFFERED`). CMake drives `N_CHANNELS` into Vivado generics via `build_project.tcl`. [`HBM_AXI_Wrapper.v`](src/rtl/controller/HBM_AXI_Wrapper.v) exposes `MAPPING_POLICY`; keep it aligned with `P_MAPPING_POLICY` in `hbm_controller.svh` when using the AXI path.
 
 ---
 
-## Controller features (what they do, parameters, configuration)
+## Major RTL blocks (short map)
 
-The following maps major **functional blocks** to the knobs that control them. RTL paths are under `src/rtl/` unless noted.
+| Area | Primary files | Headers to touch first |
+| ---- | --------------- | ------------------------ |
+| Clock / MMCM, HBM IP glue, channel replication | `HBM_controller_top.sv` | `hbm_controller.svh`; CMake `N_CHANNELS` |
+| Address split, ps0/ps1 datapath, translator + scheduler stack | `HBM_channel_controller.sv` | `hbm_controller.svh`, `hbm_timing_constraints.svh`, `commands.svh` |
+| Request → row command queueing | `REQ_to_CMD_translator.sv` | `hbm_controller.svh` (`P_QUEUE_LEN`) |
+| Per-bank timing FSM | `bank_scheduler.sv` | `hbm_timing_constraints.svh` (bank group) |
+| Bank merge, CAS datapath, read returns | `channel_scheduler.sv`, `llcf_*.sv`, arbiters | `hbm_timing_constraints.svh` (channel/LLCF) |
+| AXI front-end | `HBM_AXI_Wrapper.v`, `HBM_AXI_Wrapper_top.v` | Wrapper `MAPPING_POLICY` + `hbm_controller.svh` |
+| FPGA pin-minimal top | `HBM_controller_fpga_top.sv` | `P_APB_PCLK0_BUFFERED` on `HBM_controller_top`; CMake `FDEV_NAME` |
 
-### Multi-channel top (`HBM_controller_top`)
-
-**What it does.** Wraps clocking (MMCM), APB access to the Xilinx HBM subsystem, per-channel `HBM_channel_controller` instances, and DFI toward the PHY. Exposes a simple read/write **request port** per channel (address, request type, write data, valid/ready style handshaking, read returns on pseudo-channels ps0/ps1).
-
-**Parameters / symbols.** `N_CHANNELS` on `HBM_controller_top` (number of active controller channels). `P_APB_PCLK0_BUFFERED` selects whether `APB_PCLK_0` is buffered inside the core or assumed already on a BUFG net from a parent (see `HBM_controller_fpga_top`).
-
-**How to configure.** Pass `N_CHANNELS` as a Vivado generic on `sources_1` and `sim_1` (set from CMake via `build_project.tcl` after `cmake .. -DN_CHANNELS=…`). For the FPGA wrapper pinout, see `HBM_controller_fpga_top.sv`. Set `P_APB_PCLK0_BUFFERED` when instantiating `HBM_controller_top` if you follow the same BUFG pattern as the FPGA top.
-
-### Per-channel controller (`HBM_channel_controller`)
-
-**What it does.** Splits each logical channel into **two pseudo-channels** (ps0/ps1) according to the bank address, maps the custom request interface into row/column/bank fields, buffers write/read CAS context in block RAMs, and hosts the per-bank **REQ-to-CMD translators**, **bank schedulers**, and **channel scheduler** that eventually drive the low-level DFI command stack.
-
-**Parameters / symbols.** Widths and depths come from `src/rtl/include/hbm_controller.svh` (for example `P_DATA_WIDTH`, `P_BA_N_PS`, `P_TOTAL_PER_CHANNEL_BANK_N`, `P_QUEUE_LEN`, `P_RD_ID_BUFFER_LEN`, `P_WRT_DATA_BUFFER_LEN`). Timing budgets for schedulers come from `src/rtl/include/hbm_timing_constraints.svh` (`tRCD`, `tRP`, `tRL`, `tWL`, `tFAW`, …).
-
-**How to configure.** Edit the `localparam` values in `hbm_controller.svh` and `hbm_timing_constraints.svh`, then rebuild the Vivado project. Keep timing parameters consistent with your HBM speed grade and PHY configuration.
-
-### Address mapping policies
-
-**What it does.** Derives `row_address`, `column_address`, and `bank_address` from the 32-bit request address. Five policies are implemented as `generate` branches in `HBM_channel_controller.sv` (labels in comments: e.g. **14R-5C-2BG-2B-PC** for policy 1).
-
-**Parameters / symbols.** `P_MAPPING_POLICY` in `hbm_controller.svh` (integer 1–5).
-
-**How to configure.** Set `P_MAPPING_POLICY` in `src/rtl/include/hbm_controller.svh` to the desired policy and rebuild. The CMake option `ADDRESS_MAPPING` is passed into Vivado as verilog defines `ADDRESS_MAPPING_1` … `ADDRESS_MAPPING_5`, but the **active** decode is selected only by `P_MAPPING_POLICY`; keep them consistent if you use both.
-
-### REQ-to-CMD translation (`REQ_to_CMD_translator`)
-
-**What it does.** Translates high-level read/write requests into row commands for the bank scheduler, maintaining a small command queue and tracking the **currently open row** to decide when to accept new requests.
-
-**Parameters / symbols.** Queue depth `P_QUEUE_LEN` in `hbm_controller.svh`. Command and request encodings in `commands.svh`.
-
-**How to configure.** Adjust `P_QUEUE_LEN` in `hbm_controller.svh` (trade-off between pipelining and area/timing).
-
-### Bank scheduling (`bank_scheduler`)
-
-**What it does.** Per-bank FSM and timing checks enforce **intra-bank** DRAM constraints (activate, precharge, read/write, refresh interactions) before handing a command to the channel scheduler.
-
-**Parameters / symbols.** `P_BANK_INDEX` is set per generated instance. Timing: `hbm_timing_constraints.svh` (`tRCD`, `tRP`, `tRAS`, `tRFCpb`, `tREFP`, …).
-
-**How to configure.** Tune `hbm_timing_constraints.svh` to match your memory datasheet and configured HBM timing mode.
-
-### Channel scheduling and DFI command path (LLCF stack)
-
-**What it does.** The **channel scheduler** arbitrates among banks, manages read/write datapath timing to the pseudo-channels, and interfaces to the **last-level command forwarder** and driver/checker blocks (`llcf_*`, `CAS_arbiter`, `RAS_arbiter`, …) that emit legal DFI transactions.
-
-**Parameters / symbols.** Inter-bank / interface spacing: `hbm_timing_constraints.svh` (`tCCDl`, `tRRD`, `tFAW`, `tRTW`, `tWTRl`, …).
-
-**How to configure.** Same as bank timing: edit `hbm_timing_constraints.svh` coherently with PHY and JEDEC-mode settings.
-
-### AXI wrapper (`HBM_AXI_Wrapper.v` / `HBM_AXI_Wrapper_top.v`)
-
-**What it does.** Bridges AXI4 memory-mapped traffic to the custom request interface expected by `HBM_controller_top`, including ID tracking for read data routing.
-
-**Parameters / symbols.** `MAPPING_POLICY` parameter on the wrapper (intended to track address-mapping choice when using the AXI path).
-
-**How to configure.** Set `MAPPING_POLICY` when instantiating the wrapper so it matches `P_MAPPING_POLICY` in `hbm_controller.svh`.
-
-### Simulation-only build (`DEBUG`)
-
-**What it does.** With `DEBUG` defined, `hbm_controller.svh` uses a wider `P_REQ_ID_WIDTH` for simulation visibility; the default trace testbench targets this mode.
-
-**How to configure.** Configure with `cmake .. -DDEBUG=1` so Vivado defines `DEBUG=1` on the **sim_1** fileset (`build_project.tcl`). Synthesis uses the non-DEBUG defines for `sources_1` so `HBM_controller_fpga_top` port widths stay aligned.
-
-### FPGA integration wrapper (`HBM_controller_fpga_top`)
-
-**What it does.** Minimal-pin top for synthesis/implementation: package clocks/resets/APB, internal tie-offs or slow strobes so request paths are not optimized away, and `P_APB_PCLK0_BUFFERED=1` with a single IBUF+BUFG for APB.
-
-**How to configure.** Use as the Vivado top for implementation (`build_project.tcl` sets `top` to `HBM_controller_fpga_top`). Adjust board/part via CMake (`FDEV_NAME` for `au50` vs default `au280`).
+Simulation widens `P_REQ_ID_WIDTH` when `DEBUG` is set on the `sim_1` fileset (`cmake .. -DDEBUG=1`); synthesis strips that define so `HBM_controller_fpga_top` stays consistent with the non-`DEBUG` header branch.
 
 ---
 
@@ -116,13 +120,13 @@ mkdir build && cd build
 cmake .. -DDEBUG=1
 ```
 
-Following configuration options are provided:
+CMake cache knobs (fed into Vivado Tcl):
 
 | Name            | Values                   | Description                                        |
 | --------------- | ------------------------ | -------------------------------------------------- |
 | DEBUG           | <**0**, 1>               | If 1, enable `DEBUG=1` on the Vivado **sim_1** fileset (wider `P_REQ_ID_WIDTH` in `hbm_controller.svh`); not defined on synth sources |
 | N_CHANNELS      | <**1**, 2, 4, 8, 16>     | Number of enabled channels                         |
-| ADDRESS_MAPPING | <**1**, 2, 3, 4, 5>      | Passed as verilog defines (see address mapping note above) |
+| ADDRESS_MAPPING | <**1**, 2, 3, 4, 5>      | Verilog defines `ADDRESS_MAPPING_1`…`5` (legacy); active map is `P_MAPPING_POLICY` in `hbm_controller.svh` |
 | FDEV_NAME       | **au280**, au50          | Board / part selection (CMakeLists)                |
 
 The only tested board is the Alveo U280.
@@ -152,22 +156,33 @@ make compile
 
 ## Simulation flow
 
-The default flow is the trace-based simulation flow shown in the following figure.
+Two ways to exercise the RTL in simulation are supported in this tree: file-driven stimulus and a linked gem5+Questa path.
+
+### 1. Trace-driven simulation
 
 ![Trace-based simulation flow](doc/Trace_based_simulation_flow.png "Trace-based simulation flow")
 
-Basically the SystemVerilog testbench (`src/sim/HBM_controller_top_tb.sv`) takes a requests trace in input and sends them (one-by-one) to the controller.
+[`src/sim/HBM_controller_top_tb.sv`](src/sim/HBM_controller_top_tb.sv) reads a textual trace and applies one request at a time to the controller. After `make HBMController`, use Questa (v2020.4 in our tests); compile Xilinx sim libraries if you did not set `COMPILE_SIMLIB` during the build. Place the trace where the testbench expects it (see `TRACE_FILE` in the TB). Example lines live under [`example_traces/`](example_traces/).
 
-Once the project is built, to simulate it, Questa Advanced Simulator v2020.4 is needed. All the simulation settings are made; you need to download QuestaSim (recommended v2020.4) and compile the simulation libraries if you did not export the `COMPILE_SIMLIB` variable in the build phase. Once you have compiled the library you can start a simulation; there is a sample memory trace in the `example_traces` folder. To properly start the simulation, the simulation trace must be placed in the (project) directory specified in the testbench.
-
-### Requests trace
-
-The requests trace could be generated through any tools or flow. The only requirement is that it adheres to the following format:
+#### Trace file format
 
 ```
 REQ ADDRESS [DATA]
 ```
 
-Where `REQ` can be `WR` or `RD`; `ADDRESS` is the target address in hex without a `0x` prefix; and `DATA` is the 32-byte write data in hex without a prefix when `REQ` is `WR`.
+`REQ` is `WR` or `RD`. `ADDRESS` is hexadecimal **without** a `0x` prefix. For writes, `DATA` is 32 bytes of hex, also without `0x`.
 
-In the `utils` directory there are two scripts to generate traces. The `gem5_to_req.py` script can be used to generate the request trace from a gem5-generated memory trace, while `req_to_cmd.py` serves to generate a commands trace from a requests trace. The latter can be used to test the controller without the REQ-to-CMD-Translator component (not recommended).
+[`utils/gem5_to_req.py`](utils/gem5_to_req.py) converts a gem5 memory trace into this format. [`utils/req_to_cmd.py`](utils/req_to_cmd.py) can emit a lower-level command trace (bypasses `REQ_to_CMD_translator`; not recommended for normal validation).
+
+### 2. CrossSim (gem5 ↔ Questa via DPI-C)
+
+![CrossSim co-simulation overview](doc/CrossSim.png "CrossSim co-simulation overview")
+
+**CrossSim** couples **gem5** (system timing model) with **Questa** (RTL) through a small DPI-C shared library, `crosssim.so`, backed by POSIX shared-memory queues. gem5 enqueues loads/stores; the SystemVerilog side dequeues them, drives the custom memory ports of `HBM_controller_top`, and posts responses back.
+
+- **Sources:** [`CrossSim/gem5/`](CrossSim/gem5/) (`DpiMemCtrl` + example `simple.py`), [`CrossSim/crosssim/`](CrossSim/crosssim/) (library build).
+- **Procedure:** full build order, gem5 copy list, `compile_simlib`, and `make` for `crosssim.so` are in **[`doc/CrossSim/README.md`](doc/CrossSim/README.md)**.
+- **Questa TB starting point:** [`doc/CrossSim/HBM_controller_crosssim_dpi_tb_template.sv`](doc/CrossSim/HBM_controller_crosssim_dpi_tb_template.sv) — declares the DPI imports, calls `initialize` / `finalize`, and instantiates the controller; you still need the request/response loop that maps queue records to `address` / `request` / `write_data` / `request_valid` / `request_id` and back to `questa_send` / `questa_receive` (see `CrossSim/crosssim/inc/crosssim.h`).
+- **Note:** Some CrossSim distributions ship ready-made Vivado-oriented SV examples; this repository relies on the template above plus your Questa/Xilinx library setup instead.
+
+Run gem5 and Questa **concurrently** with the same `crosssim.so` path so both sides attach to the shared queues.
