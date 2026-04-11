@@ -184,6 +184,6 @@ REQ ADDRESS [DATA]
 - **Sources:** [`CrossSim/gem5/`](CrossSim/gem5/) (`DpiMemCtrl` + example `simple.py`), [`CrossSim/crosssim/`](CrossSim/crosssim/) (library build).
 - **Procedure:** **[`CrossSim/README.md`](CrossSim/README.md)** (build order, gem5 integration, `compile_simlib`, `crosssim.so`).
 - **Questa TB starting point:** [`CrossSim/HBM_controller_crosssim_dpi_tb_template.sv`](CrossSim/HBM_controller_crosssim_dpi_tb_template.sv) — DPI imports, `initialize` / `finalize`, and `HBM_controller_top`; add the queue ↔ port mapping loop yourself (see `CrossSim/crosssim/inc/crosssim.h`).
-- **Note:** Some CrossSim distributions ship ready-made Vivado-oriented SV examples; this repository relies on the template above plus your Questa/Xilinx library setup instead.
+- **Note:** This flow uses the bundled DPI template and your Questa plus Xilinx simulation libraries; swap in other HDL wrappers if your site standardizes on a different simulator flow.
 
 Run gem5 and Questa **concurrently** with the same `crosssim.so` path so both sides attach to the shared queues.

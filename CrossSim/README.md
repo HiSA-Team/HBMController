@@ -13,7 +13,7 @@ Co-simulation bridge: **gem5** issues memory traffic; **Questa** runs the HBM co
 
 Block diagram (kept under `doc/` with the other figures): [`../doc/CrossSim.png`](../doc/CrossSim.png). Short pointer in the main project readme: [`../README.md`](../README.md) → **Simulation flow**.
 
-Some external CrossSim trees ship Vivado-oriented example HDL; **this** repo documents a Questa + DPI path using the template above.
+If you prefer a Vivado-centric HDL flow, you would wire that separately; **this** repository documents a Questa + DPI path using the template above.
 
 ---
 
@@ -131,9 +131,3 @@ Match the compiler/ABI used for `crosssim.so` when elaborating with Questa.
 | DPI symbol missing | SV `import "DPI-C"` signatures vs `crosssim.h`. |
 | Unresolved Xilinx cells | Re-run `compile_simlib` for your Vivado/Questa pair. |
 | Empty queues | Both sides called `initialize()`; both still running; `/dev/shm` permissions. |
-
----
-
-## Related layout (public reference)
-
-Directory naming follows the [HiSA-Team/CrossSim](https://github.com/HiSA-Team/CrossSim) style (`gem5` + `crosssim` side by side).
