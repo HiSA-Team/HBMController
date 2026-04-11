@@ -1,0 +1,4 @@
+Import('*')
+
+SimObject('DpiMemCtrl.py', sim_objects=['DpiMemCtrl'])
+Source('DpiMemCtrl.cc')

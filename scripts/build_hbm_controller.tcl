@@ -16,6 +16,7 @@ add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sour
     $src_dir/rtl/controller/REQ_to_CMD_translator.sv \
     $src_dir/rtl/controller/HBM_channel_controller.sv \
     $src_dir/rtl/controller/HBM_controller_top.sv \
+    $src_dir/rtl/controller/HBM_controller_fpga_top.sv \
 
     $src_dir/rtl/controller/llcf_init_sequence_driver.sv \
     $src_dir/rtl/controller/llcf_cas_constraints_checker.sv \

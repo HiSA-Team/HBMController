@@ -31,7 +31,10 @@ module HBM_controller_top#
     parameter P_QUEUE_LEN  = 4,
     
     /* MAPPING ADDRESS POLICY */
-    parameter P_MAPPING_POLICY        = 1
+    parameter P_MAPPING_POLICY        = 1,
+    /* 0: APB_PCLK_0 is a package pin (IBUF+BUFG inside this module).
+       1: APB_PCLK_0 is already a BUFG output from a parent (e.g. HBM_controller_fpga_top); tie through to APB_PCLK_BUF_0. */
+    parameter integer P_APB_PCLK0_BUFFERED = 0
     
     /* REQ and CMD IDs */
     // `ifdef DEBUG
@@ -60,7 +63,7 @@ module HBM_controller_top#
     // input [31:0]address,
     // input [256-1:0]write_data,
     // input [1:0]request,
-    output dfi_clk_buf [0:15],
+    output dfi_clk_buf [0:N_CHANNELS-1],
     output hbm_cattrip_output,
 
     // `ifndef DEBUG
@@ -92,21 +95,21 @@ module HBM_controller_top#
 
 
     `ifdef DEBUG
-        input  [31:0]               address              [0:16-1],
-        input  [1:0]                request              [0:16-1],
-        input  [P_DATA_WIDTH-1:0]   write_data           [0:16-1],
-        input                       request_valid        [0:16-1],
-        output                      request_picked       [0:16-1],
-        output                      reset_hbm_controller [0:16-1],
-        input  [P_REQ_ID_WIDTH-1:0] request_id           [0:16-1],  // The request id is exactly the AXI channel that issues the request
+        input  [31:0]               address              [0:N_CHANNELS-1],
+        input  [1:0]                request              [0:N_CHANNELS-1],
+        input  [P_DATA_WIDTH-1:0]   write_data           [0:N_CHANNELS-1],
+        input                       request_valid        [0:N_CHANNELS-1],
+        output                      request_picked       [0:N_CHANNELS-1],
+        output                      reset_hbm_controller [0:N_CHANNELS-1],
+        input  [P_REQ_ID_WIDTH-1:0] request_id           [0:N_CHANNELS-1],  // The request id is exactly the AXI channel that issues the request
 
 
-        output                      rd_data_valid_ps0    [0:16-1],
-        output                      rd_data_valid_ps1    [0:16-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:16-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:16-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:16-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:16-1]
+        output                      rd_data_valid_ps0    [0:N_CHANNELS-1],
+        output                      rd_data_valid_ps1    [0:N_CHANNELS-1],
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
+        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
+        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:N_CHANNELS-1]
     `endif
 
 );
@@ -122,7 +125,6 @@ localparam MMCM_CLKIN1_PERIOD    = 10.000;
 /*(* keep = "TRUE" *)*/ wire MMCM_LOCK_0;
 /*(* keep = "TRUE" *)*/ wire MMCM_LOCK_1;
 
-/*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_0;
 /*(* keep = "TRUE" *)*/ wire      APB_PCLK_BUF_0;
 /*(* keep = "TRUE" *)*/ wire      APB_PRESET_N_sync_0;
 /*(* keep = "TRUE" *)*/ wire      APB_PCLK_IBUF_1;
@@ -449,15 +451,21 @@ reg  [3:0]    cnt_rst_1;
     assign APB_PRESET_N_sync_1 = r_apb_preset_n_p2l_st0_1 ;
     
 
-    IBUF u_APB_PCLK_IBUF_0  (
-    .I (APB_PCLK_0),
-    .O (APB_PCLK_IBUF_0)
-    );
-
-    BUFG u_APB_PCLK_BUFG_0  (
-    .I (APB_PCLK_IBUF_0),
-    .O (APB_PCLK_BUF_0)
-    );
+    generate
+        if (P_APB_PCLK0_BUFFERED == 0) begin : g_apb0_ibuf_bufg
+            wire apb_pclk_ibuf_0;
+            IBUF u_APB_PCLK_IBUF_0 (
+                .I (APB_PCLK_0),
+                .O (apb_pclk_ibuf_0)
+            );
+            BUFG u_APB_PCLK_BUFG_0 (
+                .I (apb_pclk_ibuf_0),
+                .O (APB_PCLK_BUF_0)
+            );
+        end else begin : g_apb0_from_parent_bufg
+            assign APB_PCLK_BUF_0 = APB_PCLK_0;
+        end
+    endgenerate
 
     BUFG u_HBM_REF_CLK_0  (
     .I (HBM_REF_CLK_0),

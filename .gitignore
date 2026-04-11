@@ -3,7 +3,8 @@ CMakeCache.txt
 CMakeFiles
 CMakeScripts
 Testing
-Makefile
+# CMake-generated Makefile at repo root only (not **/Makefile — that hid CrossSim/crosssim/Makefile)
+/Makefile
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
@@ -21,3 +22,7 @@ build*/*
 vivado.*
 .Xil
 .Xil/*
+
+# CrossSim DPI build artifacts (sources under CrossSim/crosssim)
+CrossSim/crosssim/obj/
+CrossSim/crosssim/bin/
