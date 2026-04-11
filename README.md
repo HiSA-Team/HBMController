@@ -74,7 +74,7 @@ Expands to the DFI master port list through the Verilog `` `DEFINE_DFI_MASTER_PO
 
 ### Top-level module parameters (outside the SVH bundle)
 
-[`HBM_controller_top.sv`](src/rtl/controller/HBM_controller_top.sv) repeats/overrides a subset of the above as `parameter`s (e.g. `N_CHANNELS`, `P_QUEUE_LEN`, `P_MAPPING_POLICY`, `P_APB_PCLK0_BUFFERED`). CMake drives `N_CHANNELS` into Vivado generics via `build_project.tcl`. [`HBM_AXI_Wrapper.v`](src/rtl/controller/HBM_AXI_Wrapper.v) exposes `MAPPING_POLICY`; keep it aligned with `P_MAPPING_POLICY` in `hbm_controller.svh` when using the AXI path.
+[`HBM_controller_top.sv`](src/rtl/controller/HBM_controller_top.sv) repeats/overrides a subset of the above as `parameter`s (e.g. `N_CHANNELS`, `P_QUEUE_LEN`, `P_MAPPING_POLICY`). CMake drives `N_CHANNELS` into Vivado generics via `build_project.tcl`. [`HBM_AXI_Wrapper.v`](src/rtl/controller/HBM_AXI_Wrapper.v) exposes `MAPPING_POLICY`; keep it aligned with `P_MAPPING_POLICY` in `hbm_controller.svh` when using the AXI path.
 
 ---
 
@@ -88,9 +88,8 @@ Expands to the DFI master port list through the Verilog `` `DEFINE_DFI_MASTER_PO
 | Per-bank timing FSM | `bank_scheduler.sv` | `hbm_timing_constraints.svh` (bank group) |
 | Bank merge, CAS datapath, read returns | `channel_scheduler.sv`, `llcf_*.sv`, arbiters | `hbm_timing_constraints.svh` (channel/LLCF) |
 | AXI front-end | `HBM_AXI_Wrapper.v`, `HBM_AXI_Wrapper_top.v` | Wrapper `MAPPING_POLICY` + `hbm_controller.svh` |
-| FPGA pin-minimal top | `HBM_controller_fpga_top.sv` | `P_APB_PCLK0_BUFFERED` on `HBM_controller_top`; CMake `FDEV_NAME` |
 
-Simulation widens `P_REQ_ID_WIDTH` when `DEBUG` is set on the `sim_1` fileset (`cmake .. -DDEBUG=1`); synthesis strips that define so `HBM_controller_fpga_top` stays consistent with the non-`DEBUG` header branch.
+Simulation widens `P_REQ_ID_WIDTH` when `DEBUG` is set on the `sim_1` fileset (`cmake .. -DDEBUG=1`); synthesis omits `DEBUG` on `sources_1` so port widths follow the non-`DEBUG` branch of `hbm_controller.svh`.
 
 ---
 
@@ -156,6 +155,8 @@ make compile
 
 ## Simulation flow
 
+`doc/` holds **images only** (PNG). CrossSim build instructions and the DPI testbench template live under [`CrossSim/`](CrossSim/README.md).
+
 Two ways to exercise the RTL in simulation are supported in this tree: file-driven stimulus and a linked gem5+Questa path.
 
 ### 1. Trace-driven simulation
@@ -181,8 +182,8 @@ REQ ADDRESS [DATA]
 **CrossSim** couples **gem5** (system timing model) with **Questa** (RTL) through a small DPI-C shared library, `crosssim.so`, backed by POSIX shared-memory queues. gem5 enqueues loads/stores; the SystemVerilog side dequeues them, drives the custom memory ports of `HBM_controller_top`, and posts responses back.
 
 - **Sources:** [`CrossSim/gem5/`](CrossSim/gem5/) (`DpiMemCtrl` + example `simple.py`), [`CrossSim/crosssim/`](CrossSim/crosssim/) (library build).
-- **Procedure:** full build order, gem5 copy list, `compile_simlib`, and `make` for `crosssim.so` are in **[`doc/CrossSim/README.md`](doc/CrossSim/README.md)**.
-- **Questa TB starting point:** [`doc/CrossSim/HBM_controller_crosssim_dpi_tb_template.sv`](doc/CrossSim/HBM_controller_crosssim_dpi_tb_template.sv) — declares the DPI imports, calls `initialize` / `finalize`, and instantiates the controller; you still need the request/response loop that maps queue records to `address` / `request` / `write_data` / `request_valid` / `request_id` and back to `questa_send` / `questa_receive` (see `CrossSim/crosssim/inc/crosssim.h`).
+- **Procedure:** **[`CrossSim/README.md`](CrossSim/README.md)** (build order, gem5 integration, `compile_simlib`, `crosssim.so`).
+- **Questa TB starting point:** [`CrossSim/HBM_controller_crosssim_dpi_tb_template.sv`](CrossSim/HBM_controller_crosssim_dpi_tb_template.sv) — DPI imports, `initialize` / `finalize`, and `HBM_controller_top`; add the queue ↔ port mapping loop yourself (see `CrossSim/crosssim/inc/crosssim.h`).
 - **Note:** Some CrossSim distributions ship ready-made Vivado-oriented SV examples; this repository relies on the template above plus your Questa/Xilinx library setup instead.
 
 Run gem5 and Questa **concurrently** with the same `crosssim.so` path so both sides attach to the shared queues.

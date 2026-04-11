@@ -5,7 +5,7 @@
 // for P_REQ_ID_WIDTH), and complete the TODO blocks to exchange traffic with gem5.
 //
 // Build crosssim.so from: CrossSim/crosssim/
-// Reference: doc/CrossSim/README.md
+// Reference: CrossSim/README.md
 
 `timescale 1ps/1ps
 
