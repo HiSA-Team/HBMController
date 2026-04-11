@@ -3,6 +3,7 @@ This project is the RTL implementation of a memory controller for HBM.
 The controller uses the AMD Xilinx HBM IP as PHY to talk to the memory through the DFI protocol.
 Vivado is needed to build, synthesize, and implement the project. The only tested version is Vivado 2023.2.
 HBM IP requires an external simulator. Simulations were conducted using Questa Advanced Simulator v2020.4.
+> NOTE: The design has been validated only in simulation. Physical validation is ongoing.
 
 ## Controller Architecture
 Since each HBM channel is fully independent from the others, each channel has its own HBM-Channel-Controller as shown in the following figure.
