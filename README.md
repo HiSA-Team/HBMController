@@ -8,6 +8,7 @@ Vivado is needed to build, synthesize, and implement the project. It has been de
 HBM IP requires an external simulator. Simulations were conducted using Questa Advanced Simulator v2020.4.
 
 For now, the synthesis and implementation go well on the Alveo U280 card.
+> NOTE: The design has been validated only in simulation. Physical validation is ongoing.
 
 ## Getting started
 
