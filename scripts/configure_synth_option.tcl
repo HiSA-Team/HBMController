@@ -3,7 +3,8 @@
 # Add retiming to snth_1
 set_property -dict [ 
     list STEPS.SYNTH_DESIGN.ARGS.RETIMING true \
-    STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE AreaOptimized_high 
+    STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE AreaOptimized_high \
+    STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none
 ] [get_runs synth_1]
 
 # Create run impl_1

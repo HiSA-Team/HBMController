@@ -10,23 +10,31 @@ if (NOT VIVADO_FOUND)
 endif()
 
 # Check the board name
-# if(FDEV_NAME STREQUAL "u280")
+# Build for Alveo U50
+if(FDEV_NAME STREQUAL "au50")
+    set(PART xcu50-fsvh2104-2-e CACHE STRING "FPGA device.")
+    set(BOARD_PART xilinx.com:au50:part0:1.3 CACHE STRING "Board.")
+    set(REDUCED_BOARD_PART au50 CACHE STRING "Reduced board.")
+# Build for Alveo U280 as default
+else() # (FDEV_NAME STREQUAL "au280") 
     set(PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
     set(BOARD_PART xilinx.com:au280:part0:1.2 CACHE STRING "Board.")
     set(REDUCED_BOARD_PART au280 CACHE STRING "Reduced board.")
-# endif()
-
-if ( NOT N_CHANNELS )   
- set( N_CHANNELS 1 CACHE STRING "Number of HBM channels" ) 
 endif()
 
-if ( NOT ADDRESS_MAPPING )   
- set( ADDRESS_MAPPING 1 CACHE STRING "Address mapping policy" ) 
+if ( NOT N_CHANNELS )
+ set( N_CHANNELS 1 CACHE STRING "Number of HBM channels" )
 endif()
 
-if ( NOT DEBUG )   
- set( DEBUG 0 CACHE STRING "Debug" ) 
+if ( NOT ADDRESS_MAPPING )
+ set( ADDRESS_MAPPING 1 CACHE STRING "Address mapping policy" )
 endif()
+
+if ( NOT DEBUG )
+ set( DEBUG 0 CACHE STRING "Debug" )
+endif()
+
+
 
 # Configure files
 # file(MAKE_DIRECTORY "./build")

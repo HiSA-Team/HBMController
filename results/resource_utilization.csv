@@ -1,0 +1,12 @@
+,,,,,
+Resource utilization single channel,,,,,
+Resource,Utilization,Available,Utilization %,,
+LUT,11242,1303680,0.86,,
+FF,17559,2607360,0.67,,
+BRAM,14,2016,0.69,,
+,,,,,
+Resource utilization channel scaling,,,,,
+Resource,1 CH,2 CH,4 CH,8 CH,16 CH
+LUT,11242,21530,42225,83591,170860
+FF,17559,34182,67458,133822,266558
+BRAM,14,24,44,84,164

@@ -46,10 +46,19 @@ if {${ADDRESS_MAPPING}==1} {
 
 if {${DEBUG}==1} {
     append verilog_define_list " " DEBUG=1
-} 
+}
 
-set_property verilog_define $verilog_define_list [get_filesets sources_1]
+# Synthesis must not define DEBUG so HBM_controller_fpga_top matches
+# HBM_controller_top port widths (see hbm_controller.svh). Simulation may use DEBUG.
+set verilog_define_list_synth $verilog_define_list
+if {[string match {*DEBUG=1*} $verilog_define_list_synth]} {
+    regsub -all {\s*DEBUG=1} $verilog_define_list_synth {} verilog_define_list_synth
+}
+set_property verilog_define $verilog_define_list_synth [get_filesets sources_1]
 set_property verilog_define $verilog_define_list [get_filesets sim_1]
+
+# Implementation entry point: minimal package pins (see HBM_controller_fpga_top.sv).
+set_property top HBM_controller_fpga_top [get_filesets sources_1]
 
 source "$build_dir/configure_synth_option.tcl" -notrace
 
