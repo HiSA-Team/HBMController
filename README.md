@@ -104,6 +104,8 @@ The architecture of the single HBM-Channel-Controller is shown in the following 
 ![HBM channel controller block diagram](doc/HBM_channel_controller.png "HBM Channel Controller architecture")
 
 ---
+For now, the synthesis and implementation go well on the Alveo U280 card.
+> NOTE: The design has been validated only in simulation. Physical validation is ongoing.
 
 ## Getting started
 
