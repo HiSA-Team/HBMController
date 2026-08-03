@@ -189,3 +189,19 @@ REQ ADDRESS [DATA]
 - **Note:** This flow uses the bundled DPI template and your Questa plus Xilinx simulation libraries; swap in other HDL wrappers if your site standardizes on a different simulator flow.
 
 Run gem5 and Questa **concurrently** with the same `crosssim.so` path so both sides attach to the shared queues.
+
+## Citation
+
+When using or referencing HBMController in your work, please use the following:
+```
+@article{cilardo2025exploring,
+  title={Exploring Time Predictability for High-Bandwidth Memory Technology},
+  author={Cilardo, Alessandro and Maddaluno, Manuel},
+  journal={IEEE Transactions on Emerging Topics in Computing},
+  year={2025},
+  publisher={IEEE}
+}
+``` 
+
+
+
