@@ -1,22 +1,22 @@
 `timescale 1ps / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
+// Company:
+// Engineer:
+//
 // Create Date: 09/27/2023 09:42:34 AM
-// Design Name: 
+// Design Name:
 // Module Name: HBM_controller_top
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
+// Project Name:
+// Target Devices:
+// Tool Versions:
+// Description:
+//
+// Dependencies:
+//
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
-// 
+//
 //////////////////////////////////////////////////////////////////////////////////
 
 `include "hbm_controller.svh"
@@ -29,13 +29,13 @@ module HBM_controller_top#
 
     /* FIFO QUEUE LEN */
     parameter P_QUEUE_LEN  = 4,
-    
+
     /* MAPPING ADDRESS POLICY */
     parameter P_MAPPING_POLICY        = 1,
     /* 0: APB_PCLK_0 is a package pin (IBUF+BUFG inside this module).
        1: APB_PCLK_0 is already a BUFG output from a parent (e.g. HBM_controller_fpga_top); tie through to APB_PCLK_BUF_0. */
     parameter integer P_APB_PCLK0_BUFFERED = 0
-    
+
     /* REQ and CMD IDs */
     // `ifdef DEBUG
     //     parameter P_REQ_ID_WIDTH = 4,
@@ -44,7 +44,7 @@ module HBM_controller_top#
     // `ifndef DEBUG
     //     parameter P_REQ_ID_WIDTH = /*$clog2(P_BA_N_PS*P_QUEUE_LEN*2)*/ 4,
     // `endif
-    
+
     // parameter P_CMD_ID_WIDTH = 32'd3
 
 )
@@ -54,7 +54,7 @@ module HBM_controller_top#
     input ARESET_N_0,
     input APB_PCLK_0,
     input APB_PRESET_N_0,
-    
+
 //    input HBM_REF_CLK_1,
     input ARESET_N_1,
     input APB_PCLK_1,
@@ -138,7 +138,7 @@ reg  rst_mmcm_n;
 
 reg	[7:0]	cnt_apb_rst_p2l_st0;
 wire		w_apb_reset_n_inv_st0;
-reg			r_apb_preset_n_p2l_st0; 
+reg			r_apb_preset_n_p2l_st0;
 
 wire	[3:0]		w_rst_sys_rst_1;
 reg  [7:0] cnt_rst_0_1;
@@ -241,7 +241,7 @@ reg           rst_mmcm_1;
 reg  [3:0]    cnt_rst_1;
 
 
-    
+
     always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             cnt_rst_0        <= 8'h00;
@@ -294,7 +294,7 @@ reg  [3:0]    cnt_rst_1;
             rst_st0_n <= rst_mmcm & MMCM_LOCK_0 & (~w_rst_sys_rst_r2);
         end
     end
-    
+
 
     always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
@@ -400,7 +400,7 @@ reg  [3:0]    cnt_rst_1;
             rst_st0_n_1 <= rst_mmcm & MMCM_LOCK_1 & (~w_rst_sys_rst_r2_1);
         end
     end
-    
+
 
     always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
         if (~ARESET_N_1) begin
@@ -449,7 +449,7 @@ reg  [3:0]    cnt_rst_1;
     end
 
     assign APB_PRESET_N_sync_1 = r_apb_preset_n_p2l_st0_1 ;
-    
+
 
     generate
         if (P_APB_PCLK0_BUFFERED == 0) begin : g_apb0_ibuf_bufg
@@ -471,7 +471,7 @@ reg  [3:0]    cnt_rst_1;
     .I (HBM_REF_CLK_0),
     .O (HBM_REF_CLK_buf_0)
     );
-    
+
     IBUF u_APB_PCLK_IBUF_1  (
     .I (APB_PCLK_1),
     .O (APB_PCLK_IBUF_1)
@@ -535,7 +535,7 @@ reg  [3:0]    cnt_rst_1;
         .LOCKED              (MMCM_LOCK_0),
         .PWRDWN              (1'b0),
         .RST                 (~rst_mmcm_n),
-    
+
         .CDDCDONE            (),
         .CLKFBSTOPPED        (),
         .CLKINSTOPPED        (),
@@ -553,7 +553,7 @@ reg  [3:0]    cnt_rst_1;
         .PSEN                (1'b0),
         .PSINCDEC            (1'b0)
     );
-    
+
     if (N_CHANNELS >= 1 /*8*/) begin
         MMCME4_ADV
         #(.BANDWIDTH            ("OPTIMIZED"),
@@ -601,7 +601,7 @@ reg  [3:0]    cnt_rst_1;
             .LOCKED              (MMCM_LOCK_1),
             .PWRDWN              (1'b0),
             .RST                 (~rst_mmcm_n_1),
-        
+
             .CDDCDONE            (),
             .CLKFBSTOPPED        (),
             .CLKINSTOPPED        (),
@@ -620,9 +620,9 @@ reg  [3:0]    cnt_rst_1;
             .PSINCDEC            (1'b0)
         );
     end
-        
-    
-    
+
+
+
 
     // `ifndef DEBUG
     //     // wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
@@ -650,7 +650,7 @@ reg  [3:0]    cnt_rst_1;
     //     // /*(* keep = "TRUE" *)*/ wire  request_picked [0:N_CHANNELS-1];
     // `endif
 
-    
+
     always @ (posedge dfi_clk_buf[0] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             rst0_st0_r1_n[0] <= 1'b0;
@@ -660,7 +660,7 @@ reg  [3:0]    cnt_rst_1;
             rst0_st0_r2_n[0] <= rst0_st0_r1_n[0];
         end
     end
-    
+
     always @ (posedge dfi_clk_buf[1] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             rst0_st0_r1_n[1] <= 1'b0;
@@ -670,7 +670,7 @@ reg  [3:0]    cnt_rst_1;
             rst0_st0_r2_n[1] <= rst0_st0_r1_n[1];
         end
     end
-    
+
     always @ (posedge dfi_clk_buf[2] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             rst0_st0_r1_n[2] <= 1'b0;
@@ -680,7 +680,7 @@ reg  [3:0]    cnt_rst_1;
             rst0_st0_r2_n[2] <= rst0_st0_r1_n[2];
         end
     end
-    
+
     always @ (posedge dfi_clk_buf[3] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             rst0_st0_r1_n[3] <= 1'b0;
@@ -690,7 +690,7 @@ reg  [3:0]    cnt_rst_1;
             rst0_st0_r2_n[3] <= rst0_st0_r1_n[3];
         end
     end
-    
+
     always @ (posedge dfi_clk_buf[4] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             rst0_st0_r1_n[4] <= 1'b0;
@@ -700,7 +700,7 @@ reg  [3:0]    cnt_rst_1;
             rst0_st0_r2_n[4] <= rst0_st0_r1_n[4];
         end
     end
-    
+
     always @ (posedge dfi_clk_buf[5] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
             rst0_st0_r1_n[5] <= 1'b0;
@@ -833,7 +833,7 @@ for( i = 0; i < 16; i = i+1 ) begin
         //                 // r_address[i] <= r_address[i] + 1'b1;
         //                 r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;
         //                 // if ( r_request[i] == 2'b00 ) begin
-        //                 //     r_request[i] <= 2'b01; 
+        //                 //     r_request[i] <= 2'b01;
         //                 // end
         //                 // else begin
         //                 //     r_request[i] <= 2'b00;
@@ -885,7 +885,7 @@ for( i = 0; i < 16; i = i+1 ) begin
         //                 // r_address[i] <= r_address[i] + 1'b1;
         //                 r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
         //                 // if ( r_request[i] == 2'b00 ) begin
-        //                 //     r_request[i] <= 2'b01; 
+        //                 //     r_request[i] <= 2'b01;
         //                 // end
         //                 // else begin
         //                 //     r_request[i] <= 2'b00;
@@ -910,7 +910,7 @@ for( i = 0; i < 16; i = i+1 ) begin
                 end
             end
         end
-        else begin 
+        else begin
             always @ (posedge dfi_clk_buf[i] or negedge ARESET_N_0) begin
                 if (~ARESET_N_0) begin
                     dfi_rst_n[i] <= 1'b0;
@@ -918,8 +918,8 @@ for( i = 0; i < 16; i = i+1 ) begin
                     dfi_rst_n[i] <= rst0_st0_r2_n[i];
                 end
             end
-        end 
-    
+        end
+
 
         BUFG u_dfi_clk_buf_0  (
         .I (dfi_clk_in[i]),
@@ -954,7 +954,7 @@ for( i = 0; i < 16; i = i+1 ) begin
         //                 // r_address[i] <= r_address[i] + 1'b1;
         //                 r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
         //                 // if ( r_request[i] == 2'b00 ) begin
-        //                 //     r_request[i] <= 2'b01; 
+        //                 //     r_request[i] <= 2'b01;
         //                 // end
         //                 // else begin
         //                 //     r_request[i] <= 2'b00;
@@ -966,10 +966,10 @@ for( i = 0; i < 16; i = i+1 ) begin
         //         end
         //     end
         // `endif
-    
+
     end
-    
-    
+
+
 end
 endgenerate
 
@@ -1032,7 +1032,7 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
             ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
             ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
             ,.dfi_init_complete             (dfi_init_complete[i])
-            
+
             ,.reset_hbm_controller          (reset_hbm_controller[i])
             ,.input_write_data              (write_data[i])
             ,.input_request                 (request[i])
@@ -1105,7 +1105,7 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
             ,.dfi_ctrlupd_req               (dfi_ctrlupd_req[i])
             ,.dfi_phyupd_ack                (dfi_phyupd_ack[i] )
             ,.dfi_init_complete             (dfi_init_complete[i])
-            
+
             ,.reset_hbm_controller          (reset_hbm_controller[i])
             ,.input_write_data              (write_data[i])
             ,.input_request                 (request[i])
@@ -1121,7 +1121,7 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
             ,.rd_data_req_id_ps1            (rd_data_req_id_ps1[i])
             ,.rd_data_ps1                   (rd_data_ps1[i])
         );
-    
+
     end
 
     else begin
@@ -1130,7 +1130,7 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
 //            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
 //            .P_MAPPING_POLICY(P_MAPPING_POLICY),
 //            .P_DATA_WIDTH(P_DATA_WIDTH)
-        ) 
+        )
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[i]   )
@@ -1197,14 +1197,14 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
         );
     end
 end
-endgenerate 
+endgenerate
 
 
 hbm_0 hbm_0_i
 (
     .HBM_REF_CLK_0                    (HBM_REF_CLK_buf_0        )
     ,.HBM_REF_CLK_1                   (HBM_REF_CLK_buf_1        )
-    
+
     ,.dfi_0_clk                       (dfi_clk_buf[0]            )
     ,.dfi_0_rst_n                     (dfi_rst_n[0]              )
     ,.dfi_0_init_start                (dfi_init_start[0]         )
@@ -1263,7 +1263,7 @@ hbm_0 hbm_0_i
     ,.apb_complete_0                  (apb_seq_complete_s)
     ,.DRAM_0_STAT_CATTRIP             (DRAM_STAT_CATTRIP)
     ,.DRAM_0_STAT_TEMP                (DRAM_STAT_TEMP)
-    
+
    ,.dfi_1_clk                       (dfi_clk_buf[1]            )
    ,.dfi_1_rst_n                     (dfi_rst_n[1]              )
    ,.dfi_1_init_start                (dfi_init_start[1]         )
@@ -1633,8 +1633,8 @@ hbm_0 hbm_0_i
    ,.dfi_7_clk_init                  ( /* Not Connected */  )
    ,.dfi_7_init_complete             (dfi_init_complete[7])
    ,.dfi_7_out_rst_n                 (dfi_out_rst_n[7]    )
-    
-    
+
+
    ,.dfi_8_clk                       (dfi_clk_buf[8]            )
    ,.dfi_8_rst_n                     (dfi_rst_n[8]              )
    ,.dfi_8_init_start                (dfi_init_start[8]         )
@@ -2058,14 +2058,14 @@ hbm_0 hbm_0_i
    ,.dfi_15_phyupd_ack                (dfi_phyupd_ack[15] )
    ,.dfi_15_clk_init                  ( /* Not Connected */  )
    ,.dfi_15_init_complete             (dfi_init_complete[15])
-   ,.dfi_15_out_rst_n                 (dfi_out_rst_n[15]    )    
-    
+   ,.dfi_15_out_rst_n                 (dfi_out_rst_n[15]    )
+
 );
-  
-  
+
+
   OBUF HBM_CATRIP_INST (
     .I (1'b0),
     .O (hbm_cattrip_output)
     );
-  
+
   endmodule

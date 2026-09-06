@@ -61,7 +61,13 @@ always @(posedge clock_i or negedge reset_ni) begin
     end
     else begin
         /* These cases follow the cases of BUSY MANAGEMENT when fill the cmd_inter */
-        if ( cmd_req_to_cmd_translator != P_GENERAL_NOP && cmd_inter == P_GENERAL_NOP && ~need_refresh && busy == 1'b0 ) begin
+        // 2026-09-06: also take the command when cmd_picked is already asserted. cmd_picked is held high
+        // while idle and is registered, so when need_refresh rises exactly on the edge in which the
+        // translator pops a command, the translator sees picked=1 next cycle and clears r_cmd (NOP)
+        // while this block, gated by ~need_refresh alone, did not capture it: the request was lost
+        // (every ~2*tREFP on the trace bank that collides with the refresh). Taking it here keeps the
+        // existing "command in flight when refresh arrives" path (PRE_WAIT with cmd_inter != PRE).
+        if ( cmd_req_to_cmd_translator != P_GENERAL_NOP && cmd_inter == P_GENERAL_NOP && (~need_refresh || cmd_picked_req_to_cmd_translator) && busy == 1'b0 ) begin
             cmd_inter <= cmd_req_to_cmd_translator;
             row_address_inter <= row_addr_req_to_cmd_translator;
             req_id_inter <= req_id_req_to_cmd_translator;
@@ -178,7 +184,7 @@ always @(posedge clock_i or negedge reset_ni) begin
         /*************************/
 
         /* cmd_req_to_cmd_translator give us a cmd, cmd_inter is empty, we can fill the cmd_inter */
-        if ( cmd_req_to_cmd_translator != P_GENERAL_NOP && cmd_inter == P_GENERAL_NOP && ~need_refresh && busy == 1'b0 ) begin
+        if ( cmd_req_to_cmd_translator != P_GENERAL_NOP && cmd_inter == P_GENERAL_NOP && (~need_refresh || cmd_picked_req_to_cmd_translator) && busy == 1'b0 ) begin   // 2026-09-06: see cmd_inter block
             busy <= 1'b1;
         end
         /* Same case of before, maybe we can delete this... */

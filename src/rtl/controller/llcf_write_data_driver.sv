@@ -241,7 +241,11 @@ always @ ( posedge clock_i or negedge reset_ni ) begin
     end
     else begin
         /* Only PS0 has to be served (data) */
-        if ( wrt_data_buffer_cnt_ps0 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] != tWL-2'h1  ) begin
+        // 2026-09-06: the 'other PS' condition is now its slot signal (buffer non-empty AND counter at
+        // its slot) instead of the raw counter, which free-runs mod 8 even when that buffer is empty and
+        // blocked this PS's data 1 cycle out of 8 (DRAM then captured the idle all-ones bus, and the
+        // deincr/tail pair drifted). Lane assignments and cycle timing are unchanged.
+        if ( deincr_wrt_data_buffer_cnt_ps0 && ~deincr_wrt_data_buffer_cnt_ps1 ) begin
 
             wrt_data_p0_o[63:0]     <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][63:0];
             wrt_data_p0_o[191:128]  <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][127:64];
@@ -253,7 +257,7 @@ always @ ( posedge clock_i or negedge reset_ni ) begin
             wrt_sync_ps0 <= 1'b1;
         end
         /* PS0 and PS1 have to be served (data) */
-        else if ( wrt_data_buffer_cnt_ps0 > 0 && wrt_data_buffer_cnt_ps1 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] == tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 ) begin
+        else if ( deincr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps1 ) begin
             wrt_data_p0_o[63:0]     <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][63:0];
             wrt_data_p0_o[191:128]  <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][127:64];
 
@@ -273,7 +277,7 @@ always @ ( posedge clock_i or negedge reset_ni ) begin
         
         end
         /* Only PS1 has to be served, but we have residual data that have to be served for PS0 */
-        else if ( wrt_data_buffer_cnt_ps1 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] != tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 && wrt_sync_ps0 ) begin
+        else if ( ~deincr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps1 && wrt_sync_ps0 ) begin
             wrt_data_p0_o[63:0]     <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][63:0];
             wrt_data_p0_o[191:128]  <= wrt_data_buffer_ps0[wrt_data_buffer_tail_ps0-1'b1][127:64];
             wrt_sync_ps0 <= 1'b0;
@@ -287,7 +291,7 @@ always @ ( posedge clock_i or negedge reset_ni ) begin
             wrt_data_buffer_tail_ps1 <= wrt_data_buffer_tail_ps1 + 1'b1;
         end
         /* Only PS1 has to be served */
-        else if ( wrt_data_buffer_cnt_ps1 > 0 && wrt_to_data_cnt_ps0[wrt_data_buffer_tail_ps0] != tWL-2'h2 && wrt_to_data_cnt_ps1[wrt_data_buffer_tail_ps1] == tWL-2'h1 && ~wrt_sync_ps0 ) begin                
+        else if ( ~deincr_wrt_data_buffer_cnt_ps0 && deincr_wrt_data_buffer_cnt_ps1 && ~wrt_sync_ps0 ) begin
             wrt_data_p0_o[127:64]   <= wrt_data_buffer_ps1[wrt_data_buffer_tail_ps1][63:0];
             wrt_data_p0_o[255:192]  <= wrt_data_buffer_ps1[wrt_data_buffer_tail_ps1][127:64];
 

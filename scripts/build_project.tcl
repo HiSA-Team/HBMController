@@ -15,8 +15,6 @@ source "$build_dir/build_hbm_controller.tcl" -notrace
 # add_files -norecurse -fileset HBM_channel_controller -copy_to $project_dir/$project.srcs/constrs_1 "$src_dir/xdc/HBM_channel_controller.xdc"
 
 update_compile_order -fileset sources_1
-# Configure simulation
-source "$build_dir/configure_questa_simulator.tcl" -notrace
 
 update_compile_order -fileset sources_1
 
@@ -61,5 +59,8 @@ set_property verilog_define $verilog_define_list [get_filesets sim_1]
 set_property top HBM_controller_fpga_top [get_filesets sources_1]
 
 source "$build_dir/configure_synth_option.tcl" -notrace
+
+# Configure simulation
+source "$build_dir/configure_questa_simulator.tcl" -notrace
 
 exit 0

@@ -34,7 +34,7 @@ localparam       P_CMD_ID_WIDTH             = 32'd3;
 
 localparam       LP_BG_N                    = P_BA_N_PS/P_BA_N_G;
 
-localparam       P_RD_ID_BUFFER_LEN         = 4; 
+localparam       P_RD_ID_BUFFER_LEN         = 64;   // was 4: RD id FIFO has no backpressure, must cover reads in flight per PS (2026-09-06)
 
 localparam LP_MRS			     = 4'd1;
 

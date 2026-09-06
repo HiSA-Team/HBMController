@@ -144,7 +144,7 @@ logic                              incr_rd_req_id_buffer_cnt_ps1;
 logic                              deincr_rd_req_id_buffer_cnt_ps1;
 
 assign incr_rd_req_id_buffer_cnt_ps1    = rd_req_id_buffer_cnt_ps1 < P_RD_ID_BUFFER_LEN && rd_req_id_ps1_valid_i;
-assign deincr_rd_req_id_buffer_cnt_ps1  = rd_req_id_buffer_cnt_ps1 > 0 && rd_data_valid_i[1:0] == 2'b11;
+assign deincr_rd_req_id_buffer_cnt_ps1  = rd_req_id_buffer_cnt_ps1 > 0 && rd_data_valid_i[3:2] == 2'b11;   // PS1 valid is [3:2] (was [1:0] = PS0 valid) - 2026-09-06
 
 logic  rd_req_id_buffer_en_ps1;
 logic  [P_REQ_ID_WIDTH-1:0] rd_req_id_data_in_ps1;
