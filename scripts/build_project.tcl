@@ -46,8 +46,10 @@ if {${DEBUG}==1} {
     append verilog_define_list " " DEBUG=1
 }
 
-# Synthesis must not define DEBUG so HBM_controller_fpga_top matches
-# HBM_controller_top port widths (see hbm_controller.svh). Simulation may use DEBUG.
+# Synthesis drops DEBUG: since 2026-09-11 it only removes $display tracing.
+# It used to be mandatory, because DEBUG also changed P_REQ_ID_WIDTH and the
+# port list of HBM_controller_top; both are one single version now, so a build
+# with DEBUG would work too, just noisier. Simulation keeps DEBUG.
 set verilog_define_list_synth $verilog_define_list
 if {[string match {*DEBUG=1*} $verilog_define_list_synth]} {
     regsub -all {\s*DEBUG=1} $verilog_define_list_synth {} verilog_define_list_synth

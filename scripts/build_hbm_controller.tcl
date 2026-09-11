@@ -41,7 +41,8 @@ add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sour
     $src_dir/rtl/nmp_accelerator/nmp_token_table.sv \
     $src_dir/rtl/nmp_accelerator/nmp_output_acc.sv \
     $src_dir/rtl/nmp_accelerator/nmp_exp2.sv \
-    $src_dir/rtl/nmp_accelerator/nmp_head_engine.sv \ "
+    $src_dir/rtl/nmp_accelerator/nmp_head_engine.sv \
+    $src_dir/rtl/nmp_accelerator/nmp_fpga_top.sv \ "
 
 add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 "$src_dir/sim/HBM_controller_top_tb.sv"
 # NMP testbench (select it with: set_property top nmp_head_engine_tb [get_filesets sim_1])

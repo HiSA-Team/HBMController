@@ -20,7 +20,12 @@
 //
 // Stimulus / reference files (written by utils/nmp_gen_vectors.py, read from
 // the simulation directory):
-//   nmp_seq_len.hex  nmp_q.hex  nmp_k.hex  nmp_v.hex  nmp_scores.hex  nmp_ref.hex
+//   nmp_seq_len.hex  nmp_q.hex  nmp_k.hex  nmp_v.hex  nmp_scores.hex
+//   nmp_otilde.hex   nmp_lm.hex  nmp_ref.hex
+//
+// The engine emits (o~, l, m), not the normalised head. o~, l and m are checked
+// bit for bit; o = o~/l is then reconstructed here, the way a consumer would,
+// and compared with nmp_ref.hex within REL_TOL.
 //
 // Channels 1..15 are instantiated (the PHY/MMCM/HBM stacks are built for 16
 // lanes) but idle. Channel 0 is clocked by dfi_clk_buf[0].
@@ -164,7 +169,9 @@ wire                               eng_busy;
 wire                               eng_done;
 wire                               o_valid;
 wire [P_NMP_OUT_IDX_WIDTH-1:0]     o_idx;
-wire [31:0]                        o_data;
+wire [31:0]                        o_data;          // o_tilde, NOT normalised
+wire [31:0]                        l_data;          // sum of the p_t, fp32
+wire signed [31:0]                 m_data;          // the maximum m', Q15.16
 wire [31:0]                        cyc_pass_k, cyc_softmax, cyc_pass_v, cyc_total;
 wire [31:0]                        stall_credit_cnt, wait_picked_cnt, starve_cnt, n_beats, n_dropped;
 wire                               arith_overflow;
@@ -184,6 +191,8 @@ nmp_head_engine u_engine (
     .o_valid_o            (o_valid),
     .o_idx_o              (o_idx),
     .o_o                  (o_data),
+    .l_o                  (l_data),
+    .m_o                  (m_data),
     .address_o            (eng_address),
     .request_o            (eng_request),
     .write_data_o         (eng_write_data),
@@ -216,7 +225,9 @@ logic [255:0] q_mem       [0:P_NMP_BLK_PER_ROW-1];
 logic [255:0] k_mem       [0:MAX_BLK-1];
 logic [255:0] v_mem       [0:MAX_BLK-1];
 logic [31:0]  score_mem   [0:MAX_S-1];
-logic [31:0]  ref_mem     [0:P_NMP_D_HEAD-1];
+logic [31:0]  ref_mem     [0:P_NMP_D_HEAD-1];      // o = o~/l, end to end reference
+logic [31:0]  otilde_mem  [0:P_NMP_D_HEAD-1];      // o~, what the engine emits
+logic [31:0]  lm_mem      [0:1];                   // [0] = l (fp32), [1] = m (Q15.16)
 logic [31:0]  o_mem       [0:P_NMP_D_HEAD-1];
 logic         o_seen      [0:P_NMP_D_HEAD-1];
 
@@ -235,6 +246,9 @@ localparam int MAX_RET_PRINTS   = 16;
 localparam int MAX_SCORE_PRINTS = 8;
 int unsigned  n_o_received = 0;
 int unsigned  n_o_errors = 0;
+int unsigned  n_ot_mism  = 0;                      // o~ words that are not bit exact
+logic [31:0]  l_seen;                              // l_o latched at the end of the job
+logic signed [31:0] m_seen;                        // m_o latched at the end of the job
 real          max_rel_err = 0.0;
 bit           engine_finished = 1'b0;
 bit           engine_running  = 1'b0;
@@ -271,6 +285,8 @@ initial begin
     $readmemh("nmp_v.hex",       v_mem);
     $readmemh("nmp_scores.hex",  score_mem);
     $readmemh("nmp_ref.hex",     ref_mem);
+    $readmemh("nmp_otilde.hex",  otilde_mem);
+    $readmemh("nmp_lm.hex",      lm_mem);
     S = seq_len_mem[0];
     if (S < 1 || S > MAX_S)
         $fatal(1, "nmp_head_engine_tb: bad seq_len %0d in nmp_seq_len.hex", S);
@@ -456,6 +472,8 @@ always @(posedge ch0_clk) begin
     if (o_valid === 1'b1) begin
         o_mem[o_idx]  = o_data;
         o_seen[o_idx] = 1'b1;
+        l_seen        = l_data;                    // stable for the whole stream
+        m_seen        = m_data;
         n_o_received++;
     end
 end
@@ -463,10 +481,30 @@ end
 ////////////////////////////////////////////////////////////////////////////////
 // Check and summary
 ////////////////////////////////////////////////////////////////////////////////
+// fp32 bit pattern -> real. Lives here and not in nmp_accelerator.svh because
+// the engine has no floating point left at all: this is testbench-only code.
+function automatic real tb_fp32_to_real(input logic [31:0] f);
+    logic        sg;
+    logic [7:0]  e;
+    logic [22:0] mn;
+    logic [10:0] e64;
+    real         r;
+    sg = f[31];
+    e  = f[30:23];
+    mn = f[22:0];
+    if (e == 8'd0)        r = 0.0;
+    else if (e == 8'd255) r = 3.4028235e38;
+    else begin
+        e64 = 11'd1023 - 11'd127 + {3'd0, e};
+        r   = $bitstoreal({1'b0, e64, mn, 29'd0});
+    end
+    return sg ? -r : r;
+endfunction
 task automatic tb_summary(input logic timed_out);
     real got, exp_, err, rel;
     real eff_k, eff_v;
     n_o_errors  = 0;
+    n_ot_mism   = 0;
     max_rel_err = 0.0;
     for (int i = 0; i < P_NMP_D_HEAD; i++) begin
         if (!o_seen[i]) begin
@@ -474,8 +512,16 @@ task automatic tb_summary(input logic timed_out);
             $display("[TB CHECK] o[%0d] never produced", i);
             continue;
         end
-        got  = f_nmp_fp32_to_real(o_mem[i]);
-        exp_ = f_nmp_fp32_to_real(ref_mem[i]);
+        // 1. o~ must match bit for bit: without the division the whole chain is integer
+        if (o_mem[i] !== otilde_mem[i]) begin
+            n_ot_mism++;
+            if (n_ot_mism <= 8) begin
+                $display("[TB CHECK] o~[%0d] got %08x expected %08x", i, o_mem[i], otilde_mem[i]);
+            end
+        end
+        // 2. what the consumer reconstructs, o = o~ / l, against the reference
+        got  = tb_fp32_to_real(o_mem[i]) / tb_fp32_to_real(l_seen);
+        exp_ = tb_fp32_to_real(ref_mem[i]);
         err  = (got > exp_) ? got - exp_ : exp_ - got;
         rel  = err / (((exp_ < 0.0) ? -exp_ : exp_) + ABS_TOL);
         if (rel > max_rel_err) max_rel_err = rel;
@@ -497,8 +543,14 @@ task automatic tb_summary(input logic timed_out);
     $display("[TB CHECK] readback: %0d reads, %0d returned, %0d mismatch, %0d swapped, %0d orphan", n_rb_issued, n_ret_rb, n_ret_rb_mism, n_ret_rb_swap, n_ret_rb_orph);
     $display("[TB CHECK] engine beats: %0d returned, %0d mismatch, %0d swapped, %0d orphan", n_ret_eng, n_ret_eng_mism, n_ret_eng_swap, n_ret_eng_orph);
     $display("[TB CHECK] scores: %0d produced, %0d differ from nmp_scores.hex", n_score, n_score_mism);
-    $display("[TB CHECK] %0d/%0d outputs received, %0d errors, max rel err %e (tol %e)", n_o_received, P_NMP_D_HEAD, n_o_errors, max_rel_err, REL_TOL);
+    $display("[TB CHECK] o~: %0d/%0d received, %0d not bit exact", n_o_received, P_NMP_D_HEAD, n_ot_mism);
+    $display("[TB CHECK] l = %08x (%f), expected %08x%s", l_seen, tb_fp32_to_real(l_seen), lm_mem[0],
+             (l_seen === lm_mem[0]) ? "" : "   <-- MISMATCH");
+    $display("[TB CHECK] m = %08x (%f), expected %08x%s", m_seen, real'(m_seen)/65536.0, lm_mem[1],
+             (m_seen === lm_mem[1]) ? "" : "   <-- MISMATCH");
+    $display("[TB CHECK] o~/l vs nmp_ref.hex: %0d errors, max rel err %e (tol %e)", n_o_errors, max_rel_err, REL_TOL);
     $display("[TB SUMMARY] %s", (!timed_out && n_o_errors == 0 && n_o_received == P_NMP_D_HEAD &&
+                                  n_ot_mism == 0 && l_seen === lm_mem[0] && m_seen === lm_mem[1] &&
                                   n_ret_rb_mism == 0 && n_ret_eng_mism == 0 && n_score_mism == 0 &&
                                   n_dropped == 0 && !arith_overflow) ? "RESULT: PASS" : "RESULT: FAIL");
     $display("");

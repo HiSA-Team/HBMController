@@ -1,22 +1,28 @@
 `timescale 1ps / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company:
-// Engineer:
+// HBM_controller_top - one predictable HBM controller per channel, plus the
+// clocking and the APB bring-up shared by all of them.
 //
-// Create Date: 09/27/2023 09:42:34 AM
-// Design Name:
-// Module Name: HBM_controller_top
-// Project Name:
-// Target Devices:
-// Tool Versions:
-// Description:
+// Per channel (N_CHANNELS of them, 16 on the U280): an HBM_channel_controller
+// driven by a request port. A request is {address, request, write_data,
+// request_id} qualified by request_valid and consumed when request_picked
+// comes back. Read data returns per pseudo-channel on rd_data_*_ps0/ps1,
+// carrying the request_id of the request that asked for it, so returns can be
+// matched out of order. That id is a tag the controller only forwards: its
+// width is P_REQ_ID_WIDTH in hbm_controller.svh, set by the near-memory
+// accelerator, which is the client that actually needs it wide.
 //
-// Dependencies:
+// Clocking: HBM_REF_CLK_0 -> MMCM -> dfi_clk_in[i] -> BUFG -> dfi_clk_buf[i],
+// one per channel and exported, because every client of a channel has to run
+// on that channel's clock. Two APB domains (stack 0 and stack 1) bring the HBM
+// IP up and are then idle.
 //
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
+// DEBUG only adds $display tracing. It does NOT change the port list or any
+// width any more: it used to do both, which is why the file carried two copies
+// of the port list and a second value of P_REQ_ID_WIDTH. Both are gone.
+// (2026-09-11)
 //
+// Created 09/27/2023.
 //////////////////////////////////////////////////////////////////////////////////
 
 `include "hbm_controller.svh"
@@ -36,17 +42,9 @@ module HBM_controller_top#
        1: APB_PCLK_0 is already a BUFG output from a parent (e.g. HBM_controller_fpga_top); tie through to APB_PCLK_BUF_0. */
     parameter integer P_APB_PCLK0_BUFFERED = 0
 
-    /* REQ and CMD IDs */
-    // `ifdef DEBUG
-    //     parameter P_REQ_ID_WIDTH = 4,
-    // `endif
-
-    // `ifndef DEBUG
-    //     parameter P_REQ_ID_WIDTH = /*$clog2(P_BA_N_PS*P_QUEUE_LEN*2)*/ 4,
-    // `endif
-
-    // parameter P_CMD_ID_WIDTH = 32'd3
-
+    /* P_REQ_ID_WIDTH and P_CMD_ID_WIDTH are NOT parameters: they are localparams
+       in hbm_controller.svh, because every module in the channel has to agree on
+       them and a per instance override would only let them drift apart. */
 )
 
 (
@@ -66,52 +64,26 @@ module HBM_controller_top#
     output dfi_clk_buf [0:N_CHANNELS-1],
     output hbm_cattrip_output,
 
-    // `ifndef DEBUG
-    //     output        done,
-    //     input  [1:0]  request [0:N_CHANNELS-1],
-    //     input  [31:0] address [0:N_CHANNELS-1],
-    //     input                       request_valid        [0:N_CHANNELS-1],
-    //     output                      request_picked       [0:N_CHANNELS-1]
-    //     // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
-    //     // output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
-    // `endif
+    /* Request port, one per channel. A request is presented with request_valid
+       and is consumed in the cycle request_picked comes back; the bus must stay
+       stable in that cycle, because that is when the controller samples it. */
+    input  [31:0]               address              [0:N_CHANNELS-1],
+    input  [1:0]                request              [0:N_CHANNELS-1],
+    input  [P_DATA_WIDTH-1:0]   write_data           [0:N_CHANNELS-1],
+    input                       request_valid        [0:N_CHANNELS-1],
+    output                      request_picked       [0:N_CHANNELS-1],
+    output                      reset_hbm_controller [0:N_CHANNELS-1],
+    input  [P_REQ_ID_WIDTH-1:0] request_id           [0:N_CHANNELS-1],
 
-    `ifndef DEBUG
-        input  [31:0]               address              [0:N_CHANNELS-1],
-        input  [1:0]                request              [0:N_CHANNELS-1],
-        input  [P_DATA_WIDTH-1:0]   write_data           [0:N_CHANNELS-1],
-        input                       request_valid        [0:N_CHANNELS-1],
-        output                      request_picked       [0:N_CHANNELS-1],
-        output                      reset_hbm_controller [0:N_CHANNELS-1],
-        input  [P_REQ_ID_WIDTH-1:0] request_id           [0:N_CHANNELS-1],  // The request id is exactly the AXI channel that issues the request
-
-        output                      rd_data_valid_ps0    [0:N_CHANNELS-1],
-        output                      rd_data_valid_ps1    [0:N_CHANNELS-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:N_CHANNELS-1]
-    `endif
-
-
-    `ifdef DEBUG
-        input  [31:0]               address              [0:N_CHANNELS-1],
-        input  [1:0]                request              [0:N_CHANNELS-1],
-        input  [P_DATA_WIDTH-1:0]   write_data           [0:N_CHANNELS-1],
-        input                       request_valid        [0:N_CHANNELS-1],
-        output                      request_picked       [0:N_CHANNELS-1],
-        output                      reset_hbm_controller [0:N_CHANNELS-1],
-        input  [P_REQ_ID_WIDTH-1:0] request_id           [0:N_CHANNELS-1],  // The request id is exactly the AXI channel that issues the request
-
-
-        output                      rd_data_valid_ps0    [0:N_CHANNELS-1],
-        output                      rd_data_valid_ps1    [0:N_CHANNELS-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
-        output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
-        output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:N_CHANNELS-1]
-    `endif
-
+    /* Read data, per pseudo-channel. Returns come back in CAS issue order, not
+       in request order: rd_data_req_id_* is the tag of the request that asked
+       for this beat, and is how a client puts the two back together. */
+    output                      rd_data_valid_ps0    [0:N_CHANNELS-1],
+    output                      rd_data_valid_ps1    [0:N_CHANNELS-1],
+    output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps0   [0:N_CHANNELS-1],
+    output [P_DATA_WIDTH-1:0]   rd_data_ps0          [0:N_CHANNELS-1],
+    output [P_REQ_ID_WIDTH-1:0] rd_data_req_id_ps1   [0:N_CHANNELS-1],
+    output [P_DATA_WIDTH-1:0]   rd_data_ps1          [0:N_CHANNELS-1]
 );
 
 localparam MMCM_CLKFBOUT_MULT_F  = 9;
@@ -228,7 +200,6 @@ reg           rst_mmcm;
 reg  [3:0]    cnt_rst;
 
 
-
 reg          rst_st0_n_1;
 reg          rst_st1_n_1;
 
@@ -239,7 +210,6 @@ reg           w_rst_sys_rst_1_r2_1;
 
 reg           rst_mmcm_1;
 reg  [3:0]    cnt_rst_1;
-
 
 
     always @ (posedge HBM_REF_CLK_buf_0 or negedge ARESET_N_0) begin
@@ -343,9 +313,6 @@ reg  [3:0]    cnt_rst_1;
     end
 
     assign APB_PRESET_N_sync_0 = r_apb_preset_n_p2l_st0;
-
-
-
 
 
     always @ (posedge HBM_REF_CLK_buf_1 or negedge ARESET_N_1) begin
@@ -488,7 +455,6 @@ reg  [3:0]    cnt_rst_1;
     );
 
 
-
     MMCME4_ADV
     #(.BANDWIDTH            ("OPTIMIZED"),
         .CLKOUT4_CASCADE      ("FALSE"),
@@ -622,34 +588,8 @@ reg  [3:0]    cnt_rst_1;
     end
 
 
-
-
-    // `ifndef DEBUG
-    //     // wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps0   [0:16-1];
-    //     // wire [P_DATA_WIDTH-1:0]           rd_data_ps0          [0:16-1];
-    //     // wire [P_REQ_ID_WIDTH-1:0]         rd_data_req_id_ps1   [0:16-1];
-    //     // wire [P_DATA_WIDTH-1:0]           rd_data_ps1          [0:16-1];
-
-    //     wire reset_hbm_controller[0:16-1];
-    //     // wire [31:0]address[0:16-1];
-    //     // wire [1:0]request[0:16-1];
-    //     wire [P_DATA_WIDTH-1:0] write_data[0:16-1];
-
-    //     // reg [31:0] r_address[0:16-1];
-    //     // reg [1:0] r_request[0:16-1];
-    //     reg [P_DATA_WIDTH-1:0] r_wrt_data[0:16-1];
-    //     reg [0:16-1]r_done;
-
-    //     // assign address = r_address;
-    //     // assign request = r_request;
-    //     assign write_data = r_wrt_data;
-
-    //     assign done = &r_done[0:N_CHANNELS-1];
-
-    //     // /*(* keep = "TRUE" *)*/ reg   request_valid  [0:N_CHANNELS-1];
-    //     // /*(* keep = "TRUE" *)*/ wire  request_picked [0:N_CHANNELS-1];
-    // `endif
-
+    /* here used to sit an internal stimulus generator (r_done, r_wrt_data),
+       commented out and dead: HBM_controller_fpga_top drives the ports now. */
 
     always @ (posedge dfi_clk_buf[0] or negedge ARESET_N_0) begin
         if (~ARESET_N_0) begin
@@ -805,47 +745,8 @@ for( i = 0; i < 16; i = i+1 ) begin
             end
         end
 
-        // `ifndef DEBUG
-        //     always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
-        //         if (dfi_rst_n[6] == 1'b0) begin
-        //             r_done[i] <= 1'b0;
-        //         end
-        //         else begin
-        //             if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
-        //                 r_done[i] <= 1'b1;
-        //             end
-        //             else begin
-        //                 r_done[i] <= 1'b0;
-        //             end
-        //         end
-        //     end
-
-        //     always @(posedge dfi_clk_buf[6] or negedge dfi_rst_n[6]) begin
-        //         if (dfi_rst_n[6] == 1'b0) begin
-        //             // r_address[i] <= {33{1'b0}};
-        //             // r_request[i] <= 2'b00;
-        //             r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-        //             // request_valid[i] <= 1'b0;
-        //         end
-        //         else begin
-        //             // if (request_valid[i] == 1'b0) begin
-        //                 // request_valid[i] <= 1'b1;
-        //                 // r_address[i] <= r_address[i] + 1'b1;
-        //                 r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;
-        //                 // if ( r_request[i] == 2'b00 ) begin
-        //                 //     r_request[i] <= 2'b01;
-        //                 // end
-        //                 // else begin
-        //                 //     r_request[i] <= 2'b00;
-        //                 // end
-        //             // end
-        //             // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-        //             //     request_valid[i] <= 1'b0;
-        //             // end
-        //         end
-        //     end
-        // `endif
-
+        /* here used to sit an internal stimulus generator (r_done, r_wrt_data),
+           commented out and dead: HBM_controller_fpga_top drives the ports now. */
     end
     else if ( i == 15 ) begin
 
@@ -857,47 +758,8 @@ for( i = 0; i < 16; i = i+1 ) begin
             end
         end
 
-        // `ifndef DEBUG
-        //     always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
-        //         if (dfi_rst_n[14] == 1'b0) begin
-        //             r_done[i] <= 1'b0;
-        //         end
-        //         else begin
-        //             if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
-        //                 r_done[i] <= 1'b1;
-        //             end
-        //             else begin
-        //                 r_done[i] <= 1'b0;
-        //             end
-        //         end
-        //     end
-
-        //     always @(posedge dfi_clk_buf[14] or negedge dfi_rst_n[14]) begin
-        //         if (dfi_rst_n[14] == 1'b0) begin
-        //             // r_address[i] <= {33{1'b0}};
-        //             // r_request[i] <= 2'b00;
-        //             r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-        //             // request_valid[i] <= 1'b0;
-        //         end
-        //         else begin
-        //             // if (request_valid[i] == 1'b0) begin
-        //             //     request_valid[i] <= 1'b1;
-        //                 // r_address[i] <= r_address[i] + 1'b1;
-        //                 r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
-        //                 // if ( r_request[i] == 2'b00 ) begin
-        //                 //     r_request[i] <= 2'b01;
-        //                 // end
-        //                 // else begin
-        //                 //     r_request[i] <= 2'b00;
-        //                 // end
-        //             // end
-        //             // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-        //             //     request_valid[i] <= 1'b0;
-        //             // end
-        //         end
-        //     end
-        // `endif
-
+        /* here used to sit an internal stimulus generator (r_done, r_wrt_data),
+           commented out and dead: HBM_controller_fpga_top drives the ports now. */
     end
     else begin
 
@@ -926,47 +788,8 @@ for( i = 0; i < 16; i = i+1 ) begin
         .O (dfi_clk_buf[i])
         );
 
-        // `ifndef DEBUG
-        //     always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
-        //         if (dfi_rst_n[i] == 1'b0) begin
-        //             r_done[i] <= 1'b0;
-        //         end
-        //         else begin
-        //             if ( &rd_data_req_id_ps0[i] && &rd_data_req_id_ps1[i] && rd_data_ps0[i] == {P_DATA_WIDTH{1'b1}} && rd_data_ps1[i] == {P_DATA_WIDTH{1'b0}} ) begin
-        //                 r_done[i] <= 1'b1;
-        //             end
-        //             else begin
-        //                 r_done[i] <= 1'b0;
-        //             end
-        //         end
-        //     end
-
-        //     always @(posedge dfi_clk_buf[i] or negedge dfi_rst_n[i]) begin
-        //         if (dfi_rst_n[i] == 1'b0) begin
-        //             // r_address[i] <= {33{1'b0}};
-        //             // r_request[i] <= 2'b00;
-        //             r_wrt_data[i] <= {P_DATA_WIDTH { 1'b0 } };
-        //             // request_valid[i] <= 1'b0;
-        //         end
-        //         else begin
-        //             // if (request_valid[i] == 1'b0) begin
-        //             //     request_valid[i] <= 1'b1;
-        //                 // r_address[i] <= r_address[i] + 1'b1;
-        //                 r_wrt_data[i] <= r_wrt_data[i] + 32'hAAAABBBB;;
-        //                 // if ( r_request[i] == 2'b00 ) begin
-        //                 //     r_request[i] <= 2'b01;
-        //                 // end
-        //                 // else begin
-        //                 //     r_request[i] <= 2'b00;
-        //                 // end
-        //             // end
-        //             // else if (request_valid[i] == 1'b1 && request_picked[i] == 1'b1 ) begin
-        //             //     request_valid[i] <= 1'b0;
-        //             // end
-        //         end
-        //     end
-        // `endif
-
+        /* here used to sit an internal stimulus generator (r_done, r_wrt_data),
+           commented out and dead: HBM_controller_fpga_top drives the ports now. */
     end
 
 
@@ -974,16 +797,11 @@ end
 endgenerate
 
 
-
 generate
 for (i=0; i < N_CHANNELS; i = i+1)  begin
     if ( i == 7 ) begin
-        HBM_channel_controller #(
-//            .P_QUEUE_LEN(P_QUEUE_LEN),
-//            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
-//            .P_MAPPING_POLICY(P_MAPPING_POLICY),
-//            .P_DATA_WIDTH(P_DATA_WIDTH)
-        )
+        /* no overrides: the channel takes its widths from hbm_controller.svh */
+        HBM_channel_controller
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[6]   )
@@ -1051,12 +869,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     end
 
     else if ( i == 15 ) begin
-        HBM_channel_controller #(
-//            .P_QUEUE_LEN(P_QUEUE_LEN),
-//            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
-//            .P_MAPPING_POLICY(P_MAPPING_POLICY),
-//            .P_DATA_WIDTH(P_DATA_WIDTH)
-        )
+        /* no overrides: the channel takes its widths from hbm_controller.svh */
+        HBM_channel_controller
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[14]   )
@@ -1125,12 +939,8 @@ for (i=0; i < N_CHANNELS; i = i+1)  begin
     end
 
     else begin
-        HBM_channel_controller #(
-//            .P_QUEUE_LEN(P_QUEUE_LEN),
-//            .P_REQ_ID_WIDTH(P_REQ_ID_WIDTH),
-//            .P_MAPPING_POLICY(P_MAPPING_POLICY),
-//            .P_DATA_WIDTH(P_DATA_WIDTH)
-        )
+        /* no overrides: the channel takes its widths from hbm_controller.svh */
+        HBM_channel_controller
         HBM_channel_controller_i
         (
             .dfi_clk_buf                    (dfi_clk_buf[i]   )
@@ -1474,7 +1284,6 @@ hbm_0 hbm_0_i
    ,.dfi_4_clk_init                  ( /* Not Connected */  )
    ,.dfi_4_init_complete             (dfi_init_complete[4])
    ,.dfi_4_out_rst_n                 (dfi_out_rst_n[4]    )
-
 
 
    ,.dfi_5_clk                       (dfi_clk_buf[5]            )
@@ -1846,7 +1655,6 @@ hbm_0 hbm_0_i
    ,.dfi_11_out_rst_n                 (dfi_out_rst_n[11]    )
 
 
-
    ,.dfi_12_clk                       (dfi_clk_buf[12]            )
    ,.dfi_12_rst_n                     (dfi_rst_n[12]              )
    ,.dfi_12_init_start                (dfi_init_start[12]         )
@@ -1953,7 +1761,6 @@ hbm_0 hbm_0_i
    ,.dfi_13_out_rst_n                 (dfi_out_rst_n[13]    )
 
 
-
    ,.dfi_14_clk                       (dfi_clk_buf[14]            )
    ,.dfi_14_rst_n                     (dfi_rst_n[14]              )
    ,.dfi_14_init_start                (dfi_init_start[14]         )
@@ -2005,7 +1812,6 @@ hbm_0 hbm_0_i
    ,.dfi_14_clk_init                  ( /* Not Connected */  )
    ,.dfi_14_init_complete             (dfi_init_complete[14])
    ,.dfi_14_out_rst_n                 (dfi_out_rst_n[14]    )
-
 
 
    ,.dfi_15_clk                       (dfi_clk_buf[14]            )

@@ -27,6 +27,10 @@ module llcf_ras_cmd_driver (
     input logic [3:0] r_phy_tg_ps, 
 
 
+    /* Trace only: these four ids feed nothing but the $display below, so they
+       exist only under DEBUG. Everything that depends on them - the registers
+       that pipeline them included - must sit under the same guard, or it ends
+       up referring to ports that are not there. */
     `ifdef DEBUG
         input logic [P_REQ_ID_WIDTH-1:0] req_ras_id_ps0, 
         input logic [P_CMD_ID_WIDTH-1:0] cmd_ras_id_ps0,
@@ -47,8 +51,10 @@ module llcf_ras_cmd_driver (
 logic [3:0]                       sync_cmd_ras_ps1;
 logic [P_BA_ADDR_WIDTH  -1 : 0]   sync_bank_addr_ras_ps1;
 logic [P_ROW_ADDR_WIDTH -1 : 0]   sync_row_addr_ras_ps1;
-logic [P_REQ_ID_WIDTH-1:0]        sync_req_ras_id_ps1;
-logic [P_CMD_ID_WIDTH-1:0]        sync_cmd_ras_id_ps1;
+`ifdef DEBUG
+    logic [P_REQ_ID_WIDTH-1:0]    sync_req_ras_id_ps1;
+    logic [P_CMD_ID_WIDTH-1:0]    sync_cmd_ras_id_ps1;
+`endif
 
 
 always @( posedge clock_i or negedge reset_ni ) begin
@@ -57,8 +63,10 @@ always @( posedge clock_i or negedge reset_ni ) begin
         sync_cmd_ras_ps1       <=  P_GENERAL_NOP;
         sync_bank_addr_ras_ps1 <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
         sync_row_addr_ras_ps1  <=  { P_ROW_ADDR_WIDTH { 1'b0 } };
-        sync_req_ras_id_ps1    <=  { P_REQ_ID_WIDTH {1'b0} };
-        sync_cmd_ras_id_ps1    <=  { P_CMD_ID_WIDTH {1'b0} };
+        `ifdef DEBUG
+            sync_req_ras_id_ps1    <=  { P_REQ_ID_WIDTH {1'b0} };
+            sync_cmd_ras_id_ps1    <=  { P_CMD_ID_WIDTH {1'b0} };
+        `endif
     end 
     else begin 
         if ( (can_serve_actual_act_ps0 && can_serve_actual_ras_ps1) || (can_serve_actual_act_ps1 && can_serve_actual_ras_ps0) && ~double_act_ras_sync) begin
@@ -66,16 +74,20 @@ always @( posedge clock_i or negedge reset_ni ) begin
             sync_cmd_ras_ps1       <=  cmd_ras_ps1;
             sync_bank_addr_ras_ps1 <=  bank_address_ras_ps1;
             sync_row_addr_ras_ps1  <=  row_address_ras_ps1;
-            sync_req_ras_id_ps1    <=  req_ras_id_ps1;
-            sync_cmd_ras_id_ps1    <=  cmd_ras_id_ps1;
+            `ifdef DEBUG
+                sync_req_ras_id_ps1    <=  req_ras_id_ps1;
+                sync_cmd_ras_id_ps1    <=  cmd_ras_id_ps1;
+            `endif
         end
         else if ( double_act_ras_sync ) begin
             double_act_ras_sync    <=  1'b0;
             sync_cmd_ras_ps1       <=  P_GENERAL_NOP;
             sync_bank_addr_ras_ps1 <=  { P_BA_ADDR_WIDTH  { 1'b0 } };
             sync_row_addr_ras_ps1  <=  { P_ROW_ADDR_WIDTH { 1'b0 } };
-            sync_req_ras_id_ps1    <=  { P_REQ_ID_WIDTH {1'b0} };
-            sync_cmd_ras_id_ps1    <=  { P_CMD_ID_WIDTH {1'b0} };
+            `ifdef DEBUG
+                sync_req_ras_id_ps1    <=  { P_REQ_ID_WIDTH {1'b0} };
+                sync_cmd_ras_id_ps1    <=  { P_CMD_ID_WIDTH {1'b0} };
+            `endif
         end 
     end
 end

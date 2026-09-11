@@ -4,47 +4,48 @@
 `include "nmp_accelerator.svh"
 `include "nmp_exp2_lut.svh"
 
-/***************************************************************************/
-/* This module executed the base 2 exponentiation as:                      */
-/* 2^(floor(x)) * 2^f                                                      */
-/* where f =  x - n                                                        */
-/* x is our number,                                                        */
-/* n is the integer part,                                                  */
-/* f is the decimal part of the number                                     */
-/* since x is a negative integer, 2^(floor(x)) is a right shift            */
-/* f belogs to [0, 1) so 2^f belongs to [1, 2), we can do a table for that */
-/* x is a negative integer because is always something - max               */
-/* so at least is the max itself                                           */
-/*                                                                         */
-/* The module takes s and m separately and subtracts them itself, so the   */
-/* engine only has to wire the score buffer output and the running max.    */
-/*                                                                         */
-/*   x = s - m                        signed, P_SCORE_W + 1 bits, x <= 0   */
-/*   n = x >>> P_SCORE_FRAC           floor(x): just the top bits of x     */
-/*   f = x[P_SCORE_FRAC-1:0]          always in [0, 1), no sign            */
-/*                                                                         */
-/* floor() must round toward -infinity, not toward zero, so that f stays   */
-/* positive and one single table over [0, 1) is enough. In two's           */
-/* complement that is exactly what taking the upper bits does, for free.   */
-/*                                                                         */
-/* f is then split once more: the top P_NMP_EXP2_IDX_W bits index the      */
-/* table, the remaining ones interpolate linearly toward the next entry.   */
-/*                                                                         */
-/* Three pipeline stages, one result per cycle:                            */
-/*   0 : subtract, floor, split into shift amount / index / remainder      */
-/*   1 : read the two tables, multiply the delta by the remainder          */
-/*   2 : add the interpolation, then shift right by the integer part       */
-/*                                                                         */
-/* The tag input travels with the data and comes back out with it, so the  */
-/* caller can use it as the write address of the score buffer without      */
-/* having to build a delay line of its own.                                */
-/*                                                                         */
-/* Boundary cases:                                                         */
-/*   x = 0        -> n = 0, f = 0, y = VAL[0] = 2^31, p = 1.0 exactly      */
-/*   x <= -32     -> the result is below the resolution of Q1.31, p = 0    */
-/*   x > 0        -> cannot happen (m is the maximum): clamped to 0 and    */
-/*                   reported in simulation                                */
-/***************************************************************************/
+/*************************************************************************/
+/* This module executes the base 2 exponentiation as:                    */
+/* 2^n * 2^f                                                             */
+/* where f = x - n                                                       */
+/* x is our number,                                                      */
+/* n is the integer part, n = floor(x)                                   */
+/* f is the decimal part of the number                                   */
+/* since x is negative, 2^n is a right shift                             */
+/* f belongs to [0, 1) so 2^f belongs to [1, 2),                         */
+/* we can do a table for that                                            */
+/* x is negative because it is always something - max                    */
+/* so at most it is the max itself, and then x = 0                       */
+/*                                                                       */
+/* The module takes s and m separately and subtracts them itself, so the */
+/* engine only has to wire the score buffer output and the running max.  */
+/*                                                                       */
+/*   x = s - m                        signed, P_SCORE_W + 1 bits, x <= 0 */
+/*   n = x >>> P_SCORE_FRAC           floor(x): just the top bits of x   */
+/*   f = x[P_SCORE_FRAC-1:0]          always in [0, 1), no sign          */
+/*                                                                       */
+/* floor() must round toward -infinity, not toward zero, so that f stays */
+/* positive and one single table over [0, 1) is enough. In two's         */
+/* complement that is exactly what taking the upper bits does, for free. */
+/*                                                                       */
+/* f is then split once more: the top P_NMP_EXP2_IDX_W bits index the    */
+/* table, the remaining ones interpolate linearly toward the next entry. */
+/*                                                                       */
+/* Three pipeline stages, one result per cycle:                          */
+/*   0 : subtract, floor, split into shift amount / index / remainder    */
+/*   1 : read the two tables, multiply the delta by the remainder        */
+/*   2 : add the interpolation, then shift right by the integer part     */
+/*                                                                       */
+/* The tag input travels with the data and comes back out with it, so    */
+/* the caller can use it as the write address of the score buffer        */
+/* without having to build a delay line of its own.                      */
+/*                                                                       */
+/* Boundary cases:                                                       */
+/*   x = 0        -> n = 0, f = 0, y = VAL[0] = 2^31, p = 1.0 exactly    */
+/*   x <= -32     -> the result is below the resolution of Q1.31, p = 0  */
+/*   x > 0        -> cannot happen (m is the maximum): clamped to 0 and  */
+/*                   reported in simulation                              */
+/*************************************************************************/
 
 module nmp_exp2 #(
     parameter int P_SCORE_W    = 32,                            /* width of s and m                       */

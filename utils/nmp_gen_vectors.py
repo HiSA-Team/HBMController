@@ -8,7 +8,11 @@ Writes, in --out-dir (default: current directory):
   nmp_v.hex       : 8*S lines, V_h in the same layout
   nmp_scores.hex  : S lines, s'_t as 32-bit two's complement words in Q15.16 (what the engine
                     writes into its score buffer during pass K, before the softmax)
-  nmp_ref.hex     : 128 lines, o_h = softmax(q.K^T / sqrt(d)) . V as fp32 bit patterns
+  nmp_otilde.hex  : 128 lines, o~_i = sum_t p_t * v_t[i] as fp32 bit patterns (what the
+                    engine streams out on o_o: the UNNORMALISED head output)
+  nmp_lm.hex      : 2 lines, l as an fp32 bit pattern and m as a 32-bit Q15.16 word
+  nmp_ref.hex     : 128 lines, o_h = o~ / l = softmax(q.K^T / sqrt(d)) . V as fp32 bit
+                    patterns - the end to end reference, reconstructed by the consumer
 
 Beat format: element i occupies bits [16i+15 : 16i] of the 256-bit word, so the
 first hex digits of a line are element 15 (the same convention as the DUT).
@@ -25,8 +29,10 @@ The reference is the arithmetic of the v1 datapath, bit for bit:
     table the RTL uses, l = sum_t p_t as a plain integer (no rounding at all);
   * in the V pass p_t (already Q1.31) is multiplied exactly by v (11-bit
     significand), aligned and accumulated as above;
-  * an output is the accumulator converted to fp32 and divided by l, which is
-    the only floating point operation left (step 2c removes it too).
+  * an output is the accumulator converted to fp32 and nothing else: the engine
+    emits (o~, l, m) and whoever consumes the head does o = o~ / l. That last
+    division is the only floating point operation in the whole chain and it
+    happens outside the accelerator.
 """
 import argparse
 import math
@@ -200,14 +206,20 @@ def reference(q, K, V):
             term = aligned(pq, P_EXP, gv, ev)
             o_acc[i] += -term if sv_ else term
 
-    # the only floating point step left: fp32(acc) / l
-    l_real = float(l) / float(1 << OUT_FRAC)
+    # what the engine actually emits: o~ in fp32, l in fp32, m in Q15.16.
+    # l is an exact integer in Q1.31; acc_to_fp32_bits reads a Q_.32 word, so it
+    # is doubled on the way in, exactly like the RTL does.
+    ot_bits = [acc_to_fp32_bits(o_acc[i]) for i in range(D_HEAD)]
+    l_bits  = acc_to_fp32_bits(l << 1)
+    m_word  = m & 0xFFFFFFFF
+
+    # what the consumer reconstructs: o = o~ / l, in fp32
+    l_real = bits_fp32(l_bits)
     o_bits = []
     for i in range(D_HEAD):
-        of = bits_fp32(acc_to_fp32_bits(o_acc[i]))
-        ov = f32(np.float64(of) / np.float64(l_real))
+        ov = f32(np.float64(bits_fp32(ot_bits[i])) / np.float64(l_real))
         o_bits.append(fp32_bits(ov))
-    return s_bits, o_bits, m / float(1 << SCORE_FRAC), l_real, n_sat
+    return s_bits, ot_bits, l_bits, m_word, o_bits, m / float(1 << SCORE_FRAC), l_real, n_sat
 
 
 def main():
@@ -240,7 +252,7 @@ def main():
     K = draw((S, D_HEAD))
     V = draw((S, D_HEAD))
 
-    s_bits, o_bits, m, l, n_sat = reference(q, K, V)
+    s_bits, ot_bits, l_bits, m_word, o_bits, m, l, n_sat = reference(q, K, V)
 
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir, "nmp_seq_len.hex"), "w") as f:
@@ -256,6 +268,11 @@ def main():
     with open(os.path.join(args.out_dir, "nmp_scores.hex"), "w") as f:
         for t in range(S):
             f.write(f"{s_bits[t]:08x}\n")
+    with open(os.path.join(args.out_dir, "nmp_otilde.hex"), "w") as f:
+        for i in range(D_HEAD):
+            f.write(f"{ot_bits[i]:08x}\n")
+    with open(os.path.join(args.out_dir, "nmp_lm.hex"), "w") as f:
+        f.write(f"{l_bits:08x}\n{m_word:08x}\n")
     with open(os.path.join(args.out_dir, "nmp_ref.hex"), "w") as f:
         for i in range(D_HEAD):
             f.write(f"{o_bits[i]:08x}\n")

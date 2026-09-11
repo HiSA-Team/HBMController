@@ -3,31 +3,32 @@
 `include "hbm_controller.svh"
 `include "nmp_accelerator.svh"
 
-/******************************************************************************/
-/* NMP HEAD ENGINE (v1)                                                       */
-/*                                                                            */
-/* One attention head of one decode step, on one DFI channel:                 */
-/*                                                                            */
-/*   IDLE -> PASS_K -> SOFTMAX_EXP -> PASS_V -> NORMALIZE -> DONE              */
-/*                                                                            */
-/*   PASS_K      : stream K_h (8 blocks per token from base_k_blk); every     */
-/*                 beat is consumed when it arrives, in any order; the token   */
-/*                 table sums the 8 partials of a token, the result is scaled */
-/*                 by C = log2(e)/sqrt(d) into s' (Q15.16); the running        */
-/*                 maximum m' is kept while the scores go into the buffer     */
-/*   SOFTMAX_EXP : scan the buffer, s'_t <- p_t = 2^(s'_t - m') in Q1.31,     */
-/*                 l = sum_t p_t as a plain integer (nmp_exp2, 3 cycles)      */
-/*   PASS_V      : stream V_h (from base_v_blk), o += p_t * v_t, any order    */
-/*   NORMALIZE   : o[i] / l streamed out on o_valid_o / o_idx_o / o_o         */
-/*                                                                            */
-/* Each pseudo-channel has its own lane array: the two beats that may return  */
-/* in the same cycle are processed in the same cycle. PS0 returns the even    */
-/* blocks of a token and PS1 the odd ones.                                    */
-/*                                                                            */
-/* q_h is written beforehand through the q_wr_* port (8 beats of 16 fp16).    */
-/* The engine owns the request port of its channel: reads only in v1, the     */
-/* KV cache is written by the host / testbench.                               */
-/******************************************************************************/
+/*************************************************************************************/
+/* NMP HEAD ENGINE (v1)                                                              */
+/*                                                                                   */
+/* One attention head of one decode step, on one DFI channel:                        */
+/*                                                                                   */
+/*   IDLE -> PASS_K -> SOFTMAX_EXP -> PASS_V -> OUTPUT -> DONE                       */
+/*                                                                                   */
+/*   PASS_K      : stream K_h (8 blocks per token from base_k_blk); every            */
+/*                 beat is consumed when it arrives, in any order; the token         */
+/*                 table sums the 8 partials of a token, the result is scaled        */
+/*                 by C = log2(e)/sqrt(d) into s' (Q15.16); the running              */
+/*                 maximum m' is kept while the scores go into the buffer            */
+/*   SOFTMAX_EXP : scan the buffer, s'_t <- p_t = 2^(s'_t - m') in Q1.31,            */
+/*                 l = sum_t p_t as a plain integer (nmp_exp2, 3 cycles)             */
+/*   PASS_V      : stream V_h (from base_v_blk), o += p_t * v_t, any order           */
+/*   OUTPUT      : o~[i] = sum_t p_t * v_t[i] streamed out as it is, plus            */
+/*                 the two scalars l and m. NOT normalised: see the ports.           */
+/*                                                                                   */
+/* Each pseudo-channel has its own lane array: the two beats that may return         */
+/* in the same cycle are processed in the same cycle. PS0 returns the even           */
+/* blocks of a token and PS1 the odd ones.                                           */
+/*                                                                                   */
+/* q_h is written beforehand through the q_wr_* port (8 beats of 16 fp16).           */
+/* The engine owns the request port of its channel: reads only in v1, the            */
+/* KV cache is written by the host / testbench.                                      */
+/*************************************************************************************/
 
 module nmp_head_engine (
     input  logic                              clock_i,
@@ -44,12 +45,23 @@ module nmp_head_engine (
     input  logic [P_NMP_BLK_ADDR_WIDTH-1:0]   base_v_blk_i,     /* first block of V_h (even)             */
     input  logic [P_NMP_SEQ_WIDTH-1:0]        seq_len_i,        /* S = tokens in the context (1 .. 2048) */
     output logic                              busy_o,
-    output logic                              done_o,           /* one cycle pulse after the last o      */
+    output logic                              done_o,           /* one cycle pulse after the last o_tilde */
 
-    /* Head output o_h = softmax(q.K^T/sqrt(d)).V, fp32, one element per cycle */
+    /* Head output, NOT normalised: the partial softmax state (o_tilde, l, m).
+       o_tilde_i = sum_t p_t * v_t[i], fp32, one element per cycle;
+       l = sum_t p_t, fp32; m = max_t s'_t, Q15.16.
+       The consumer gets the head with o_i = o_tilde_i / l, and two of these
+       triples merge into one (FlashDecoding split of the context):
+           m   = max(m1, m2)
+           l   = l1 * 2^(m1-m) + l2 * 2^(m2-m)
+           o~  = o~1 * 2^(m1-m) + o~2 * 2^(m2-m)
+       l_o and m_o are stable from the first o_valid_o until the next start_i. */
     output logic                              o_valid_o,
     output logic [P_NMP_OUT_IDX_WIDTH-1:0]    o_idx_o,
-    output logic [P_NMP_F32_WIDTH-1:0]        o_o,
+    output logic [P_NMP_F32_WIDTH-1:0]        o_o,              /* o_tilde_i                             */
+    output logic [P_NMP_F32_WIDTH-1:0]        l_o,              /* sum of the p_t                        */
+    output logic signed [31:0]                m_o,              /* the maximum m', Q15.16                */
+
 
     /* HBM_channel_controller request port */
     output logic [31:0]                       address_o,
@@ -85,12 +97,28 @@ localparam [2:0] S_IDLE        = 3'd0;
 localparam [2:0] S_PASS_K      = 3'd1;
 localparam [2:0] S_SOFTMAX_EXP = 3'd2;
 localparam [2:0] S_PASS_V      = 3'd3;
-localparam [2:0] S_NORMALIZE   = 3'd4;
+localparam [2:0] S_OUTPUT      = 3'd4;
 localparam [2:0] S_DONE        = 3'd5;
 
-// localparam real  LP_SCALE      = 0.08838834764831845;                 /* 1 / sqrt(P_NMP_D_HEAD), d = 128 */
-localparam logic signed [32:0] LP_SCALE = 33'sh0_20A4_FB7B;              /* This is log2(e)/sqrt(d) with d = 128, notation Q0.32 + the signed bit */
+/* Was a real 1/sqrt(d) = 0.08838834764831845 in v1 step 1: now the model
+   scale and the change of base are folded into one exact fixed point constant */
+localparam logic signed [32:0] LP_SCALE = 33'sh0_20A4_FB7B;              /* log2(e)/sqrt(d), d = 128, Q0.32 plus the sign bit */
 localparam [3:0] LP_DRAIN      = 4'd8;                                   /* register stage + 4 lane stages + accumulators */
+
+/* The engine places a returning beat by the distance between its request id and
+   the id that opened the pass, so the ids of one pass must all be distinct, and
+   those of the pass before it must fall outside the window. That needs
+   2 * 8 * S_max values, i.e. 15 bits with S_max = 2048. If P_REQ_ID_WIDTH ever
+   shrinks below that, nothing breaks loudly: beats get placed on the wrong
+   token and the result is quietly wrong. So it is checked here.               */
+// synthesis translate_off
+initial begin
+    if ( P_REQ_ID_WIDTH < $clog2( 2 * P_NMP_MAX_SEQ_LEN * P_NMP_BLK_PER_ROW ) ) begin
+        $fatal(1, "nmp_head_engine: P_REQ_ID_WIDTH is %0d, needs at least %0d for S_max = %0d",
+               P_REQ_ID_WIDTH, $clog2( 2 * P_NMP_MAX_SEQ_LEN * P_NMP_BLK_PER_ROW ), P_NMP_MAX_SEQ_LEN);
+    end
+end
+// synthesis translate_on
 
 logic [2:0]                        r_state;
 
@@ -546,46 +574,50 @@ always_comb begin
 end
 
 /*******************************/
-/* NORMALISATION               */
+/* OUTPUT STREAM               */
 /*******************************/
-logic                              r_norm_busy;
-logic [P_NMP_OUT_IDX_WIDTH:0]      r_norm_idx;
-logic                              r_norm_done;
+/* 128 accumulators converted to fp32 and streamed out as they are: no
+   division, so no divider and no `real` anywhere in the datapath.        */
+logic                              r_out_busy;
+logic [P_NMP_OUT_IDX_WIDTH:0]      r_out_idx;
+logic                              r_out_done;
 
-assign oa_rd_idx = r_norm_idx[P_NMP_OUT_IDX_WIDTH-1:0];
+assign oa_rd_idx = r_out_idx[P_NMP_OUT_IDX_WIDTH-1:0];
 
 always @ ( posedge clock_i or negedge reset_ni ) begin
     if ( reset_ni == 1'b0 ) begin
-        r_norm_busy <= 1'b0;
-        r_norm_idx  <= { P_NMP_OUT_IDX_WIDTH+1 { 1'b0 } };
-        r_norm_done <= 1'b0;
+        r_out_busy <= 1'b0;
+        r_out_idx  <= { P_NMP_OUT_IDX_WIDTH+1 { 1'b0 } };
+        r_out_done <= 1'b0;
         o_valid_o   <= 1'b0;
         o_idx_o     <= { P_NMP_OUT_IDX_WIDTH { 1'b0 } };
         o_o         <= { P_NMP_F32_WIDTH { 1'b0 } };
+        l_o         <= { P_NMP_F32_WIDTH { 1'b0 } };
+        m_o         <= { 32 { 1'b0 } };
     end
     else begin
-        o_valid_o   <= 1'b0;
-        r_norm_done <= 1'b0;
-        if ( r_state == S_NORMALIZE && ~r_norm_busy && ~r_norm_done ) begin
-            r_norm_busy <= 1'b1;
-            r_norm_idx  <= { P_NMP_OUT_IDX_WIDTH+1 { 1'b0 } };
+        o_valid_o  <= 1'b0;
+        r_out_done <= 1'b0;
+        if ( r_state == S_OUTPUT && ~r_out_busy && ~r_out_done ) begin
+            r_out_busy <= 1'b1;
+            r_out_idx  <= { P_NMP_OUT_IDX_WIDTH+1 { 1'b0 } };
+            /* l and m are final by now and do not change for the rest of the
+               job: latch them once here, one cycle before the first o_valid_o.
+               r_l is Q13.31 while f_nmp_acc_to_fp32 reads a Q31.32 word, so it
+               is doubled on the way in - otherwise l would come out halved.    */
+            l_o        <= f_nmp_acc_to_fp32( { { (P_NMP_ACC_W-LP_L_W-1) { 1'b0 } }, r_l, 1'b0 } );
+            m_o        <= r_max;
         end
-        else if ( r_norm_busy ) begin
-            if ( r_norm_idx == P_NMP_D_HEAD ) begin
-                r_norm_busy <= 1'b0;
-                r_norm_done <= 1'b1;
+        else if ( r_out_busy ) begin
+            if ( r_out_idx == P_NMP_D_HEAD ) begin
+                r_out_busy <= 1'b0;
+                r_out_done <= 1'b1;
             end
             else begin
                 o_valid_o  <= 1'b1;
-                o_idx_o    <= r_norm_idx[P_NMP_OUT_IDX_WIDTH-1:0];
-                /* Still the behavioural division of step 2b: l is now an exact
-                   integer in Q1.31, so it is turned into a real just here. This
-                   is the LAST `real` left in the engine and the last thing in
-                   the way of synthesis; step 2c removes it by emitting
-                   (o_tilde, m, l) and letting the host do the division once.   */
-                o_o        <= f_nmp_real_to_fp32(f_nmp_fp32_to_real(f_nmp_acc_to_fp32(oa_rd_acc))
-                                                 / ( real'(r_l) / real'(64'd1 << P_NMP_P_FIXED_FRAC) ));
-                r_norm_idx <= r_norm_idx + 1'b1;
+                o_idx_o    <= r_out_idx[P_NMP_OUT_IDX_WIDTH-1:0];
+                o_o        <= f_nmp_acc_to_fp32(oa_rd_acc);     /* o_tilde, not normalised */
+                r_out_idx  <= r_out_idx + 1'b1;
             end
         end
     end
@@ -695,7 +727,7 @@ always @ ( posedge clock_i or negedge reset_ni ) begin
                     r_drain <= r_drain + 1'b1;
                     if ( r_drain == LP_DRAIN ) begin
                         r_pass_open <= 1'b0;
-                        r_state     <= S_NORMALIZE;
+                        r_state     <= S_OUTPUT;
                     end
                 end
                 else begin
@@ -703,8 +735,8 @@ always @ ( posedge clock_i or negedge reset_ni ) begin
                 end
             end
 
-            S_NORMALIZE: begin
-                if ( r_norm_done ) begin
+            S_OUTPUT: begin
+                if ( r_out_done ) begin
                     r_state <= S_DONE;
                 end
             end

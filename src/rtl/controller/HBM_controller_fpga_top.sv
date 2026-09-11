@@ -1,4 +1,6 @@
 `timescale 1ps / 1ps
+
+`include "hbm_controller.svh"
 // Minimal-pin top for Vivado synthesis/implementation (e.g. Alveo U50).
 // Instantiates HBM_controller_top with clocks/resets/APB on package pins only.
 // Per-channel stimulus buses and dfi_clk_buf[] stay internal (not top-level ports).
@@ -11,9 +13,12 @@
 // fabric flops; one IBUF+BUFG is instantiated here and the core uses
 // P_APB_PCLK0_BUFFERED=1 (BUFG only inside).
 //
-// Compile this with DEBUG undefined so HBM_controller_top exposes the non-DEBUG
-// port list (P_REQ_ID_WIDTH = 4 in hbm_controller.svh). Simulation should keep
-// using HBM_controller_top_tb -> HBM_controller_top directly.
+// DEBUG no longer changes the port list or P_REQ_ID_WIDTH (2026-09-11), so this
+// top builds either way; DEBUG only adds $display tracing. Simulation should
+// keep using HBM_controller_top_tb -> HBM_controller_top directly.
+//
+// For the near-memory build use nmp_fpga_top instead: same idea, with the
+// accelerator on channel 0 instead of this round-robin read strobe.
 
 module HBM_controller_fpga_top (
     input  wire HBM_REF_CLK_0,
@@ -26,14 +31,9 @@ module HBM_controller_fpga_top (
     output wire hbm_cattrip_output
 );
 
-`ifdef DEBUG
-    // Simulation uses HBM_controller_top_tb -> HBM_controller_top (+DEBUG) directly.
-    assign hbm_cattrip_output = 1'b0;
-`else
     localparam int NCH = 16;
     localparam int DW  = 256;
-    // Must match P_REQ_ID_WIDTH when `DEBUG is not defined (hbm_controller.svh).
-    localparam int REQ_ID_W = 4;
+    localparam int REQ_ID_W = P_REQ_ID_WIDTH;
 
     // APB cycles between read strobes; hold valid this many APB cycles (coarse vs request_picked).
     localparam int STIM_GAP   = 1024;
@@ -145,6 +145,5 @@ module HBM_controller_fpga_top (
         .rd_data_req_id_ps1  (rd_data_req_id_ps1),
         .rd_data_ps1         (rd_data_ps1)
     );
-`endif
 
 endmodule
