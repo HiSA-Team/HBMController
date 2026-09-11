@@ -32,4 +32,19 @@ add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sour
 
 add_files -norecurse -fileset constrs_1 -copy_to $project_dir/$project.srcs/constrs_1 "$src_dir/constraints/place_and_route.xdc"
 
+# Near-memory processing accelerator (v1, one attention head per channel)
+add_files -norecurse -fileset sources_1 -copy_to $project_dir/$project.srcs/sources_1 " \
+    $src_dir/rtl/nmp_accelerator/nmp_accelerator.svh \
+    $src_dir/rtl/nmp_accelerator/nmp_exp2_lut.svh \
+    $src_dir/rtl/nmp_accelerator/nmp_address_generator.sv \
+    $src_dir/rtl/nmp_accelerator/nmp_lane_array.sv \
+    $src_dir/rtl/nmp_accelerator/nmp_token_table.sv \
+    $src_dir/rtl/nmp_accelerator/nmp_output_acc.sv \
+    $src_dir/rtl/nmp_accelerator/nmp_exp2.sv \
+    $src_dir/rtl/nmp_accelerator/nmp_head_engine.sv \ "
+
 add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 "$src_dir/sim/HBM_controller_top_tb.sv"
+# NMP testbench (select it with: set_property top nmp_head_engine_tb [get_filesets sim_1])
+add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 "$src_dir/sim/nmp_head_engine_tb.sv"
+# nmp_exp2 standalone testbench (select it with: set_property top nmp_exp2_tb [get_filesets sim_1])
+add_files -norecurse -fileset sim_1 -copy_to $project_dir/$project.srcs/sim_1 "$src_dir/sim/nmp_exp2_tb.sv"

@@ -26,3 +26,7 @@ vivado.*
 # CrossSim DPI build artifacts (sources under CrossSim/crosssim)
 CrossSim/crosssim/obj/
 CrossSim/crosssim/bin/
+
+# New doc for now
+doc/nmp
+src/rtl/nmp_accelerator/README.md

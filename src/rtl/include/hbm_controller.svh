@@ -16,7 +16,9 @@ localparam       P_QUEUE_LEN                = 4;
 localparam       P_MAPPING_POLICY           = 1;
 
 /* WRT BUFFER LEN */
-localparam       P_WRT_DATA_BUFFER_LEN      = 4;
+localparam       P_WRT_DATA_BUFFER_LEN      = 8;    // was 4: llcf_write_data_driver holds a PS1 entry for tWL-1 = 3 cycles after its CAS, so 4 entries
+                                                       // are in flight with back-to-back write CAS and the 5th is dropped (head does not advance) while the
+                                                       // timer-reset pointer does -> permanent data/CAS desync on PS1. Depth must exceed tWL (2026-09-07)
 
 /* REQUESTS       */
 localparam       P_WRT_REQ                  = 2'd0;
