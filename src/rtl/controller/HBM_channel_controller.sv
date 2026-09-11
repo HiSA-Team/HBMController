@@ -83,19 +83,21 @@ logic wr_blk_ram_write_en_ps1;
 assign wr_blk_ram_write_en_ps1 = input_request_valid & bank_address[4]  & ~input_request[0] & |(request_picked);
 
 
-
-logic [(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH)-2:0] blk_ram_wrt_addr;
-assign blk_ram_wrt_addr = {request_id, bank_address[3:0]} /*counter_requests*/;
+/* With a REQ_to_CMD_translator queue we just have 128 inflight requests, no more! This could be even optimized with smaller queues, and this can meet the time in implementation */
+logic [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0] blk_ram_wrt_addr;
+/* The hook, not the ticket: only the low bits of the id pick the CAS slot.
+   Must track P_REQ_ID_CAS_RAM_WIDTH, never be a hardcoded slice.            */
+assign blk_ram_wrt_addr = { request_id[P_REQ_ID_CAS_RAM_WIDTH-1:0], bank_address[3:0] };
 
 logic  [P_DATA_WIDTH-1 : 0] ram_cas_out_ps0;
 logic  [P_DATA_WIDTH-1 : 0] ram_cas_out_ps1;
 
 
-logic  [P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-2:0] wr_ram_cas_address_req_id_ps0;
-logic  [P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-2:0] wr_ram_cas_address_req_id_ps1;
+logic  [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0] wr_ram_cas_address_req_id_ps0;
+logic  [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0] wr_ram_cas_address_req_id_ps1;
 
-logic  [P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-2:0] rd_ram_cas_address_req_id_ps0;
-logic  [P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-2:0] rd_ram_cas_address_req_id_ps1;
+logic  [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0] rd_ram_cas_address_req_id_ps0;
+logic  [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0] rd_ram_cas_address_req_id_ps1;
 
 logic  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] wr_ram_cas_address_out_ps0;
 logic  [P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH-1 : 0] wr_ram_cas_address_out_ps1;
@@ -183,7 +185,7 @@ end
 /* | WRT DATA | BANK ADDRESS | COL ADDRESS | */
 block_ram #
 (
-    .ADDR_WIDTH(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-1),
+    .ADDR_WIDTH(P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-1),
     .DATA_WIDTH(P_DATA_WIDTH)
 )
 cas_data_ps0
@@ -199,7 +201,7 @@ cas_data_ps0
 
 block_ram #
 (
-    .ADDR_WIDTH(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-1),
+    .ADDR_WIDTH(P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-1),
     .DATA_WIDTH(P_DATA_WIDTH)
 )
 cas_data_ps1
@@ -215,7 +217,7 @@ cas_data_ps1
 
 block_ram #
 (
-    .ADDR_WIDTH(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-1),
+    .ADDR_WIDTH(P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-1),
     .DATA_WIDTH(P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH)
 )
 wr_cas_address_ps0
@@ -230,7 +232,7 @@ wr_cas_address_ps0
 
 block_ram #
 (
-    .ADDR_WIDTH(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-1),
+    .ADDR_WIDTH(P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-1),
     .DATA_WIDTH(P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH)
 )
 wr_cas_address_ps1
@@ -247,7 +249,7 @@ wr_cas_address_ps1
 // READ ADDRESS BRAM - NOT REALLY NEEDED
 block_ram #
 (
-    .ADDR_WIDTH(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-1),
+    .ADDR_WIDTH(P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-1),
     .DATA_WIDTH(P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH)
 )
 rd_cas_address_ps0
@@ -262,7 +264,7 @@ rd_cas_address_ps0
 
 block_ram #
 (
-    .ADDR_WIDTH(P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-1),
+    .ADDR_WIDTH(P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-1),
     .DATA_WIDTH(P_BA_ADDR_WIDTH+P_COL_ADDR_WIDTH)
 )
 rd_cas_address_ps1

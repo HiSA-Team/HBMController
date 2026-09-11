@@ -3,7 +3,7 @@
 
 localparam		 P_ROW_ADDR_WIDTH           = 14;
 localparam		 P_COL_ADDR_WIDTH           = 6;
-localparam		 P_BA_ADDR_WIDTH	        = 5; 
+localparam		 P_BA_ADDR_WIDTH	        = 5;
 localparam       P_BA_N_PS                  = 16;        /* Number of Banks per PS; here we consider half bank for PS */
 localparam       P_BA_N_G                   = 4;         /* Number of Banks per group */
 localparam       P_DATA_WIDTH               = 256;
@@ -50,6 +50,8 @@ localparam       P_REQ_WIDTH                = 32'd2;
    both ways in Verilator at S=2048 (14 passes today, 13 fails). See
    doc/nmp/CHANGELOG.md.                                                      */
 localparam       P_REQ_ID_WIDTH             = 32'd15;
+
+localparam       P_REQ_ID_CAS_RAM_WIDTH     = 32'd8;
 
 localparam       P_CMD_ID_WIDTH             = 32'd3;
 

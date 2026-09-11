@@ -13,7 +13,7 @@ module last_level_command_forwarder (
 
     // DFI interface ports - to the HBM PHY
     `DEFINE_DFI_MASTER_PORTS,
-    
+
     /* RAS cmd PS0 */
     output logic                        ready_to_cmd_ras_ps0,
     input logic [3:0]                   cmd_ras_ps0,
@@ -21,14 +21,14 @@ module last_level_command_forwarder (
     input logic [P_CMD_ID_WIDTH-1:0]    cmd_ras_id_ps0,
     input logic [1:0]                   bank_group_ras_ps0,
     input logic [P_ROW_ADDR_WIDTH-1:0]  row_address_ras_ps0,
-    
+
     /* CAS cmd PS0 */
     output logic                        ready_to_cmd_cas_ps0,
     input logic [3:0]                   cmd_cas_ps0,
     input logic [P_REQ_ID_WIDTH-1:0]    req_cas_id_ps0,
     input logic [P_CMD_ID_WIDTH-1:0]    cmd_cas_id_ps0,
     input logic [1:0]                   bank_group_cas_ps0,
-    
+
     /* RAS cmd PS1 */
     output logic                        ready_to_cmd_ras_ps1,
     input logic [3:0]                   cmd_ras_ps1,
@@ -36,7 +36,7 @@ module last_level_command_forwarder (
     input logic [P_CMD_ID_WIDTH-1:0]    cmd_ras_id_ps1,
     input logic [1:0]                   bank_group_ras_ps1,
     input logic [P_ROW_ADDR_WIDTH-1:0]  row_address_ras_ps1,
-    
+
     /* CAS cmd PS1 */
     output logic                        ready_to_cmd_cas_ps1,
     input logic [3:0]                   cmd_cas_ps1,
@@ -44,10 +44,10 @@ module last_level_command_forwarder (
     input logic [P_CMD_ID_WIDTH-1:0]    cmd_cas_id_ps1,
     input logic [1:0]                   bank_group_cas_ps1,
 
-    
+
     input logic [P_BA_ADDR_WIDTH-1:0]       bank_address_ras_ps0,
     input logic [P_BA_ADDR_WIDTH-1:0]       bank_address_ras_ps1,
-    
+
     /* To inform bank schedulers that the command is served */
     output logic [(P_BA_N_PS*2)-1:0]          served_ras,
     output logic [(P_BA_N_PS*2)-1:0]          served_cas,
@@ -70,7 +70,7 @@ module last_level_command_forwarder (
     input logic  [P_DATA_WIDTH-1 : 0] wrt_data_cas_ps1,
 
     output logic reset_hbm_controller
-    
+
 );
 
 
@@ -95,8 +95,8 @@ assign dfi_dw_wrdata_par_p1    = 8'h00;
 assign dfi_dw_wrdata_par_en_p1 = 8'h00;
 assign dfi_lp_pwr_x_e_req      = 1'b0;
 
-assign dfi_dw_wrdata_dq_en_p0  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}}; 
-assign dfi_dw_wrdata_dq_en_p1  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}}; 
+assign dfi_dw_wrdata_dq_en_p0  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}};
+assign dfi_dw_wrdata_dq_en_p1  = 8'h00; //{{(4){r_dfi_dw_wrdata_dq_en_p0}}, {(4){r_dfi_dw_wrdata_dq_en_p1}};
 
 assign dfi_aw_ck_dis           = 1'b0;
 assign dfi_lp_pwr_e_req        = 1'b0;
@@ -147,22 +147,22 @@ assign ready_to_cmd_cas_ps1 = (r_phy_tg_ps == LP_CMD_WAIT) || ( (can_serve_actua
 llcf_init_sequence_driver llcf_init_sequence_driver_u (
 
     // Input
-    .clock_i                ( clock_i              ),     
+    .clock_i                ( clock_i              ),
     .reset_ni               ( reset_ni             ),
-    .dfi_rst_buf_n          ( dfi_rst_buf_n        ), 
+    .dfi_rst_buf_n          ( dfi_rst_buf_n        ),
     .dfi_init_complete      ( dfi_init_complete    ),
 
-    .cmd_ras_ps0            ( cmd_ras_ps0          ), 
-    .cmd_ras_ps1            ( cmd_ras_ps1          ), 
-    .cmd_cas_ps0            ( cmd_cas_ps0          ), 
-    .cmd_cas_ps1            ( cmd_cas_ps1          ), 
+    .cmd_ras_ps0            ( cmd_ras_ps0          ),
+    .cmd_ras_ps1            ( cmd_ras_ps1          ),
+    .cmd_cas_ps0            ( cmd_cas_ps0          ),
+    .cmd_cas_ps1            ( cmd_cas_ps1          ),
 
     // Output
-    .dfi_init_start         ( dfi_init_start       ), 
+    .dfi_init_start         ( dfi_init_start       ),
     .dfi_aw_cke_p0          ( dfi_aw_cke_p0        ),
     .dfi_aw_cke_p1          ( dfi_aw_cke_p1        ),
-    .dfi_aw_ck_p0           ( dfi_aw_ck_p0         ),  
-    .dfi_aw_ck_p1           ( dfi_aw_ck_p1         ), 
+    .dfi_aw_ck_p0           ( dfi_aw_ck_p0         ),
+    .dfi_aw_ck_p1           ( dfi_aw_ck_p1         ),
 
     .r_phy_tg_ps            ( r_phy_tg_ps          ),  // Present state TODO refactor
     .r_mrs_reg_cnt          ( r_mrs_reg_cnt        ),  // TODO maybe refactor
@@ -208,13 +208,13 @@ llcf_read_data_driver llcf_read_data_driver_u (
 
 
 llcf_ras_cmd_driver llcf_ras_cmd_driver_u (
-    
+
     // Input
     .clock_i                     ( clock_i                  ),
     .reset_ni                    ( reset_ni                 ),
 
     .can_serve_actual_ras_ps0    ( can_serve_actual_ras_ps0 ),
-    .can_serve_actual_ras_ps1    ( can_serve_actual_ras_ps1 ), 
+    .can_serve_actual_ras_ps1    ( can_serve_actual_ras_ps1 ),
     .can_serve_actual_act_ps0    ( can_serve_actual_act_ps0 ),
     .can_serve_actual_act_ps1    ( can_serve_actual_act_ps1 ),
     .can_serve_actual_pre_ps0    ( can_serve_actual_pre_ps0 ),
@@ -222,27 +222,27 @@ llcf_ras_cmd_driver llcf_ras_cmd_driver_u (
     .can_serve_actual_ref_ps0    ( can_serve_actual_ref_ps0 ),
     .can_serve_actual_ref_ps1    ( can_serve_actual_ref_ps1 ),
 
-    .cmd_ras_ps0                 ( cmd_ras_ps0              ), 
-    .bank_address_ras_ps0        ( bank_address_ras_ps0     ), 
-    .row_address_ras_ps0         ( row_address_ras_ps0      ), 
+    .cmd_ras_ps0                 ( cmd_ras_ps0              ),
+    .bank_address_ras_ps0        ( bank_address_ras_ps0     ),
+    .row_address_ras_ps0         ( row_address_ras_ps0      ),
 
-    .cmd_ras_ps1                 ( cmd_ras_ps1              ), 
-    .bank_address_ras_ps1        ( bank_address_ras_ps1     ), 
-    .row_address_ras_ps1         ( row_address_ras_ps1      ), 
-    
+    .cmd_ras_ps1                 ( cmd_ras_ps1              ),
+    .bank_address_ras_ps1        ( bank_address_ras_ps1     ),
+    .row_address_ras_ps1         ( row_address_ras_ps1      ),
+
     .r_phy_tg_ps                 (  r_phy_tg_ps             ),    // Present state TODO refactor
 
     `ifdef DEBUG
-        .req_ras_id_ps0          ( req_ras_id_ps0           ), 
+        .req_ras_id_ps0          ( req_ras_id_ps0           ),
         .cmd_ras_id_ps0          ( cmd_ras_id_ps0           ),
-        .req_ras_id_ps1          ( req_ras_id_ps1           ), 
-        .cmd_ras_id_ps1          ( cmd_ras_id_ps1           ), 
+        .req_ras_id_ps1          ( req_ras_id_ps1           ),
+        .cmd_ras_id_ps1          ( cmd_ras_id_ps1           ),
     `endif
 
-    
+
     // Output
     .double_act_ras_sync         ( double_act_ras_sync      ),
-    
+
     .served_ras                  ( served_ras               ),
     .dfi_aw_row_p0               ( dfi_aw_row_p0            ),
     .dfi_aw_row_p1               ( dfi_aw_row_p1            )
@@ -254,53 +254,53 @@ llcf_cas_cmd_driver llcf_cas_cmd_driver_u (
     .clock_i                     ( clock_i                  ),
     .reset_ni                    ( reset_ni                 ),
 
-    .r_phy_tg_ps                 ( r_phy_tg_ps              ), 
-    .r_mrs_reg_cnt               ( r_mrs_reg_cnt            ), 
+    .r_phy_tg_ps                 ( r_phy_tg_ps              ),
+    .r_mrs_reg_cnt               ( r_mrs_reg_cnt            ),
 
-    .can_serve_actual_cas_ps0    ( can_serve_actual_cas_ps0 ), 
+    .can_serve_actual_cas_ps0    ( can_serve_actual_cas_ps0 ),
     .can_serve_actual_cas_ps1    ( can_serve_actual_cas_ps1 ),
-    .can_serve_actual_wrt_ps0    ( can_serve_actual_wrt_ps0 ), 
+    .can_serve_actual_wrt_ps0    ( can_serve_actual_wrt_ps0 ),
     .can_serve_actual_wrt_ps1    ( can_serve_actual_wrt_ps1 ),
-    .can_serve_actual_rd_ps0     ( can_serve_actual_rd_ps0  ), 
+    .can_serve_actual_rd_ps0     ( can_serve_actual_rd_ps0  ),
     .can_serve_actual_rd_ps1     ( can_serve_actual_rd_ps1  ),
 
     .cmd_cas_ps0                 ( cmd_cas_ps0              ),
-    .bank_address_cas_ps0        ( bank_address_cas_ps0     ), 
+    .bank_address_cas_ps0        ( bank_address_cas_ps0     ),
     .column_address_cas_ps0      ( column_address_cas_ps0   ),
 
     .cmd_cas_ps1                 ( cmd_cas_ps1              ),
-    .bank_address_cas_ps1        ( bank_address_cas_ps1     ), 
+    .bank_address_cas_ps1        ( bank_address_cas_ps1     ),
     .column_address_cas_ps1      ( column_address_cas_ps1   ),
 
     `ifdef DEBUG
-        .req_cas_id_ps0          ( req_cas_id_ps0           ), 
+        .req_cas_id_ps0          ( req_cas_id_ps0           ),
         .cmd_cas_id_ps0          ( cmd_cas_id_ps0           ),
-        .req_cas_id_ps1          ( req_cas_id_ps1           ), 
+        .req_cas_id_ps1          ( req_cas_id_ps1           ),
         .cmd_cas_id_ps1          ( cmd_cas_id_ps1           ),
     `endif
 
     // Output
-    .served_cas                  ( served_cas               ), 
+    .served_cas                  ( served_cas               ),
     .dfi_aw_col_p0               ( dfi_aw_col_p0            ),
     .dfi_aw_col_p1               ( dfi_aw_col_p1            )
 );
 
 
 llcf_ras_constraints_checker llcf_ras_constraints_checker_u (
-    
+
     // Input
     .clock_i                     ( clock_i                  ),
     .reset_ni                    ( reset_ni                 ),
     .cmd_ras_ps0                 ( cmd_ras_ps0              ),
     .cmd_ras_ps1                 ( cmd_ras_ps1              ),
-    
+
     .bank_group_ras_ps0          ( bank_group_ras_ps0       ),
     .bank_group_ras_ps1          ( bank_group_ras_ps1       ),
     .double_act_ras_sync         ( double_act_ras_sync      ),
 
     // Output
     .can_serve_actual_ras_ps0    ( can_serve_actual_ras_ps0 ),
-    .can_serve_actual_ras_ps1    ( can_serve_actual_ras_ps1 ), 
+    .can_serve_actual_ras_ps1    ( can_serve_actual_ras_ps1 ),
     .can_serve_actual_act_ps0    ( can_serve_actual_act_ps0 ),
     .can_serve_actual_act_ps1    ( can_serve_actual_act_ps1 ),
     .can_serve_actual_pre_ps0    ( can_serve_actual_pre_ps0 ),
@@ -311,19 +311,19 @@ llcf_ras_constraints_checker llcf_ras_constraints_checker_u (
 );
 
 llcf_cas_constraints_checker llcf_cas_constraints_checker_u (
-    
+
     // Input
     .clock_i                     ( clock_i                  ),
     .reset_ni                    ( reset_ni                 ),
     .cmd_cas_ps0                 ( cmd_cas_ps0              ),
     .cmd_cas_ps1                 ( cmd_cas_ps1              ),
-    
+
     .bank_group_cas_ps0          ( bank_group_cas_ps0       ),
     .bank_group_cas_ps1          ( bank_group_cas_ps1       ),
-    
+
     // Output
     .can_serve_actual_cas_ps0    ( can_serve_actual_cas_ps0 ),
-    .can_serve_actual_cas_ps1    ( can_serve_actual_cas_ps1 ), 
+    .can_serve_actual_cas_ps1    ( can_serve_actual_cas_ps1 ),
     .can_serve_actual_wrt_ps0    ( can_serve_actual_wrt_ps0 ),
     .can_serve_actual_wrt_ps1    ( can_serve_actual_wrt_ps1 ),
     .can_serve_actual_rd_ps0     ( can_serve_actual_rd_ps0  ),

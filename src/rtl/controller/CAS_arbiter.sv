@@ -6,20 +6,20 @@
 module CAS_arbiter (
     input  logic                                       clock_i,
     input  logic                                       reset_ni,
-    
+
     output logic  [0 : P_BA_N_PS - 1]                  cmd_cas_bank_picked,
-    input  logic  [P_REQ_ID_WIDTH-1:0]                 req_cas_id_bank        [0 : P_BA_N_PS - 1], 
-    input  logic  [P_CMD_ID_WIDTH-1:0]                 cmd_cas_id_bank        [0 : P_BA_N_PS - 1],        
+    input  logic  [P_REQ_ID_WIDTH-1:0]                 req_cas_id_bank        [0 : P_BA_N_PS - 1],
+    input  logic  [P_CMD_ID_WIDTH-1:0]                 cmd_cas_id_bank        [0 : P_BA_N_PS - 1],
     input  logic  [3:0]                                cmd_cas_bank           [0 : P_BA_N_PS - 1],
-    
+
     input  logic                                       ready_to_cmd_cas,
     output logic [3:0]                                 cmd_cas,
     output logic [P_REQ_ID_WIDTH-1:0]                  req_id_cas,
     output logic [P_CMD_ID_WIDTH-1:0]                  cmd_id_cas,
     output logic [1:0]                                 bank_group_cas,
 
-    output logic [P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-2:0]  wr_ram_cas_req_id,
-    output logic [P_REQ_ID_WIDTH+P_BA_ADDR_WIDTH-2:0]  rd_ram_cas_req_id
+    output logic [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0]  wr_ram_cas_req_id,
+    output logic [P_REQ_ID_CAS_RAM_WIDTH+P_BA_ADDR_WIDTH-2:0]  rd_ram_cas_req_id
 
 );
 
@@ -27,7 +27,7 @@ localparam LP_ACTUAL_BANK_GROUP_SERVING_WIDTH = $clog2(LP_BG_N);
 localparam LP_ACTUAL_BANK_SERVING_WIDTH       = $clog2(P_BA_N_G);
 
 logic [LP_ACTUAL_BANK_GROUP_SERVING_WIDTH-1:0]  actual_bank_group_serving;
-logic [3:0]                                     actual_bank_serving  [0:15];  
+logic [3:0]                                     actual_bank_serving  [0:15];
 logic [3:0]                                     actual_bank_serving_index;
 logic [3:0]                                     actual_cmd_serving_type;     /*  Bundling Type RD or WRT */
 
@@ -40,11 +40,11 @@ logic change_round;
 always_latch begin
     if ( ready_to_cmd_cas &&  cmd_inter_selected == actual_cmd_serving_type) begin
         if (actual_cmd_serving_type == P_COL_WRT) begin
-            wr_ram_cas_req_id <= {req_id_selected_by_bg, actual_bank_serving[actual_bank_serving_index]};
+            wr_ram_cas_req_id <= { req_id_selected_by_bg[P_REQ_ID_CAS_RAM_WIDTH-1:0], actual_bank_serving[actual_bank_serving_index] };
             rd_ram_cas_req_id <= rd_ram_cas_req_id;
         end
         else begin
-            rd_ram_cas_req_id <= {req_id_selected_by_bg, actual_bank_serving[actual_bank_serving_index]};
+            rd_ram_cas_req_id <= { req_id_selected_by_bg[P_REQ_ID_CAS_RAM_WIDTH-1:0], actual_bank_serving[actual_bank_serving_index] };
             wr_ram_cas_req_id <= wr_ram_cas_req_id;
         end
     end
@@ -55,7 +55,7 @@ always_latch begin
 end
 
 /* TODO Here there is a bug for predictability (maybe) */
-assign change_round =  actual_bank_serving_index == 4'd15 && ((cmd_inter_selected == actual_cmd_serving_type && ready_to_cmd_cas) || (cmd_inter_selected != actual_cmd_serving_type))/*actual_bank_group_serving == LP_BG_N-1 && actual_bank_serving[actual_bank_group_serving] ==  P_BA_N_G-1*/; 
+assign change_round =  actual_bank_serving_index == 4'd15 && ((cmd_inter_selected == actual_cmd_serving_type && ready_to_cmd_cas) || (cmd_inter_selected != actual_cmd_serving_type))/*actual_bank_group_serving == LP_BG_N-1 && actual_bank_serving[actual_bank_group_serving] ==  P_BA_N_G-1*/;
 
 /*********************/
 /* CAS CMD SELECTION */
@@ -78,15 +78,15 @@ always @ ( posedge clock_i or negedge reset_ni ) begin : cmd_driver
         if ( ready_to_cmd_cas &&  cmd_inter_selected == actual_cmd_serving_type ) begin
             cmd_cas            <=  cmd_inter_selected;
             req_id_cas         <=  req_id_selected_by_bg;
-            cmd_id_cas         <=  cmd_id_selected_by_bg; 
+            cmd_id_cas         <=  cmd_id_selected_by_bg;
             bank_group_cas     <=  actual_bank_group_serving;
             `ifdef DEBUG
                 $display("[ CAS ]: REQ: %d - CMD: %d (%d) sent at %d", req_id_selected_by_bg, cmd_id_selected_by_bg, cmd_inter_selected, $time);
             `endif
-        end 
+        end
         else if (ready_to_cmd_cas && cmd_inter_selected != actual_cmd_serving_type ) begin
             cmd_cas           <= P_GENERAL_NOP;
-        end        
+        end
     end
 end
 
@@ -94,9 +94,9 @@ end
 /* ACK THE BANK SCHEDULER THE CMD IS PICKED */
 /********************************************/
 genvar i;
-generate 
+generate
     for ( i = 0; i < P_BA_N_PS; i = i + 1 ) begin
-        always @ ( posedge clock_i or negedge reset_ni ) begin    
+        always @ ( posedge clock_i or negedge reset_ni ) begin
             if (reset_ni == 1'b0 ) begin
                 cmd_cas_bank_picked[i] <= 1'b0;
             end
@@ -106,7 +106,7 @@ generate
                 end
                 else if (cmd_cas_bank_picked[i] == 1'b1 && cmd_cas_bank[i] != P_GENERAL_NOP ) begin
                     cmd_cas_bank_picked[i] <= 1'b0;
-                end 
+                end
             end
         end
     end
@@ -174,7 +174,7 @@ always @(posedge clock_i or negedge reset_ni) begin : actual_cmd_serving_type_dr
             end
         end
         else begin
-            actual_cmd_serving_type <= actual_cmd_serving_type; 
+            actual_cmd_serving_type <= actual_cmd_serving_type;
         end
     end
 end
