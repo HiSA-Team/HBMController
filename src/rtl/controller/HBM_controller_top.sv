@@ -734,7 +734,7 @@ reg  [3:0]    cnt_rst_1;
 
 genvar i;
 generate
-for( i = 0; i < 16; i = i+1 ) begin
+for( i = 0; i < 16; i = i+1 ) begin : g_dfi_rst
     if (i == 7 ) begin
 
         always @ (posedge dfi_clk_buf[6] or negedge ARESET_N_0) begin
@@ -798,7 +798,7 @@ endgenerate
 
 
 generate
-for (i=0; i < N_CHANNELS; i = i+1)  begin
+for (i=0; i < N_CHANNELS; i = i+1)  begin : g_channel
     if ( i == 7 ) begin
         /* no overrides: the channel takes its widths from hbm_controller.svh */
         HBM_channel_controller

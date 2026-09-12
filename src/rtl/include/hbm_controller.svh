@@ -51,7 +51,7 @@ localparam       P_REQ_WIDTH                = 32'd2;
    doc/nmp/CHANGELOG.md.                                                      */
 localparam       P_REQ_ID_WIDTH             = 32'd15;
 
-localparam       P_REQ_ID_CAS_RAM_WIDTH     = 32'd8;
+localparam       P_REQ_ID_CAS_RAM_WIDTH     = 32'd7;
 
 localparam       P_CMD_ID_WIDTH             = 32'd3;
 
